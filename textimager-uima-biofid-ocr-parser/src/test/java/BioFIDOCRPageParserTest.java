@@ -56,7 +56,7 @@ public class BioFIDOCRPageParserTest {
         JCas inputCas = JCasFactory.createJCas();
 
         // Pipeline
-lo        SimplePipeline.runPipeline(inputCas, pageParser);
+        SimplePipeline.runPipeline(inputCas, pageParser);
 
         System.out.println();
         System.out.flush();
