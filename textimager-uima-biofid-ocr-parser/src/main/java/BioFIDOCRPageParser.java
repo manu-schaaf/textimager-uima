@@ -1,4 +1,5 @@
 import de.tudarmstadt.ukp.dkpro.core.api.anomaly.type.Anomaly;
+import de.tudarmstadt.ukp.dkpro.core.api.ner.type.NamedEntity;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.SegmenterBase;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
 import org.apache.commons.compress.utils.Charsets;
@@ -35,18 +36,25 @@ public class BioFIDOCRPageParser extends SegmenterBase {
             InputStream inputStream = IOUtils.toInputStream(InputXML, Charsets.UTF_8);
             saxParser.parse(inputStream, ocrExportHandler);
 
-            aJCas.setDocumentText(ocrExportHandler.baseTokens.stream().map(BaseToken::getTokenString).collect(Collectors.joining("")));
+            aJCas.setDocumentText(ocrExportHandler.OCRTokens.stream().map(OCRToken::getTokenString).collect(Collectors.joining("")));
 
-            for (BaseToken baseToken : ocrExportHandler.baseTokens) {
-                aJCas.addFsToIndexes(new Token(aJCas, baseToken.tokenStart, baseToken.tokenEnd));
+            for (OCRToken OCRToken : ocrExportHandler.OCRTokens) {
+                aJCas.addFsToIndexes(new Token(aJCas, OCRToken.tokenStart, OCRToken.tokenEnd));
             }
 
-            for (BaseToken baseToken : ocrExportHandler.baseTokens) {
-                if (baseToken.getAverageCharConfidence() < MinTokenConfidence || !(baseToken.isWordNormal || baseToken.isWordFromDictionary || baseToken.isWordNumeric)) {
-                    Anomaly anomaly = new Anomaly(aJCas, baseToken.tokenStart, baseToken.tokenEnd);
-                    anomaly.setDescription(String.format("AvgTokenConfidence:%f, isWordNormal:%b, isWordFromDictionary:%b, isWordNumeric:%b",
-                            baseToken.getAverageCharConfidence(), baseToken.isWordNormal, baseToken.isWordFromDictionary, baseToken.isWordNumeric));
+            for (OCRToken OCRToken : ocrExportHandler.OCRTokens) {
+                if (OCRToken.isSpace())
+                    continue;
+                if ((OCRToken.getAverageCharConfidence() < MinTokenConfidence || !(OCRToken.isWordNormal || OCRToken.isWordFromDictionary || OCRToken.isWordNumeric))) {
+                    Anomaly anomaly = new Anomaly(aJCas, OCRToken.tokenStart, OCRToken.tokenEnd);
+                    anomaly.setDescription(String.format("AvgTokenConfidence:%f, isWordNormal:%b, isWordFromDictionary:%b, isWordNumeric:%b, suspiciousChars:%d",
+                            OCRToken.getAverageCharConfidence(), OCRToken.isWordNormal, OCRToken.isWordFromDictionary, OCRToken.isWordNumeric, OCRToken.suspiciousChars));
                     aJCas.addFsToIndexes(anomaly);
+                } else {
+                    NamedEntity annotation = new NamedEntity(aJCas, OCRToken.tokenStart, OCRToken.tokenEnd);
+                    annotation.setValue(String.format("AvgTokenConfidence:%f, isWordNormal:%b, isWordFromDictionary:%b, isWordNumeric:%b, suspiciousChars:%d",
+                            OCRToken.getAverageCharConfidence(), OCRToken.isWordNormal, OCRToken.isWordFromDictionary, OCRToken.isWordNumeric, OCRToken.suspiciousChars));
+                    aJCas.addFsToIndexes(annotation);
                 }
             }
 

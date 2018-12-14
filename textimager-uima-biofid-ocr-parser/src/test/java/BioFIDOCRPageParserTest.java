@@ -1,4 +1,5 @@
 import de.tudarmstadt.ukp.dkpro.core.api.anomaly.type.Anomaly;
+import de.tudarmstadt.ukp.dkpro.core.api.ner.type.NamedEntity;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
 import org.apache.uima.UIMAException;
 import org.apache.uima.analysis_engine.AnalysisEngineDescription;
@@ -15,6 +16,8 @@ import static org.apache.uima.fit.factory.AnalysisEngineFactory.createEngineDesc
 import static org.apache.uima.fit.util.JCasUtil.*;
 
 public class BioFIDOCRPageParserTest {
+
+    boolean printAnnotations = false;
 
     @Test
     public void testTokenizationTable() throws UIMAException {
@@ -47,20 +50,26 @@ public class BioFIDOCRPageParserTest {
 
     private void testTokenization(String xml) throws UIMAException {
         // Create a new Engine Description.
-        AnalysisEngineDescription pageParser = createEngineDescription(BioFIDOCRPageParser.class, BioFIDOCRPageParser.INPUT_XML, xml);
+        AnalysisEngineDescription pageParser = createEngineDescription(BioFIDOCRPageParser.class, BioFIDOCRPageParser.INPUT_XML, xml, BioFIDOCRPageParser.PARAM_MIN_TOKEN_CONFIDENCE, 90);
 
         // Create a new JCas - "Holder"-Class for Annotation.
         JCas inputCas = JCasFactory.createJCas();
 
         // Pipeline
-        SimplePipeline.runPipeline(inputCas, pageParser);
+lo        SimplePipeline.runPipeline(inputCas, pageParser);
 
         System.out.println();
+        System.out.flush();
         for (Token token : select(inputCas, Token.class)) {
             List<Anomaly> anomalies = selectCovered(inputCas, Anomaly.class, token.getBegin(), token.getEnd());
             System.out.printf("%s", token.getText());
             if (!anomalies.isEmpty()) {
-                System.out.printf("(%s)", anomalies.stream().map(Anomaly::getDescription).collect(Collectors.joining(";")));
+                System.out.printf("\tAnomaly<%s>", anomalies.stream().map(Anomaly::getDescription).collect(Collectors.joining(";")));
+            } else if (printAnnotations) {
+                List<NamedEntity> nes = selectCovered(inputCas, NamedEntity.class, token.getBegin(), token.getEnd());
+                if (!nes.isEmpty()) {
+                    System.out.printf("\tAnnotation<%s>", nes.stream().map(NamedEntity::getValue).collect(Collectors.joining(";")));
+                }
             }
             System.out.println();
             System.out.flush();

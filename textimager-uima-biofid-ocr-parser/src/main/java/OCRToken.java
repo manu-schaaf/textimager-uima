@@ -3,7 +3,7 @@ import org.xml.sax.Attributes;
 
 import java.util.ArrayList;
 
-public class BaseToken {
+public class OCRToken {
 
     private ArrayList<String> charList = new ArrayList<>();
     private ArrayList<Attributes> charAttributeList = new ArrayList<>();
@@ -15,7 +15,7 @@ public class BaseToken {
     public boolean isWordNormal = false;
     public boolean isWordNumeric = false;
 
-    public int numberSuspicious = 0;
+    public int suspiciousChars = 0;
 
     public void addChar(String pChar) {
         charList.add(pChar);
@@ -53,7 +53,7 @@ public class BaseToken {
         String suspicious = pAttributes.getValue("suspicious");
         if (suspicious != null && !suspicious.isEmpty()) {
             if (suspicious.equals("true"))
-                numberSuspicious++;
+                suspiciousChars++;
         }
 
         String wordFromDictionary = pAttributes.getValue("wordFromDictionary");
@@ -78,6 +78,14 @@ public class BaseToken {
     public void setStartEnd(int pStart, int pEnd) {
         this.tokenStart = pStart;
         this.tokenEnd = pEnd;
+    }
+
+    public int length() {
+        return charList.size();
+    }
+
+    public boolean isSpace() {
+        return charList != null && charList.size() == 1 && charList.get(0).equals(" ");
     }
 
 }
