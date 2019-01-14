@@ -9,6 +9,7 @@ public class OCRExportHandler extends DefaultHandler {
     private boolean character = false;
     private boolean forceNewToken = false;
     private boolean lastTokenWasSpace = false;
+    private boolean lastTokenWasHyphen = false;
     private boolean inLine = false;
 
     // Block
@@ -45,7 +46,7 @@ public class OCRExportHandler extends DefaultHandler {
                 if (currOCRBlock != null && blockObeysRules(currOCRBlock)) {
                     String wordStart = attributes.getValue("wordStart");
 
-                    if ((wordStart != null && wordStart.equals("true")) || forceNewToken) {
+                    if (((wordStart != null && wordStart.equals("true")) || forceNewToken) && !lastTokenWasHyphen) {
                         createToken();
                     }
 
@@ -60,6 +61,8 @@ public class OCRExportHandler extends DefaultHandler {
     @Override
     public void endElement(String uri, String localName, String qName) throws SAXException {
         character = false;
+        if (currOCRToken != null && qName.equals("text"))
+            currOCRToken.setStartEnd(currTokenStart, totalChars);
     }
 
     @Override
@@ -69,7 +72,14 @@ public class OCRExportHandler extends DefaultHandler {
             if (curr_char.matches("\\s+")) {
                 addSpace();
             } else {
+                // Remove ¬ if it is followed by a character
+                if (lastTokenWasHyphen && !lastTokenWasSpace) {
+                    currOCRToken.removeLastChar();
+                    currOCRToken.addSubToken();
+                    totalChars--;
+                }
                 lastTokenWasSpace = false;
+                lastTokenWasHyphen = curr_char.equals("¬");
                 currOCRToken.addChar(curr_char);
                 currOCRToken.addCharAttributes(currTokenAttributes);
                 totalChars++;
@@ -79,25 +89,40 @@ public class OCRExportHandler extends DefaultHandler {
     }
 
     private void addSpace() {
-        if (lastTokenWasSpace || currOCRToken == null)
+        /// Do not add spaces if the preceding token is a space, the ¬ hyphenation character or there has not been any token
+        if (lastTokenWasSpace || lastTokenWasHyphen || currOCRToken == null)
             return;
 
-        if (currOCRToken.length() == 0) {
-            currOCRToken.addChar(" ");
-        } else {
+        /// If the current token already contains characters, create a new token for the space
+        if (currOCRToken.length() > 0) {
+            forceNewToken = true;
             createToken();
-
-            currOCRToken.addChar(" ");
         }
+
+        /// Add the space character and increase token count
+        currOCRToken.addChar(" ");
         totalChars++;
         forceNewToken = true;
         lastTokenWasSpace = true;
     }
 
+    /**
+     *
+     */
     private void createToken() {
-        if (currOCRToken != null) {
-            currOCRToken.setStartEnd(currTokenStart, totalChars);
+        if (currOCRToken == null || forceNewToken || currOCRToken.isSpace()) {
+            if (currOCRToken != null) {
+                currOCRToken.setStartEnd(currTokenStart, totalChars);
+            }
+            createNewToken();
+        } else {
+            if (currOCRToken != null) {
+                currOCRToken.addSubToken();
+            }
         }
+    }
+
+    private void createNewToken() {
         currOCRToken = new OCRToken();
         OCRTokens.add(currOCRToken);
         currTokenStart = totalChars;

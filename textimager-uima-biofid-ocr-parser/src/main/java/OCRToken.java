@@ -2,11 +2,13 @@ import org.apache.commons.math3.stat.descriptive.moment.Mean;
 import org.xml.sax.Attributes;
 
 import java.util.ArrayList;
+import java.util.stream.Collectors;
 
 public class OCRToken {
 
-    private ArrayList<String> charList = new ArrayList<>();
-    private ArrayList<Attributes> charAttributeList = new ArrayList<>();
+    private ArrayList<ArrayList<String>> subTokenList;
+    private ArrayList<String> charList;
+    private ArrayList<Attributes> charAttributeList = new ArrayList<>(); // TODO: adjust to List<List> token structure
 
     public int tokenStart = 0;
     public int tokenEnd = 0;
@@ -17,12 +19,33 @@ public class OCRToken {
 
     public int suspiciousChars = 0;
 
+    public OCRToken() {
+        charList = new ArrayList<>();
+
+        subTokenList = new ArrayList<>();
+        subTokenList.add(charList);
+    }
+
+    public void addSubToken() {
+        charList = new ArrayList<>();
+        subTokenList.add(charList);
+    }
+
+    public ArrayList<String> subTokenStrings() {
+        return subTokenList.stream().map(cl -> String.join("", cl)).collect(Collectors.toCollection(ArrayList::new));
+    }
+
     public void addChar(String pChar) {
         charList.add(pChar);
     }
 
     public void addChar(int pCharPos, String pChar) {
         charList.add(pCharPos, pChar);
+    }
+
+    public void removeLastChar() {
+        if (!charList.isEmpty())
+            charList.remove(charList.size() - 1);
     }
 
     public void addCharAttributes(Attributes pCharAttributes) {
@@ -36,7 +59,7 @@ public class OCRToken {
     }
 
     public String getTokenString() {
-        return String.join("", charList);
+        return subTokenList.stream().map(cl -> String.join("", cl)).collect(Collectors.joining(""));
     }
 
     public double getAverageCharConfidence() {
