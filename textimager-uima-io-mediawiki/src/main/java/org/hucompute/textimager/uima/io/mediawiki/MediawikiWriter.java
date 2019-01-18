@@ -9,7 +9,9 @@ import java.nio.charset.Charset;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 
@@ -25,6 +27,9 @@ import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Paragraph;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Sentence;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
+
+// TODO replace with new "types" category
+import org.hucompute.services.type.CategoryCoveredTagged;
 
 public class MediawikiWriter extends JCasConsumer_ImplBase{
 		
@@ -91,6 +96,16 @@ public class MediawikiWriter extends JCasConsumer_ImplBase{
 		}
 		writePage("Corpus", "Corpus overview", corpusTextBuilder.toString(), nsPage);
 				
+		// Alle DDC Kategorieseiten erstellen
+		for (HashMap.Entry<String, String> entry : MediawikiDDCHelper.getAllDDCClasses().entrySet()) {
+			StringBuilder text = new StringBuilder();
+			if (!entry.getKey().endsWith("0")) {
+				text.append(MediawikiDDCHelper.getDDCClassName(entry.getKey().substring(0, 2) + "0")).append(": ");
+			}
+			text.append(entry.getValue());
+			writePage(categoryPrefix + "DDC" + entry.getKey(), "Generated DDC categoy", text.toString(), nsCategory);
+		}
+				
 		writer.println("</mediawiki>");
 
 		writer.flush();
@@ -104,6 +119,7 @@ public class MediawikiWriter extends JCasConsumer_ImplBase{
 		super.initialize(context);
 				
 		File outputDir = new File(targetLocation);
+		outputDir.mkdirs();
 		File outputDumpFile = new File(targetLocation + "/output.wiki.xml");
 		
 		String sitename = outputDir.getName();
@@ -244,9 +260,23 @@ public class MediawikiWriter extends JCasConsumer_ImplBase{
 		String comment = "Generated from file " + meta.getDocumentUri();
 		
 		StringBuffer textBuffer = new StringBuffer();
+		StringBuffer catBuffer = new StringBuffer();
 		
 		// Inhalt: Paragraphenweise alle Token + Lemma als Tooltip
 		for (Paragraph paragraph : JCasUtil.select(jCas, Paragraph.class)) {
+			// DDC Kategorien: Von jedem Paragraphen den besten
+			// TODO Seperate Typen für DDC Kategorien und Wikipedia Disambiguation
+			// TODO Disambiguation Links
+			{
+				ArrayList<CategoryCoveredTagged> paragraphCats = new ArrayList<CategoryCoveredTagged>();
+				paragraphCats.addAll(JCasUtil.selectCovered(CategoryCoveredTagged.class, paragraph));
+				if (!paragraphCats.isEmpty()) {
+					Collections.sort(paragraphCats, (r1, r2) -> ((r1.getScore() > r2.getScore()) ? -1 : ((r1.getScore() < r2.getScore()) ? 1 : 0)));
+					CategoryCoveredTagged cat = paragraphCats.get(0);
+					catBuffer.append("[[").append(categoryPrefix).append("DDC").append(cat.getValue().replaceAll("__label_ddc__", "")).append("]]\n");
+				}
+			}
+			
 			for (Sentence sentence : JCasUtil.selectCovered(Sentence.class, paragraph)) {
 
 				textBuffer.append("<span class=\"sentence\">");
@@ -267,7 +297,9 @@ public class MediawikiWriter extends JCasConsumer_ImplBase{
 
 			textBuffer.append("\n\n");
 		}
-				
+		
+		textBuffer.append(catBuffer.toString());
+		
 		writePage(pageTitle, comment, textBuffer.toString(), nsPage);
 	}
 }
