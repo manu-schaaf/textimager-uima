@@ -1,30 +1,34 @@
 import org.xml.sax.Attributes;
 
-public class OCRBlock {
-
-    public final int blockTop;
-    public final int blockBottom;
-    public final int blockLeft;
-    public final int blockRight;
-
-    public final String blockType;
+public class OCRBlock extends OCRAnnotation {
+    
+    public final int top;
+    public final int bottom;
+    public final int left;
+    public final int right;
+    public final blockTypeEnum blockType;
     public final String blockName;
-
-    public OCRBlock(int blockTop, int blockBottom, int blockLeft, int blockRight, String blockType, String blockName) {
-        this.blockTop = blockTop;
-        this.blockBottom = blockBottom;
-        this.blockLeft = blockLeft;
-        this.blockRight = blockRight;
-        this.blockType = blockType;
+    public boolean valid;
+    
+    private enum blockTypeEnum {
+        Text, Table, Picture, Barcode
+    }
+    
+    public OCRBlock(int top, int bottom, int left, int right, String blockType, String blockName) {
+        this.top = top;
+        this.bottom = bottom;
+        this.left = left;
+        this.right = right;
+        this.blockType = blockTypeEnum.valueOf(blockType);
         this.blockName = blockName;
     }
 
     public OCRBlock(Attributes attributes) {
-        this.blockTop = Integer.parseInt(attributes.getValue("t"));
-        this.blockBottom = Integer.parseInt(attributes.getValue("b"));
-        this.blockLeft = Integer.parseInt(attributes.getValue("l"));
-        this.blockRight = Integer.parseInt(attributes.getValue("r"));
-        this.blockType = attributes.getValue("blockType");
+        this.top = parseInt(attributes.getValue("t"));
+        this.bottom = parseInt(attributes.getValue("b"));
+        this.left = parseInt(attributes.getValue("l"));
+        this.right = parseInt(attributes.getValue("r"));
+        this.blockType = blockTypeEnum.valueOf(attributes.getValue("blockType"));
         this.blockName = attributes.getValue("blockName");
     }
 }
