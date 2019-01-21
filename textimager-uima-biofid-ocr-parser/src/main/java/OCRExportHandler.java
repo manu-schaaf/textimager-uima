@@ -4,52 +4,53 @@ import org.xml.sax.helpers.DefaultHandler;
 
 import java.util.ArrayList;
 
-public class OCRExportHandler extends DefaultHandler {
+public class OCRExportHandler extends DefaultHandler
+{
+	// Block
+	public ArrayList<OCRBlock> blocks = new ArrayList<>();
+	// Paragraphs
+	public ArrayList<OCRParagraph> paragraphs = new ArrayList<>();
+	// Lines
+	public ArrayList<OCRLine> lines = new ArrayList<>();
+	// Token
+	public ArrayList<OCRToken> tokens = new ArrayList<>();
+	public int blockTopMin = 300;
+	public int charLeftMax = 1925;
 	// Switches
 	private boolean character = false;
+	private boolean characterIsAllowed = false;
 	private boolean forceNewToken = false;
 	private boolean lastTokenWasSpace = false;
 	private boolean lastTokenWasHyphen = false;
 	private boolean inLine = false;
-	
-	// Block
-	public ArrayList<OCRBlock> blocks = new ArrayList<>();
 	private OCRBlock currBlock = null;
-	
-	// Paragraphs
-	public ArrayList<OCRParagraph> paragraphs = new ArrayList<>();
 	private OCRParagraph currParagraph = null;
-	
-	// Lines
-	public ArrayList<OCRLine> lines = new ArrayList<>();
-	private OCRLine currLine = null;
-	
+
 	// Formatting
 //	private String currLang = null;
 //	private String currFont = null;
 //	private String currFontSize = null;
-	
-	// Token
-	public ArrayList<OCRToken> tokens = new ArrayList<>();
+	private OCRLine currLine = null;
 	private OCRToken currToken = null;
-	
+
 	private Attributes currCharAttributes = null;
-	
+
 	// Statistics
 	private int totalChars = 0;
-	
-	
+
+
 	@Override
-	public void startElement(String uri, String localName, String qName, Attributes attributes) throws SAXException {
+	public void startElement(String uri, String localName, String qName, Attributes attributes) throws SAXException
+	{
 		switch (qName) {
 			case "block": {
 				currBlock = new OCRBlock(attributes);
 				currBlock.start = totalChars;
 				currBlock.valid = blockObeysRules(currBlock);
 				blocks.add(currBlock);
-				
+
 				inLine = false;
-				
+
 				character = false;
 				break;
 			}
@@ -64,7 +65,7 @@ public class OCRExportHandler extends DefaultHandler {
 				currLine = new OCRLine(attributes);
 				currLine.start = totalChars;
 				lines.add(currLine);
-				
+
 				inLine = true;
 				break;
 			case "formatting":
@@ -81,19 +82,23 @@ public class OCRExportHandler extends DefaultHandler {
 				break;
 			case "charParams":
 				String wordStart = attributes.getValue("wordStart");
-				
+
 				if (((wordStart != null && wordStart.equals("true")) || forceNewToken) && !lastTokenWasHyphen) {
 					createToken();
 				}
-				
-				currCharAttributes = attributes;
-				character = true;
+
+				currCharAttributes = attributes; // TODO: use char obj
+				character = true; // TODO: use char obj
+
+				OCRChar ocrChar = new OCRChar(attributes);
+				characterIsAllowed = charObeysRules(ocrChar);
 				break;
 		}
 	}
-	
+
 	@Override
-	public void endElement(String uri, String localName, String qName) throws SAXException {
+	public void endElement(String uri, String localName, String qName) throws SAXException
+	{
 		switch (qName) {
 			case "block": {
 				addSpace();
@@ -117,15 +122,17 @@ public class OCRExportHandler extends DefaultHandler {
 		}
 		character = false;
 	}
-	
-	private void setEnd(OCRAnnotation annotation) {
+
+	private void setEnd(OCRAnnotation annotation)
+	{
 		if (annotation != null)
 			annotation.end = totalChars;
 	}
-	
+
 	@Override
-	public void characters(char[] ch, int start, int length) throws SAXException {
-		if (character) {
+	public void characters(char[] ch, int start, int length) throws SAXException
+	{
+		if (character && characterIsAllowed) {
 			String curr_char = new String(ch, start, length);
 			if (curr_char.matches("\\s+")) {
 				addSpace();
@@ -138,7 +145,7 @@ public class OCRExportHandler extends DefaultHandler {
 					currToken.addSubToken();
 				}
 				lastTokenWasSpace = false;
-				
+
 				/// The hyphen character ¬ does not contribute to the total character count
 				if (curr_char.equals("¬")) {
 					lastTokenWasHyphen = true;
@@ -152,29 +159,31 @@ public class OCRExportHandler extends DefaultHandler {
 			character = false;
 		}
 	}
-	
-	private void addSpace() {
+
+	private void addSpace()
+	{
 		/// Do not add spaces if the preceding token is a space, the ¬ hyphenation character or there has not been any token
 		if (lastTokenWasSpace || lastTokenWasHyphen || currToken == null)
 			return;
-		
+
 		/// If the current token already contains characters, create a new token for the space
 		if (currToken.length() > 0) {
 			forceNewToken = true;
 			createToken();
 		}
-		
+
 		/// Add the space character and increase token count
 		currToken.addChar(" ");
 		totalChars++;
 		forceNewToken = true;
 		lastTokenWasSpace = true;
 	}
-	
+
 	/**
 	 *
 	 */
-	private void createToken() {
+	private void createToken()
+	{
 		if (currToken == null || forceNewToken || currToken.isSpace()) {
 			if (currToken != null) {
 				currToken.end = totalChars;
@@ -186,15 +195,16 @@ public class OCRExportHandler extends DefaultHandler {
 			}
 		}
 	}
-	
-	private void createNewToken() {
+
+	private void createNewToken()
+	{
 		currToken = new OCRToken();
 		currToken.start = totalChars;
 		tokens.add(currToken);
-		
+
 		forceNewToken = false;
 	}
-	
+
 	/**
 	 * Check if the current block obeys the rules given for this type of article.
 	 * TODO: dynamic rules from file
@@ -202,7 +212,13 @@ public class OCRExportHandler extends DefaultHandler {
 	 * @param ocrBlock OCRBlock
 	 * @return boolean True if the current block is not null and obeys all rules.
 	 */
-	private boolean blockObeysRules(OCRBlock ocrBlock) {
-		return ocrBlock != null && ocrBlock.top >= 300;
+	private boolean blockObeysRules(OCRBlock ocrBlock)
+	{
+		return ocrBlock != null && ocrBlock.blockType == OCRBlock.blockTypeEnum.Text && ocrBlock.top >= blockTopMin;
+	}
+
+	private boolean charObeysRules(OCRChar ocrChar)
+	{
+		return ocrChar != null && ocrChar.left <= charLeftMax;
 	}
 }

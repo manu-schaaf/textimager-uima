@@ -84,6 +84,7 @@ public class BioFIDOCRPageParserTest {
 		// Create a new Engine Description.
 		AnalysisEngineDescription pageParser = createEngineDescription(BioFIDOCRPageParser.class,
 				BioFIDOCRPageParser.INPUT_XML, xml,
+				BioFIDOCRPageParser.PARAM_USE_LANGUAGE_TOOL, true,
 				BioFIDOCRPageParser.PARAM_MIN_TOKEN_CONFIDENCE, 90,
 				BioFIDOCRPageParser.PARAM_DICT_PATH, "src/test/resources/Leipzig40MT2010_lowered.5.vocab");
 		

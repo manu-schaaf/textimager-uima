@@ -10,7 +10,7 @@ public class OCRBlock extends OCRAnnotation {
     public final String blockName;
     public boolean valid;
     
-    private enum blockTypeEnum {
+    public enum blockTypeEnum {
         Text, Table, Picture, Barcode
     }
     
