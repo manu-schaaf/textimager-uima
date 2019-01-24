@@ -32,6 +32,7 @@ public class BioFIDOCRPageParser extends SegmenterBase
 	public static final String PARAM_MIN_TOKEN_CONFIDENCE = "pMinTokenConfidence";
 	public static final String PARAM_USE_LANGUAGE_TOOL = "pUseLanguageTool";
 	public static final String PARAM_CHAR_LEFT_MAX = "pCharLeftMax";
+	public static final String PARAM_BLOCK_TOP_MIN = "pBlockTopMin";
 	@ConfigurationParameter(name = INPUT_XML, mandatory = true)
 	protected String pInputXML;
 	@ConfigurationParameter(name = PARAM_DICT_PATH, mandatory = false)
@@ -40,8 +41,10 @@ public class BioFIDOCRPageParser extends SegmenterBase
 	protected Integer pMinTokenConfidence;
 	@ConfigurationParameter(name = PARAM_USE_LANGUAGE_TOOL, mandatory = false, defaultValue = "false")
 	protected Boolean pUseLanguageTool;
-	@ConfigurationParameter(name = PARAM_CHAR_LEFT_MAX, mandatory = false, defaultValue = "1900")
+	@ConfigurationParameter(name = PARAM_CHAR_LEFT_MAX, mandatory = false, defaultValue = "99999")
 	protected Integer pCharLeftMax;
+	@ConfigurationParameter(name = PARAM_BLOCK_TOP_MIN, mandatory = false, defaultValue = "300")
+	protected Integer pBlockTopMin;
 
 	HashSet<String> dict;
 
@@ -57,6 +60,7 @@ public class BioFIDOCRPageParser extends SegmenterBase
 			SAXParser saxParser = saxParserFactory.newSAXParser();
 			OCRExportHandler ocrExportHandler = new OCRExportHandler();
 			ocrExportHandler.charLeftMax = pCharLeftMax;
+			ocrExportHandler.blockTopMin = pBlockTopMin;
 			InputStream inputStream = IOUtils.toInputStream(pInputXML, Charsets.UTF_8);
 			saxParser.parse(inputStream, ocrExportHandler);
 
