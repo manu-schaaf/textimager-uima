@@ -6,7 +6,7 @@ import org.xml.sax.Attributes;
 import java.util.ArrayList;
 import java.util.stream.Collectors;
 
-public class Token extends OCRAnnotation {
+public class OCRToken extends OCRAnnotation {
 	
 	private ArrayList<ArrayList<String>> subTokenList;
 	private ArrayList<String> charList;
@@ -20,7 +20,7 @@ public class Token extends OCRAnnotation {
 	
 	private boolean containsHyphen = false;
 	
-	public Token() {
+	public OCRToken() {
 		charList = new ArrayList<>();
 		
 		subTokenList = new ArrayList<>();

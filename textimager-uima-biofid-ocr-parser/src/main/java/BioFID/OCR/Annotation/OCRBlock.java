@@ -2,7 +2,7 @@ package BioFID.OCR.Annotation;
 
 import org.xml.sax.Attributes;
 
-public class Block extends OCRAnnotation {
+public class OCRBlock extends OCRAnnotation {
     
     public final int top;
     public final int bottom;
@@ -16,7 +16,7 @@ public class Block extends OCRAnnotation {
         Text, Table, Picture, Barcode
     }
     
-    public Block(int top, int bottom, int left, int right, String blockType, String blockName) {
+    public OCRBlock(int top, int bottom, int left, int right, String blockType, String blockName) {
         this.top = top;
         this.bottom = bottom;
         this.left = left;
@@ -25,7 +25,7 @@ public class Block extends OCRAnnotation {
         this.blockName = blockName;
     }
 
-    public Block(Attributes attributes) {
+    public OCRBlock(Attributes attributes) {
         this.top = Util.parseInt(attributes.getValue("t"));
         this.bottom = Util.parseInt(attributes.getValue("b"));
         this.left = Util.parseInt(attributes.getValue("l"));

@@ -1,12 +1,14 @@
-package BioFID;
+package BioFID.OCR;
 
+import BioFID.OCR.Annotation.OCRBlock;
+import BioFID.OCR.Annotation.OCRLine;
+import BioFID.OCR.Annotation.OCRParagraph;
+import BioFID.OCR.Annotation.OCRToken;
 import de.tudarmstadt.ukp.dkpro.core.api.anomaly.type.Anomaly;
 import de.tudarmstadt.ukp.dkpro.core.api.anomaly.type.SpellingAnomaly;
 import de.tudarmstadt.ukp.dkpro.core.api.ner.type.NamedEntity;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.SegmenterBase;
-import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Paragraph;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Sentence;
-import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
 import de.tudarmstadt.ukp.dkpro.core.api.syntax.type.chunk.Chunk;
 import org.apache.commons.compress.utils.Charsets;
 import org.apache.commons.io.IOUtils;
@@ -26,10 +28,10 @@ import java.util.List;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-public class BioFIDOCRPageParser extends SegmenterBase
+public class PageParser extends SegmenterBase
 {
 
-	public static final String INPUT_XML = "pInputXML";
+	public static final String INPUT_XML = "pInputXMLs";
 	public static final String PARAM_DICT_PATH = "pDictPath";
 	public static final String PARAM_MIN_TOKEN_CONFIDENCE = "pMinTokenConfidence";
 	public static final String PARAM_USE_LANGUAGE_TOOL = "pUseLanguageTool";
@@ -60,34 +62,34 @@ public class BioFIDOCRPageParser extends SegmenterBase
 
 			SAXParserFactory saxParserFactory = SAXParserFactory.newInstance();
 			SAXParser saxParser = saxParserFactory.newSAXParser();
-			OCRExportHandler ocrExportHandler = new OCRExportHandler();
-			ocrExportHandler.charLeftMax = pCharLeftMax;
-			ocrExportHandler.blockTopMin = pBlockTopMin;
+			ExportHandler exportHandler = new ExportHandler();
+			exportHandler.charLeftMax = pCharLeftMax;
+			exportHandler.blockTopMin = pBlockTopMin;
 			InputStream inputStream = IOUtils.toInputStream(pInputXML, Charsets.UTF_8);
-			saxParser.parse(inputStream, ocrExportHandler);
+			saxParser.parse(inputStream, exportHandler);
 
-			String text = ocrExportHandler.tokens.stream().map(OCRToken::getTokenString).collect(Collectors.joining(""));
+			String text = exportHandler.OCRTokens.stream().map(OCRToken::getTokenString).collect(Collectors.joining(""));
 			aJCas.setDocumentText(text);
 
-			for (OCRBlock block : ocrExportHandler.blocks) {
-				Chunk chunk = new Chunk(aJCas, block.start, block.end);
-				chunk.setChunkValue(block.valid ? "true" : "false");
+			for (OCRBlock OCRBlock : exportHandler.OCRBlocks) {
+				Chunk chunk = new Chunk(aJCas, OCRBlock.start, OCRBlock.end);
+				chunk.setChunkValue(OCRBlock.valid ? "true" : "false");
 				aJCas.addFsToIndexes(chunk);
 			}
-
-			for (OCRParagraph par : ocrExportHandler.paragraphs) {
-				aJCas.addFsToIndexes(new Paragraph(aJCas, par.start, par.end));
+			
+			for (OCRParagraph par : exportHandler.OCRParagraphs) {
+				aJCas.addFsToIndexes(new de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Paragraph(aJCas, par.start, par.end));
 			}
 
-			for (OCRLine line : ocrExportHandler.lines) {
-				aJCas.addFsToIndexes(new Sentence(aJCas, line.start, line.end));
+			for (OCRLine OCRLine : exportHandler.OCRLines) {
+				aJCas.addFsToIndexes(new Sentence(aJCas, OCRLine.start, OCRLine.end));
 			}
 
-			for (OCRToken OCRToken : ocrExportHandler.tokens) {
-				aJCas.addFsToIndexes(new Token(aJCas, OCRToken.start, OCRToken.end));
+			for (OCRToken OCRToken : exportHandler.OCRTokens) {
+				aJCas.addFsToIndexes(new de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token(aJCas, OCRToken.start, OCRToken.end));
 			}
 
-			for (OCRToken OCRToken : ocrExportHandler.tokens) {
+			for (OCRToken OCRToken : exportHandler.OCRTokens) {
 				if (OCRToken.isSpace())
 					continue;
 				boolean inDict = inDict(OCRToken.getTokenString());

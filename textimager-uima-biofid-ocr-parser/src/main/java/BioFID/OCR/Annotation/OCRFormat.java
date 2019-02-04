@@ -2,7 +2,7 @@ package BioFID.OCR.Annotation;
 
 import org.xml.sax.Attributes;
 
-public class Format extends OCRAnnotation {
+public class OCRFormat extends OCRAnnotation {
 	public String lang;
 	public String ff;
 	public float fs;
@@ -14,13 +14,13 @@ public class Format extends OCRAnnotation {
 	public boolean underline;
 	public boolean strikeout;
 	
-	public Format(String lang, String ff, float fs) {
+	public OCRFormat(String lang, String ff, float fs) {
 		this.lang = lang;
 		this.ff = ff;
 		this.fs = fs;
 	}
 	
-	public Format(Attributes attributes) {
+	public OCRFormat(Attributes attributes) {
 		this.lang = attributes.getValue("lang");
 		this.ff = attributes.getValue("ff");
 		this.fs = Util.parseFloat(attributes.getValue("fs"));

@@ -1,5 +1,6 @@
-package BioFID.OCR.Annotation;
+package BioFID.OCR;
 
+import BioFID.OCR.Annotation.Util;
 import com.google.common.base.Strings;
 import org.xml.sax.Attributes;
 

@@ -3,7 +3,7 @@ package BioFID.OCR.Annotation;
 import com.google.common.base.Strings;
 import org.xml.sax.Attributes;
 
-public class Paragraph extends OCRAnnotation {
+public class OCRParagraph extends OCRAnnotation {
 	
 	public final int leftIndent;
 	public final int rightIndent;
@@ -15,7 +15,7 @@ public class Paragraph extends OCRAnnotation {
 		Left, Center, Right, Justified
 	}
 	
-	public Paragraph(int leftIndent, int rightIndent, int startIndent, int lineSpacing, String align) {
+	public OCRParagraph(int leftIndent, int rightIndent, int startIndent, int lineSpacing, String align) {
 		this.leftIndent = leftIndent;
 		this.rightIndent = rightIndent;
 		this.startIndent = startIndent;
@@ -23,7 +23,7 @@ public class Paragraph extends OCRAnnotation {
 		this.align = alignment.valueOf(align);
 	}
 	
-	public Paragraph(Attributes attributes) {
+	public OCRParagraph(Attributes attributes) {
 		this.leftIndent = Util.parseInt(attributes.getValue("leftIndent"));
 		this.rightIndent = Util.parseInt(attributes.getValue("rightIndent"));
 		this.startIndent = Util.parseInt(attributes.getValue("startIndent"));

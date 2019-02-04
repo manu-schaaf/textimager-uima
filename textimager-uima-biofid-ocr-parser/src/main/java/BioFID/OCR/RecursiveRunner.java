@@ -1,3 +1,5 @@
+package BioFID.OCR;
+
 import BioFID.OCR.PageParser;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;

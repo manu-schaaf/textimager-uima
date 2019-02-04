@@ -1,6 +1,6 @@
 package BioFID.OCR.Annotation;
 
-public class Annotation {
+public class OCRAnnotation {
 	
 	public int start = 0;
 	public int end = 0;
