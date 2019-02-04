@@ -10,7 +10,13 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>textimager-uima-biofid-ocr-parser</artifactId>
-
+    <repositories>
+        <repository>
+            <id>hu-central</id>
+            <name>alba-releases</name>
+            <url>http://service.hucompute.org/artifactory/libs-snapshot-local</url>
+        </repository>
+    </repositories>
     <dependencies>
         <dependency>
             <groupId>de.tudarmstadt.ukp.dkpro.core</groupId>
