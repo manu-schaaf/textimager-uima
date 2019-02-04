@@ -1,3 +1,4 @@
+import BioFID.OCR.PageParser;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
@@ -6,7 +7,9 @@ import org.apache.uima.UIMAException;
 import org.apache.uima.analysis_engine.AnalysisEngineDescription;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.pipeline.SimplePipeline;
+import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
+import org.apache.uima.jcas.cas.TOP;
 
 import java.io.*;
 import java.nio.file.Path;
@@ -51,19 +54,19 @@ public class RecursiveRunner {
 			xml = br.lines().collect(Collectors.joining("\n"));
 			
 			// Create a new Engine Description.
-			AnalysisEngineDescription pageParser = createEngineDescription(BioFIDOCRPageParser.class,
-					BioFIDOCRPageParser.INPUT_XML, xml,
-					BioFIDOCRPageParser.PARAM_MIN_TOKEN_CONFIDENCE, 90,
-					BioFIDOCRPageParser.PARAM_BLOCK_TOP_MIN, 400,
-					BioFIDOCRPageParser.PARAM_DICT_PATH, "~/Documents/BioFID/textimager-uima/textimager-uima-biofid-ocr-parser/src/test/resources/Leipzig40MT2010_lowered.5.vocab");
+			AnalysisEngineDescription pageParser = createEngineDescription(PageParser.class,
+					PageParser.INPUT_XML, xml,
+					PageParser.PARAM_MIN_TOKEN_CONFIDENCE, 90,
+					PageParser.PARAM_BLOCK_TOP_MIN, 400,
+					PageParser.PARAM_DICT_PATH, "~/Documents/BioFID/textimager-uima/textimager-uima-biofid-ocr-parser/src/test/resources/Leipzig40MT2010_lowered.5.vocab");
 			
-			// Create a new JCas - "Holder"-Class for Annotation.
+			// Create a new JCas - "Holder"-Class for OCRAnnotation.
 			JCas inputCas = JCasFactory.createJCas();
 			
 			// Pipeline
 			SimplePipeline.runPipeline(inputCas, pageParser);
 			
-			StringBuilder finalText = new StringBuilder();
+			final StringBuilder finalText = new StringBuilder();
 			
 			final int[] tokenCount = {0};
 			for (Chunk block : select(inputCas, Chunk.class)) {

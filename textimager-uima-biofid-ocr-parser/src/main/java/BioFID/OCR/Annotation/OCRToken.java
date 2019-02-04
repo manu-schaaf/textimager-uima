@@ -1,10 +1,12 @@
+package BioFID.OCR.Annotation;
+
 import org.apache.commons.math3.stat.descriptive.moment.Mean;
 import org.xml.sax.Attributes;
 
 import java.util.ArrayList;
 import java.util.stream.Collectors;
 
-public class OCRToken extends OCRAnnotation {
+public class Token extends OCRAnnotation {
 	
 	private ArrayList<ArrayList<String>> subTokenList;
 	private ArrayList<String> charList;
@@ -18,7 +20,7 @@ public class OCRToken extends OCRAnnotation {
 	
 	private boolean containsHyphen = false;
 	
-	public OCRToken() {
+	public Token() {
 		charList = new ArrayList<>();
 		
 		subTokenList = new ArrayList<>();
@@ -72,22 +74,17 @@ public class OCRToken extends OCRAnnotation {
 	}
 	
 	private void processAttributes(Attributes pAttributes) {
-		if (parseBoolean(pAttributes.getValue("suspicious")))
+		if (Util.parseBoolean(pAttributes.getValue("suspicious")))
 			suspiciousChars++;
 		
-		if (parseBoolean(pAttributes.getValue("wordFromDictionary")))
+		if (Util.parseBoolean(pAttributes.getValue("wordFromDictionary")))
 			isWordFromDictionary = true;
 		
-		if (parseBoolean(pAttributes.getValue("wordNormal")))
+		if (Util.parseBoolean(pAttributes.getValue("wordNormal")))
 			isWordNormal = true;
 		
-		if (parseBoolean(pAttributes.getValue("wordNumeric")))
+		if (Util.parseBoolean(pAttributes.getValue("wordNumeric")))
 			isWordNumeric = true;
-	}
-	
-	public void setStartEnd(int pStart, int pEnd) {
-		this.start = pStart;
-		this.end = pEnd;
 	}
 	
 	public int length() {

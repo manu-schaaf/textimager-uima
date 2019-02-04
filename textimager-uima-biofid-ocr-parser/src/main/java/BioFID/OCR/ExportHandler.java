@@ -1,3 +1,5 @@
+package BioFID;
+
 import org.xml.sax.Attributes;
 import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
@@ -209,7 +211,7 @@ public class OCRExportHandler extends DefaultHandler
 	 * Check if the current block obeys the rules given for this type of article.
 	 * TODO: dynamic rules from file
 	 *
-	 * @param ocrBlock OCRBlock
+	 * @param ocrBlock BioFID.OCRBlock
 	 * @return boolean True if the current block is not null and obeys all rules.
 	 */
 	private boolean blockObeysRules(OCRBlock ocrBlock)

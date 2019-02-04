@@ -1,8 +1,7 @@
+import BioFID.OCR.PageParser;
 import de.tudarmstadt.ukp.dkpro.core.api.anomaly.type.Anomaly;
 import de.tudarmstadt.ukp.dkpro.core.api.anomaly.type.SpellingAnomaly;
 import de.tudarmstadt.ukp.dkpro.core.api.ner.type.NamedEntity;
-import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Paragraph;
-import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Sentence;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
 import de.tudarmstadt.ukp.dkpro.core.api.syntax.type.chunk.Chunk;
 import org.apache.uima.UIMAException;
@@ -19,7 +18,7 @@ import java.util.stream.Collectors;
 import static org.apache.uima.fit.factory.AnalysisEngineFactory.createEngineDescription;
 import static org.apache.uima.fit.util.JCasUtil.*;
 
-public class BioFIDOCRPageParserTest {
+public class PageParserTest {
 	
 	final boolean printAnnotations = true;
 	
@@ -82,13 +81,13 @@ public class BioFIDOCRPageParserTest {
 	
 	private void testTokenization(String xml) throws UIMAException {
 		// Create a new Engine Description.
-		AnalysisEngineDescription pageParser = createEngineDescription(BioFIDOCRPageParser.class,
-				BioFIDOCRPageParser.INPUT_XML, xml,
-				BioFIDOCRPageParser.PARAM_USE_LANGUAGE_TOOL, true,
-				BioFIDOCRPageParser.PARAM_MIN_TOKEN_CONFIDENCE, 90,
-				BioFIDOCRPageParser.PARAM_DICT_PATH, "src/test/resources/Leipzig40MT2010_lowered.5.vocab");
+		AnalysisEngineDescription pageParser = createEngineDescription(PageParser.class,
+				PageParser.INPUT_XML, xml,
+				PageParser.PARAM_USE_LANGUAGE_TOOL, true,
+				PageParser.PARAM_MIN_TOKEN_CONFIDENCE, 90,
+				PageParser.PARAM_DICT_PATH, "src/test/resources/Leipzig40MT2010_lowered.5.vocab");
 		
-		// Create a new JCas - "Holder"-Class for Annotation.
+		// Create a new JCas - "Holder"-Class for OCRAnnotation.
 		JCas inputCas = JCasFactory.createJCas();
 		
 		// Pipeline
@@ -107,7 +106,7 @@ public class BioFIDOCRPageParserTest {
 		System.out.flush();
 		
 		for (Chunk block : select(inputCas, Chunk.class)) {
-			System.out.printf("<Block valid:%s length:%d>\n", block.getChunkValue(), block.getEnd() - block.getBegin());
+			System.out.printf("<OCRBlock valid:%s length:%d>\n", block.getChunkValue(), block.getEnd() - block.getBegin());
 //			for (Paragraph paragraph : selectCovered(inputCas, Paragraph.class, block)) {
 //				System.out.printf("<Paragraph length:%d>\n", paragraph.getEnd() - paragraph.getBegin());
 //				for (Sentence line : selectCovered(inputCas, Sentence.class, paragraph)) {
@@ -121,7 +120,7 @@ public class BioFIDOCRPageParserTest {
 //				System.out.println("</Paragraph>");
 //				System.out.flush();
 //			}
-			System.out.println("</Block>");
+			System.out.println("</OCRBlock>");
 			System.out.flush();
 		}
 	}
@@ -138,7 +137,7 @@ public class BioFIDOCRPageParserTest {
 		if (printAnnotations && spellingAnomalies.isEmpty() && anomalies.isEmpty()) {
 			List<NamedEntity> nes = selectCovered(inputCas, NamedEntity.class, token);
 			if (!nes.isEmpty()) {
-				System.out.printf("\tAnnotation<%s>", nes.stream().map(NamedEntity::getValue).collect(Collectors.joining(";")));
+				System.out.printf("\tOCRAnnotation<%s>", nes.stream().map(NamedEntity::getValue).collect(Collectors.joining(";")));
 			}
 		}
 		System.out.println();

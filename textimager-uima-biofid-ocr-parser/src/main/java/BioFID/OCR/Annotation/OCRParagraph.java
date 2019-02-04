@@ -1,7 +1,9 @@
+package BioFID.OCR.Annotation;
+
 import com.google.common.base.Strings;
 import org.xml.sax.Attributes;
 
-public class OCRParagraph extends OCRAnnotation {
+public class Paragraph extends OCRAnnotation {
 	
 	public final int leftIndent;
 	public final int rightIndent;
@@ -13,7 +15,7 @@ public class OCRParagraph extends OCRAnnotation {
 		Left, Center, Right, Justified
 	}
 	
-	public OCRParagraph(int leftIndent, int rightIndent, int startIndent, int lineSpacing, String align) {
+	public Paragraph(int leftIndent, int rightIndent, int startIndent, int lineSpacing, String align) {
 		this.leftIndent = leftIndent;
 		this.rightIndent = rightIndent;
 		this.startIndent = startIndent;
@@ -21,11 +23,11 @@ public class OCRParagraph extends OCRAnnotation {
 		this.align = alignment.valueOf(align);
 	}
 	
-	public OCRParagraph(Attributes attributes) {
-		this.leftIndent = parseInt(attributes.getValue("leftIndent"));
-		this.rightIndent = parseInt(attributes.getValue("rightIndent"));
-		this.startIndent = parseInt(attributes.getValue("startIndent"));
-		this.lineSpacing = parseInt(attributes.getValue("lineSpacing"));
+	public Paragraph(Attributes attributes) {
+		this.leftIndent = Util.parseInt(attributes.getValue("leftIndent"));
+		this.rightIndent = Util.parseInt(attributes.getValue("rightIndent"));
+		this.startIndent = Util.parseInt(attributes.getValue("startIndent"));
+		this.lineSpacing = Util.parseInt(attributes.getValue("lineSpacing"));
 		this.align = Strings.isNullOrEmpty(attributes.getValue("align"))
 				? alignment.Left
 				: alignment.valueOf(attributes.getValue("align"));

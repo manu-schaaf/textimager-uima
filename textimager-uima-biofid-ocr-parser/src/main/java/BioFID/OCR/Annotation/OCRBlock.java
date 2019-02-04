@@ -1,6 +1,8 @@
+package BioFID.OCR.Annotation;
+
 import org.xml.sax.Attributes;
 
-public class OCRBlock extends OCRAnnotation {
+public class Block extends OCRAnnotation {
     
     public final int top;
     public final int bottom;
@@ -14,7 +16,7 @@ public class OCRBlock extends OCRAnnotation {
         Text, Table, Picture, Barcode
     }
     
-    public OCRBlock(int top, int bottom, int left, int right, String blockType, String blockName) {
+    public Block(int top, int bottom, int left, int right, String blockType, String blockName) {
         this.top = top;
         this.bottom = bottom;
         this.left = left;
@@ -23,11 +25,11 @@ public class OCRBlock extends OCRAnnotation {
         this.blockName = blockName;
     }
 
-    public OCRBlock(Attributes attributes) {
-        this.top = parseInt(attributes.getValue("t"));
-        this.bottom = parseInt(attributes.getValue("b"));
-        this.left = parseInt(attributes.getValue("l"));
-        this.right = parseInt(attributes.getValue("r"));
+    public Block(Attributes attributes) {
+        this.top = Util.parseInt(attributes.getValue("t"));
+        this.bottom = Util.parseInt(attributes.getValue("b"));
+        this.left = Util.parseInt(attributes.getValue("l"));
+        this.right = Util.parseInt(attributes.getValue("r"));
         this.blockType = blockTypeEnum.valueOf(attributes.getValue("blockType"));
         this.blockName = attributes.getValue("blockName");
     }
