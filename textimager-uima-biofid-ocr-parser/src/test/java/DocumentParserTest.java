@@ -51,7 +51,6 @@ class DocumentParserTest {
 		
 		ArrayList<String> pathList = new ArrayList<>();
 		for (String documentId : documentIds) {
-			Files.is
 			String path = fileAtlas.getOrDefault(documentId, null);
 			if (path != null && new File(path).isFile()) pathList.add(path);
 		}
