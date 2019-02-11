@@ -1,9 +1,8 @@
 package BioFID.OCR;
 
-import BioFID.OCR.Annotation.OCRBlock;
-import BioFID.OCR.Annotation.OCRLine;
-import BioFID.OCR.Annotation.OCRParagraph;
-import BioFID.OCR.Annotation.OCRToken;
+import BioFID.OCR.Annotation.*;
+import BioFID.OCR.Annotation.Paragraph;
+import BioFID.OCR.Annotation.Token;
 import de.tudarmstadt.ukp.dkpro.core.api.anomaly.type.Anomaly;
 import de.tudarmstadt.ukp.dkpro.core.api.anomaly.type.SpellingAnomaly;
 import de.tudarmstadt.ukp.dkpro.core.api.ner.type.NamedEntity;
@@ -30,8 +29,8 @@ import java.util.stream.Collectors;
 
 public class PageParser extends SegmenterBase
 {
-
-	public static final String INPUT_XML = "pInputXMLs";
+	
+	public static final String INPUT_XML = "pInputPaths";
 	public static final String PARAM_DICT_PATH = "pDictPath";
 	public static final String PARAM_MIN_TOKEN_CONFIDENCE = "pMinTokenConfidence";
 	public static final String PARAM_USE_LANGUAGE_TOOL = "pUseLanguageTool";
@@ -67,29 +66,29 @@ public class PageParser extends SegmenterBase
 			exportHandler.blockTopMin = pBlockTopMin;
 			InputStream inputStream = IOUtils.toInputStream(pInputXML, Charsets.UTF_8);
 			saxParser.parse(inputStream, exportHandler);
-
-			String text = exportHandler.OCRTokens.stream().map(OCRToken::getTokenString).collect(Collectors.joining(""));
+			
+			String text = exportHandler.tokens.stream().map(Token::getTokenString).collect(Collectors.joining(""));
 			aJCas.setDocumentText(text);
-
-			for (OCRBlock OCRBlock : exportHandler.OCRBlocks) {
+			
+			for (Block OCRBlock : exportHandler.blocks) {
 				Chunk chunk = new Chunk(aJCas, OCRBlock.start, OCRBlock.end);
 				chunk.setChunkValue(OCRBlock.valid ? "true" : "false");
 				aJCas.addFsToIndexes(chunk);
 			}
 			
-			for (OCRParagraph par : exportHandler.OCRParagraphs) {
+			for (Paragraph par : exportHandler.paragraphs) {
 				aJCas.addFsToIndexes(new de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Paragraph(aJCas, par.start, par.end));
 			}
-
-			for (OCRLine OCRLine : exportHandler.OCRLines) {
+			
+			for (Line OCRLine : exportHandler.lines) {
 				aJCas.addFsToIndexes(new Sentence(aJCas, OCRLine.start, OCRLine.end));
 			}
-
-			for (OCRToken OCRToken : exportHandler.OCRTokens) {
+			
+			for (Token OCRToken : exportHandler.tokens) {
 				aJCas.addFsToIndexes(new de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token(aJCas, OCRToken.start, OCRToken.end));
 			}
-
-			for (OCRToken OCRToken : exportHandler.OCRTokens) {
+			
+			for (Token OCRToken : exportHandler.tokens) {
 				if (OCRToken.isSpace())
 					continue;
 				boolean inDict = inDict(OCRToken.getTokenString());

@@ -62,7 +62,7 @@ public class RecursiveRunner {
 					PageParser.PARAM_BLOCK_TOP_MIN, 400,
 					PageParser.PARAM_DICT_PATH, "~/Documents/BioFID/textimager-uima/textimager-uima-biofid-ocr-parser/src/test/resources/Leipzig40MT2010_lowered.5.vocab");
 			
-			// Create a new JCas - "Holder"-Class for OCRAnnotation.
+			// Create a new JCas - "Holder"-Class for Annotation.
 			JCas inputCas = JCasFactory.createJCas();
 			
 			// Pipeline

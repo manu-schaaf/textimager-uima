@@ -1,12 +1,19 @@
 package BioFID.OCR.Annotation;
 
+import com.google.common.collect.Lists;
+import de.tudarmstadt.ukp.dkpro.core.api.lexmorph.type.pos.O;
 import org.apache.commons.math3.stat.descriptive.moment.Mean;
+import org.apache.uima.jcas.JCas;
+import org.apache.uima.jcas.cas.StringList;
+import org.texttechnologylab.annotation.ocr.OCRToken;
 import org.xml.sax.Attributes;
+import sun.plugin.javascript.navig.Array;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.stream.Collectors;
 
-public class OCRToken extends OCRAnnotation {
+public class Token extends Annotation {
 	
 	private ArrayList<ArrayList<String>> subTokenList;
 	private ArrayList<String> charList;
@@ -20,7 +27,7 @@ public class OCRToken extends OCRAnnotation {
 	
 	private boolean containsHyphen = false;
 	
-	public OCRToken() {
+	public Token() {
 		charList = new ArrayList<>();
 		
 		subTokenList = new ArrayList<>();
@@ -101,5 +108,41 @@ public class OCRToken extends OCRAnnotation {
 	
 	public boolean containsHyphen() {
 		return containsHyphen;
+	}
+	
+	@Override
+	public OCRToken wrap(JCas jCas, int offset) {
+		OCRToken ocrToken = new OCRToken(jCas, start + offset, end + offset);
+		StringList stringList = new StringList(jCas);
+		Lists.reverse(subTokenList).stream().map(s -> String.join("", s)).forEach(stringList::push);
+		ocrToken.setSubTokenList(stringList);
+		ocrToken.setIsWordFromDictionary(isWordFromDictionary);
+		ocrToken.setIsWordNormal(isWordNormal);
+		ocrToken.setIsWordNumeric(isWordNumeric);
+		ocrToken.setSuspiciousChars(suspiciousChars);
+		ocrToken.setContainsHyphen(containsHyphen);
+		return ocrToken;
+	}
+	
+	public ArrayList<OCRToken> wrapSubtokens(JCas jCas, int offset) {
+		ArrayList<OCRToken> subTokens = new ArrayList<>();
+		if (subTokenList.size() > 1) {
+			int localOffset = 0;
+			for (ArrayList<String> subToken : subTokenList) {
+				int subTokenLength = subToken.size();
+				OCRToken ocrToken = new OCRToken(jCas, start + offset + localOffset, start + offset + localOffset + subTokenLength);
+				StringList stringList = new StringList(jCas);
+				Lists.reverse(subToken).forEach(stringList::push);
+				ocrToken.setSubTokenList(stringList);
+				ocrToken.setIsWordFromDictionary(isWordFromDictionary);
+				ocrToken.setIsWordNormal(isWordNormal);
+				ocrToken.setIsWordNumeric(isWordNumeric);
+				ocrToken.setSuspiciousChars(suspiciousChars);
+				ocrToken.setContainsHyphen(containsHyphen);
+				subTokens.add(ocrToken);
+				localOffset += subTokenLength;
+			}
+		}
+		return subTokens;
 	}
 }

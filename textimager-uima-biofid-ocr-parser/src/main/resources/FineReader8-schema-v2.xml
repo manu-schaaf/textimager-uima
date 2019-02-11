@@ -1,38 +1,38 @@
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            targetNamespace="http://www.abbyy.com/FineReader_xml/FineReader8-schema-v2.xml"
            xmlns:tns="http://www.abbyy.com/FineReader_xml/FineReader8-schema-v2.xml" elementFormDefault="qualified">
-    <xs:annotation>
+    <xs:Annotation>
         <xs:documentation xml:lang="en">Schema for representing OCR results exported from FineReader 8.0 SDK. Copyright
             2001-2006 ABBYY, Inc.
         </xs:documentation>
-    </xs:annotation>
+    </xs:Annotation>
 
     <xs:element name="document">
         <xs:complexType>
             <xs:sequence>
                 <xs:element name="page" minOccurs="0" maxOccurs="unbounded">
-                    <xs:annotation>
+                    <xs:Annotation>
                         <xs:documentation xml:lang="en">Recognized page
                         </xs:documentation>
-                    </xs:annotation>
+                    </xs:Annotation>
                     <xs:complexType>
                         <xs:sequence>
-                            <xs:element name="block" minOccurs="0" maxOccurs="unbounded" type="tns:BlockType">
-                                <xs:annotation>
-                                    <xs:documentation xml:lang="en">Recognized block
+                            <xs:element name="OCRBlock" minOccurs="0" maxOccurs="unbounded" type="tns:BlockType">
+                                <xs:Annotation>
+                                    <xs:documentation xml:lang="en">Recognized OCRBlock
                                     </xs:documentation>
-                                </xs:annotation>
+                                </xs:Annotation>
                             </xs:element>
                         </xs:sequence>
                         <xs:attribute name="width" type="xs:integer" use="required"/>
                         <xs:attribute name="height" type="xs:integer" use="required"/>
                         <xs:attribute name="resolution" type="xs:integer" use="required"/>
                         <xs:attribute name="originalCoords" type="xs:boolean" use="optional" default="false">
-                            <xs:annotation>
+                            <xs:Annotation>
                                 <xs:documentation xml:lang="en">If true, all coordinates are relative to original image
                                     before opening, otherwise they are relative to the opened (deskewed) image
                                 </xs:documentation>
-                            </xs:annotation>
+                            </xs:Annotation>
                         </xs:attribute>
                     </xs:complexType>
                 </xs:element>
@@ -49,10 +49,10 @@
     <xs:complexType name="BlockType">
         <xs:sequence>
             <xs:element name="region" minOccurs="1" maxOccurs="1">
-                <xs:annotation>
+                <xs:Annotation>
                     <xs:documentation xml:lang="en">Block region, the set of rectangles
                     </xs:documentation>
-                </xs:annotation>
+                </xs:Annotation>
                 <xs:complexType>
                     <xs:sequence>
                         <xs:element name="rect" minOccurs="1" maxOccurs="unbounded">
@@ -67,16 +67,16 @@
                 </xs:complexType>
             </xs:element>
             <xs:element name="text" minOccurs="0" maxOccurs="1" type="tns:TextType">
-                <xs:annotation>
-                    <xs:documentation xml:lang="en">Recognized block text, presents if blockType attribute is Text
+                <xs:Annotation>
+                    <xs:documentation xml:lang="en">Recognized OCRBlock text, presents if blockType attribute is Text
                     </xs:documentation>
-                </xs:annotation>
+                </xs:Annotation>
             </xs:element>
             <xs:element name="row" minOccurs="0" maxOccurs="unbounded" type="tns:TableRowType">
-                <xs:annotation>
+                <xs:Annotation>
                     <xs:documentation xml:lang="en">The set of table rows, presents if blockType attribute is Table
                     </xs:documentation>
-                </xs:annotation>
+                </xs:Annotation>
             </xs:element>
         </xs:sequence>
         <xs:attribute name="blockType" use="required">
@@ -101,9 +101,9 @@
     <xs:complexType name="TextType">
         <xs:sequence>
             <xs:element name="par" minOccurs="0" maxOccurs="unbounded" type="tns:ParagraphType">
-                <xs:annotation>
+                <xs:Annotation>
                     <xs:documentation xml:lang="en">Text paragraph</xs:documentation>
-                </xs:annotation>
+                </xs:Annotation>
             </xs:element>
         </xs:sequence>
         <xs:attribute name="orientation" use="optional" default="Normal">
@@ -125,15 +125,15 @@
     <xs:complexType name="TableRowType">
         <xs:sequence>
             <xs:element name="cell" minOccurs="0" maxOccurs="unbounded">
-                <xs:annotation>
+                <xs:Annotation>
                     <xs:documentation xml:lang="en">Table cell</xs:documentation>
-                </xs:annotation>
+                </xs:Annotation>
                 <xs:complexType>
                     <xs:sequence>
                         <xs:element name="text" minOccurs="0" maxOccurs="unbounded" type="tns:TextType">
-                            <xs:annotation>
+                            <xs:Annotation>
                                 <xs:documentation xml:lang="en">Cell text</xs:documentation>
-                            </xs:annotation>
+                            </xs:Annotation>
                         </xs:element>
                     </xs:sequence>
                     <xs:attribute name="colSpan" type="xs:integer" use="optional" default="1"/>
@@ -162,10 +162,10 @@
 
     <xs:complexType name="ParagraphType">
         <xs:sequence>
-            <xs:element name="line" minOccurs="0" maxOccurs="unbounded" type="tns:LineType">
-                <xs:annotation>
-                    <xs:documentation xml:lang="en">Text paragraph line</xs:documentation>
-                </xs:annotation>
+            <xs:element name="OCRLine" minOccurs="0" maxOccurs="unbounded" type="tns:LineType">
+                <xs:Annotation>
+                    <xs:documentation xml:lang="en">Text paragraph OCRLine</xs:documentation>
+                </xs:Annotation>
             </xs:element>
         </xs:sequence>
         <xs:attribute name="dropCapCharsCount" type="xs:integer" use="optional" default="0"/>
@@ -192,9 +192,9 @@
     <xs:complexType name="LineType">
         <xs:sequence>
             <xs:element name="formatting" minOccurs="0" maxOccurs="unbounded" type="tns:FormattingType">
-                <xs:annotation>
+                <xs:Annotation>
                     <xs:documentation xml:lang="en">Group of characters with uniform formatting</xs:documentation>
-                </xs:annotation>
+                </xs:Annotation>
             </xs:element>
         </xs:sequence>
         <xs:attribute name="baseline" type="xs:integer" use="optional"/>
@@ -207,20 +207,20 @@
     <xs:complexType name="FormattingType" mixed="true">
         <xs:sequence>
             <xs:choice minOccurs="0" maxOccurs="unbounded">
-                <xs:annotation>
+                <xs:Annotation>
                     <xs:documentation xml:lang="en">Attributes of characters are alternated with word's recognition
                         variants. The variants of recognition of the word are written before the word
                     </xs:documentation>
-                </xs:annotation>
+                </xs:Annotation>
                 <xs:element name="charParams" type="tns:CharParamsType">
-                    <xs:annotation>
+                    <xs:Annotation>
                         <xs:documentation xml:lang="en">Attributes of single character</xs:documentation>
-                    </xs:annotation>
+                    </xs:Annotation>
                 </xs:element>
                 <xs:element name="wordRecVariants">
-                    <xs:annotation>
+                    <xs:Annotation>
                         <xs:documentation xml:lang="en">Variants of recognition of the next word</xs:documentation>
-                    </xs:annotation>
+                    </xs:Annotation>
                     <xs:complexType>
                         <xs:sequence>
                             <xs:element name="wordRecVariant" minOccurs="0" maxOccurs="unbounded"

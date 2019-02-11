@@ -18,7 +18,7 @@ import java.util.stream.Collectors;
 import static org.apache.uima.fit.factory.AnalysisEngineFactory.createEngineDescription;
 import static org.apache.uima.fit.util.JCasUtil.*;
 
-public class PageParserTest {
+public class OCRPageParserTest {
 	
 	final boolean printAnnotations = true;
 	
@@ -87,7 +87,7 @@ public class PageParserTest {
 				PageParser.PARAM_MIN_TOKEN_CONFIDENCE, 90,
 				PageParser.PARAM_DICT_PATH, "src/test/resources/Leipzig40MT2010_lowered.5.vocab");
 		
-		// Create a new JCas - "Holder"-Class for OCRAnnotation.
+		// Create a new JCas - "Holder"-Class for Annotation.
 		JCas inputCas = JCasFactory.createJCas();
 		
 		// Pipeline
@@ -106,7 +106,7 @@ public class PageParserTest {
 		System.out.flush();
 		
 		for (Chunk block : select(inputCas, Chunk.class)) {
-			System.out.printf("<OCRBlock valid:%s length:%d>\n", block.getChunkValue(), block.getEnd() - block.getBegin());
+			System.out.printf("<Block valid:%s length:%d>\n", block.getChunkValue(), block.getEnd() - block.getBegin());
 //			for (Paragraph paragraph : selectCovered(inputCas, Paragraph.class, block)) {
 //				System.out.printf("<Paragraph length:%d>\n", paragraph.getEnd() - paragraph.getBegin());
 //				for (Sentence line : selectCovered(inputCas, Sentence.class, paragraph)) {
@@ -120,7 +120,7 @@ public class PageParserTest {
 //				System.out.println("</Paragraph>");
 //				System.out.flush();
 //			}
-			System.out.println("</OCRBlock>");
+			System.out.println("</Block>");
 			System.out.flush();
 		}
 	}
@@ -137,7 +137,7 @@ public class PageParserTest {
 		if (printAnnotations && spellingAnomalies.isEmpty() && anomalies.isEmpty()) {
 			List<NamedEntity> nes = selectCovered(inputCas, NamedEntity.class, token);
 			if (!nes.isEmpty()) {
-				System.out.printf("\tOCRAnnotation<%s>", nes.stream().map(NamedEntity::getValue).collect(Collectors.joining(";")));
+				System.out.printf("\tAnnotation<%s>", nes.stream().map(NamedEntity::getValue).collect(Collectors.joining(";")));
 			}
 		}
 		System.out.println();

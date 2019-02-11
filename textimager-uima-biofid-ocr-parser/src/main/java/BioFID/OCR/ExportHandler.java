@@ -1,7 +1,9 @@
 package BioFID.OCR;
 
 import BioFID.OCR.Annotation.*;
-import static BioFID.OCR.Annotation.OCRBlock.*;
+
+import static BioFID.OCR.Annotation.Block.*;
+
 import org.xml.sax.Attributes;
 import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
@@ -10,24 +12,24 @@ import java.util.ArrayList;
 
 public class ExportHandler extends DefaultHandler {
 	// Pages
-	public ArrayList<OCRPage> OCRPages = new ArrayList<>();
-	private OCRPage currOCRPage = null;
+	public ArrayList<Page> pages = new ArrayList<>();
+	private Page currPage = null;
 	
-	// OCRBlock
-	public ArrayList<OCRBlock> OCRBlocks = new ArrayList<>();
-	private OCRBlock currOCRBlock = null;
+	// Block
+	public ArrayList<Block> blocks = new ArrayList<>();
+	private Block currBlock = null;
 	
 	// Paragraphs
-	public ArrayList<OCRParagraph> OCRParagraphs = new ArrayList<>();
-	private OCRParagraph currOCRParagraph = null;
+	public ArrayList<Paragraph> paragraphs = new ArrayList<>();
+	private Paragraph currParagraph = null;
 	
 	// Lines
-	public ArrayList<OCRLine> OCRLines = new ArrayList<>();
-	private OCRLine currOCRLine = null;
+	public ArrayList<Line> lines = new ArrayList<>();
+	private Line currLine = null;
 	
-	// OCRToken
-	public ArrayList<OCRToken> OCRTokens = new ArrayList<>();
-	private OCRToken currOCRToken = null;
+	// Token
+	public ArrayList<Token> tokens = new ArrayList<>();
+	private Token currToken = null;
 	public int blockTopMin = 300;
 	public int charLeftMax = 1925;
 	
@@ -54,14 +56,15 @@ public class ExportHandler extends DefaultHandler {
 	public void startElement(String uri, String localName, String qName, Attributes attributes) throws SAXException {
 		switch (qName) {
 			case "page":
-				currOCRPage = new OCRPage(attributes);
-				currOCRPage.start = totalChars;
+				currPage = new Page(attributes);
+				currPage.start = totalChars;
+				pages.add(currPage);
 				break;
 			case "block": {
-				currOCRBlock = new OCRBlock(attributes);
-				currOCRBlock.start = totalChars;
-				currOCRBlock.valid = blockObeysRules(currOCRBlock);
-				OCRBlocks.add(currOCRBlock);
+				currBlock = new Block(attributes);
+				currBlock.start = totalChars;
+				currBlock.valid = blockObeysRules(currBlock);
+				blocks.add(currBlock);
 				
 				inLine = false;
 				
@@ -71,20 +74,20 @@ public class ExportHandler extends DefaultHandler {
 			case "text":
 				break;
 			case "par":
-				currOCRParagraph = new OCRParagraph(attributes);
-				currOCRParagraph.start = totalChars;
-				OCRParagraphs.add(currOCRParagraph);
+				currParagraph = new Paragraph(attributes);
+				currParagraph.start = totalChars;
+				paragraphs.add(currParagraph);
 				break;
 			case "line":
-				currOCRLine = new OCRLine(attributes);
-				currOCRLine.start = totalChars;
-				OCRLines.add(currOCRLine);
+				currLine = new Line(attributes);
+				currLine.start = totalChars;
+				lines.add(currLine);
 				
 				inLine = true;
 				break;
 			case "formatting":
-				if (currOCRLine != null)
-					currOCRLine.OCRFormat = new OCRFormat(attributes);
+				if (currLine != null)
+					currLine.OCRFormat = new Format(attributes);
 //				String attr = attributes.getValue("lang");
 //				currLang = Strings.isNullOrEmpty(attr) ? null : attr;
 //
@@ -104,7 +107,7 @@ public class ExportHandler extends DefaultHandler {
 				currCharAttributes = attributes; // TODO: use char obj
 				character = true; // TODO: use char obj
 				
-				OCRChar ocrChar = new OCRChar(attributes);
+				Char ocrChar = new Char(attributes);
 				characterIsAllowed = charObeysRules(ocrChar);
 				break;
 		}
@@ -114,33 +117,33 @@ public class ExportHandler extends DefaultHandler {
 	public void endElement(String uri, String localName, String qName) throws SAXException {
 		switch (qName) {
 			case "page":
-				setEnd(currOCRPage);
+				setEnd(currPage);
 				break;
 			case "block":
 				addSpace();
-				setEnd(currOCRBlock);
+				setEnd(currBlock);
 				break;
 			case "text":
 				addSpace();
-				setEnd(currOCRParagraph);
-				setEnd(currOCRLine);
-				setEnd(currOCRToken);
+				setEnd(currParagraph);
+				setEnd(currLine);
+				setEnd(currToken);
 				break;
 			case "par":
 				addSpace();
-				setEnd(currOCRParagraph);
+				setEnd(currParagraph);
 				break;
 			case "line":
 				/// Add space instead of linebreak
 				addSpace();
-				setEnd(currOCRLine);
+				setEnd(currLine);
 		}
 		character = false;
 	}
 	
-	private void setEnd(OCRAnnotation OCRAnnotation) {
-		if (OCRAnnotation != null)
-			OCRAnnotation.end = totalChars;
+	private void setEnd(Annotation Annotation) {
+		if (Annotation != null)
+			Annotation.end = totalChars;
 	}
 	
 	@Override
@@ -152,10 +155,10 @@ public class ExportHandler extends DefaultHandler {
 			} else {
 				/// Add a new subtoken if there has been a ¬ and it was followed by a character
 				if (lastTokenWasHyphen && !lastTokenWasSpace) {
-//                    currOCRToken.removeLastChar();
+//                    currToken.removeLastChar();
 //                    totalChars--;
-					currOCRToken.setContainsHyphen();
-					currOCRToken.addSubToken();
+					currToken.setContainsHyphen();
+					currToken.addSubToken();
 				}
 				lastTokenWasSpace = false;
 				
@@ -164,8 +167,8 @@ public class ExportHandler extends DefaultHandler {
 					lastTokenWasHyphen = true;
 				} else {
 					lastTokenWasHyphen = false;
-					currOCRToken.addChar(curr_char);
-					currOCRToken.addCharAttributes(currCharAttributes);
+					currToken.addChar(curr_char);
+					currToken.addCharAttributes(currCharAttributes);
 					totalChars++;
 				}
 			}
@@ -175,17 +178,17 @@ public class ExportHandler extends DefaultHandler {
 	
 	private void addSpace() {
 		/// Do not add spaces if the preceding token is a space, the ¬ hyphenation character or there has not been any token
-		if (lastTokenWasSpace || lastTokenWasHyphen || currOCRToken == null)
+		if (lastTokenWasSpace || lastTokenWasHyphen || currToken == null)
 			return;
 		
 		/// If the current token already contains characters, create a new token for the space
-		if (currOCRToken.length() > 0) {
+		if (currToken.length() > 0) {
 			forceNewToken = true;
 			createToken();
 		}
 		
 		/// Add the space character and increase token count
-		currOCRToken.addChar(" ");
+		currToken.addChar(" ");
 		totalChars++;
 		forceNewToken = true;
 		lastTokenWasSpace = true;
@@ -195,38 +198,38 @@ public class ExportHandler extends DefaultHandler {
 	 *
 	 */
 	private void createToken() {
-		if (currOCRToken == null || forceNewToken || currOCRToken.isSpace()) {
-			if (currOCRToken != null) {
-				currOCRToken.end = totalChars;
+		if (currToken == null || forceNewToken || currToken.isSpace()) {
+			if (currToken != null) {
+				currToken.end = totalChars;
 			}
 			createNewToken();
 		} else {
-			if (currOCRToken != null) {
-				currOCRToken.addSubToken();
+			if (currToken != null) {
+				currToken.addSubToken();
 			}
 		}
 	}
 	
 	private void createNewToken() {
-		currOCRToken = new OCRToken();
-		currOCRToken.start = totalChars;
-		OCRTokens.add(currOCRToken);
+		currToken = new Token();
+		currToken.start = totalChars;
+		tokens.add(currToken);
 		
 		forceNewToken = false;
 	}
 	
 	/**
-	 * Check if the current OCRBlock obeys the rules given for this type of article.
+	 * Check if the current Block obeys the rules given for this type of article.
 	 * TODO: dynamic rules from file
 	 *
-	 * @param OCRBlock BioFID.OCR.OCRAnnotation.OCRBlock
-	 * @return boolean True if the current OCRBlock is not null and obeys all rules.
+	 * @param OCRBlock BioFID.OCR.Annotation.Block
+	 * @return boolean True if the current Block is not null and obeys all rules.
 	 */
-	private boolean blockObeysRules(OCRBlock OCRBlock) {
+	private boolean blockObeysRules(Block OCRBlock) {
 		return OCRBlock != null && OCRBlock.blockType == blockTypeEnum.Text && OCRBlock.top >= blockTopMin;
 	}
 	
-	private boolean charObeysRules(OCRChar ocrChar) {
+	private boolean charObeysRules(Char ocrChar) {
 		return ocrChar != null && ocrChar.left <= charLeftMax;
 	}
 }
