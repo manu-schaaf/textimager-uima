@@ -22,7 +22,7 @@ import static org.apache.uima.fit.factory.AnalysisEngineFactory.createEngineDesc
 import static org.apache.uima.fit.util.JCasUtil.select;
 import static org.apache.uima.fit.util.JCasUtil.selectCovered;
 
-public class RecursiveRunner {
+public class PageRecursiveRunner {
 	
 	public static void main(String[] args) {
 		String basePath = "~/Documents/Biodiversität_OCR_Lieferung_1/9031458/";

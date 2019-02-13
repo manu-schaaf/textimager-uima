@@ -1,16 +1,13 @@
 package BioFID.OCR.Annotation;
 
 import com.google.common.collect.Lists;
-import de.tudarmstadt.ukp.dkpro.core.api.lexmorph.type.pos.O;
 import org.apache.commons.math3.stat.descriptive.moment.Mean;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.jcas.cas.StringList;
 import org.texttechnologylab.annotation.ocr.OCRToken;
 import org.xml.sax.Attributes;
-import sun.plugin.javascript.navig.Array;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.stream.Collectors;
 
 public class Token extends Annotation {

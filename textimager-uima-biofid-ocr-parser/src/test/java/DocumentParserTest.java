@@ -1,5 +1,4 @@
 import BioFID.OCR.DocumentParser;
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;
 import org.apache.uima.UIMAException;
@@ -8,7 +7,6 @@ import org.apache.uima.cas.impl.XmiCasSerializer;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.pipeline.SimplePipeline;
 import org.apache.uima.jcas.JCas;
-import org.apache.uima.resource.ResourceInitializationException;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -19,7 +17,10 @@ import org.texttechnologylab.annotation.ocr.OCRToken;
 import org.texttechnologylab.annotation.ocr.OCRpage;
 import org.xml.sax.SAXException;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -34,8 +35,8 @@ class DocumentParserTest {
 	
 	private static JCas jCas;
 	
-	static final ImmutableList<String> documentIds = ImmutableList.of("9032259", "9031469", "9031472", "9031473", "9031474", "9031475", "9031476", "9031477", "9032261");
-//	static final ImmutableList<String> documentIds = ImmutableList.of("9699895", "9655813", "9655814", "9655815", "9655816", "9655817", "9655818", "9655819", "9655820", "9655821", "9655822", "9655823", "9655824", "9655825", "9655826", "9655827", "9655828", "9655829", "9655830", "9655831", "9655832", "9655833", "9655834", "9655835", "9655836", "9655837", "9655838", "9655839", "9655840", "9655841", "9655842", "9655843", "9655844");
+	//	static final ImmutableList<String> documentIds = ImmutableList.of("9032259", "9031469", "9031472", "9031473", "9031474", "9031475", "9031476", "9031477", "9032261");
+	static final ImmutableList<String> documentIds = ImmutableList.of("9699895", "9655813", "9655814", "9655815", "9655816", "9655817", "9655818", "9655819", "9655820", "9655821", "9655822", "9655823", "9655824", "9655825", "9655826", "9655827", "9655828", "9655829", "9655830", "9655831", "9655832", "9655833", "9655834", "9655835", "9655836", "9655837", "9655838", "9655839", "9655840", "9655841", "9655842", "9655843", "9655844");
 	
 	@BeforeAll
 	@DisplayName("Set Up")
@@ -47,13 +48,19 @@ class DocumentParserTest {
 			bufferedReader.lines().map(l -> l.split("\t")).forEach(arr -> fileAtlas.put(arr[0], arr[1]));
 		}
 		
-		System.out.printf("Atals size %d.\n", fileAtlas.size());
+		if (fileAtlas.isEmpty()) {
+			throw new NullPointerException("Files could not be found!");
+		}
+		System.out.printf("Atlas size %d.\n", fileAtlas.size());
 		
 		ArrayList<String> pathList = new ArrayList<>();
 		for (String documentId : documentIds) {
 			String path = fileAtlas.getOrDefault(documentId, null);
 			if (path != null && new File(path).isFile()) pathList.add(path);
 		}
+		
+		System.out.println(pathList);
+		
 		AnalysisEngineDescription documentParser = createEngineDescription(DocumentParser.class,
 				DocumentParser.INPUT_PATHS, pathList.toArray(new String[0]),
 				DocumentParser.PARAM_MIN_TOKEN_CONFIDENCE, 90,
