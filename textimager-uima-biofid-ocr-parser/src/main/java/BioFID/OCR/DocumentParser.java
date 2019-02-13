@@ -10,7 +10,7 @@ import org.apache.uima.UIMA_UnsupportedOperationException;
 import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
 import org.apache.uima.fit.descriptor.ConfigurationParameter;
 import org.apache.uima.jcas.JCas;
-import org.languagetool.JLanguageTool;
+//import org.languagetool.JLanguageTool;
 import org.texttechnologylab.annotation.ocr.OCRToken;
 import org.texttechnologylab.annotation.ocr.OCRpage;
 import org.xml.sax.SAXException;
@@ -54,7 +54,7 @@ public class DocumentParser extends SegmenterBase {
 		
 		try {
 			dict = loadDict(pDictPath);
-			JLanguageTool langTool = new JLanguageTool(new org.languagetool.language.GermanyGerman());
+//			JLanguageTool langTool = new JLanguageTool(new org.languagetool.language.GermanyGerman());
 			SAXParserFactory saxParserFactory = SAXParserFactory.newInstance();
 			SAXParser saxParser = saxParserFactory.newSAXParser();
 			
@@ -125,7 +125,7 @@ public class DocumentParser extends SegmenterBase {
 			}
 			
 			if (pUseLanguageTool) {
-				languageToolSpellcheck(aJCas, langTool, text);
+//				languageToolSpellcheck(aJCas, langTool, text);
 			}
 			
 		} catch (SAXException | ParserConfigurationException | IOException e) {

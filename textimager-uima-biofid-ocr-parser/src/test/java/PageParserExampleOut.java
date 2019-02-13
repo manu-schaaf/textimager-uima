@@ -21,7 +21,7 @@ import static org.apache.uima.fit.util.JCasUtil.selectCovered;
 /**
  * Created on 21.01.2019.
  */
-public class OCRPageParserExampleOut
+public class PageParserExampleOut
 {
 	@Test
 	public void runAllTest()

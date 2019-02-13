@@ -19,10 +19,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 import static org.apache.uima.fit.factory.AnalysisEngineFactory.createEngineDescription;
 import static org.apache.uima.fit.util.JCasUtil.indexCovered;
@@ -31,6 +28,7 @@ import static org.apache.uima.fit.util.JCasUtil.select;
 public class DocumentFromMetadata {
 	
 	public static void main(String[] args) {
+		System.out.printf("Running DocumentFromMetadata with options: %s\n", Arrays.toString(args));
 		String sMetadataPath = args[0];
 		String sFileAtlasPath = args[1];
 		String sOutputPath = args[2];
@@ -39,16 +37,21 @@ public class DocumentFromMetadata {
 		
 		try {
 			ImmutableMap<String, String> fileAtlas = loadFileAtlas(Paths.get(sFileAtlasPath));
+			System.out.printf("Loaded atlas with %d entries.\n", fileAtlas.size());
 			ArrayList<ImmutableList<String>> metadata = loadMetadata(Paths.get(sMetadataPath));
-			
+			System.out.printf("Loaded metadata for %d documents.\n", metadata.size());
+
+			int count = 1;
+			System.out.println("Starting document parsing..");
 			for (ImmutableList<String> documentParts : metadata) {
+				String documentId = documentParts.get(0);
+				System.out.printf("\r%d/%d Parsing document with id %s ", count, documentParts.size(), documentId);
+
 				ArrayList<String> pathList = new ArrayList<>();
-				for (String documentId : documentParts) {
-					String path = fileAtlas.getOrDefault(documentId, null);
+				for (String document : documentParts) {
+					String path = fileAtlas.getOrDefault(document, null);
 					if (path != null && new File(path).isFile()) pathList.add(path);
 				}
-				
-				String documentId = documentParts.get(0);
 				AnalysisEngineDescription documentParser = createEngineDescription(DocumentParser.class,
 						DocumentParser.INPUT_PATHS, pathList.toArray(new String[0]),
 						DocumentParser.PARAM_MIN_TOKEN_CONFIDENCE, 90,
@@ -63,8 +66,9 @@ public class DocumentFromMetadata {
 				
 				try (FileOutputStream fileOutputStream = com.google.common.io.Files.newOutputStreamSupplier(Paths.get(sOutputPath, documentId + ".xmi").toFile()).getOutput()) {
 					XmiCasSerializer.serialize(jCas.getCas(), fileOutputStream);
+					System.out.printf("\r%d/%d Wrote document %s.xmi", count, documentParts.size(), documentId);
 				} catch (SAXException e) {
-					// TODO: logging
+					System.err.printf("\nFailed serializing document %s!\n", documentId);
 					e.printStackTrace();
 				}
 				
@@ -79,8 +83,12 @@ public class DocumentFromMetadata {
 							}
 						}
 					}
+					System.out.printf(", wrote %s.txt", documentId);
+					count++;
 				}
+				System.out.flush();
 			}
+			System.out.println("\nFinished parsing.");
 		} catch (IOException | UIMAException e) {
 			e.printStackTrace();
 		}
@@ -96,7 +104,7 @@ public class DocumentFromMetadata {
 		/// Skip first line
 		for (int i = 1; i < metadataLines.length; i++) {
 			String[] split = metadataLines[i].split("\t");
-			if (!split[2].isEmpty()) {
+			if (split.length > 2 && !split[2].isEmpty()) {
 //				currentMetaDocumentName = split[0];
 				if (!currentMetaDocument.isEmpty())
 					metadata.add(ImmutableList.copyOf(currentMetaDocument));

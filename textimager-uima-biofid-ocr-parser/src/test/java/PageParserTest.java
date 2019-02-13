@@ -18,7 +18,8 @@ import java.util.stream.Collectors;
 import static org.apache.uima.fit.factory.AnalysisEngineFactory.createEngineDescription;
 import static org.apache.uima.fit.util.JCasUtil.*;
 
-public class OCRPageParserTest {
+public class PageParserTest
+{
 	
 	final boolean printAnnotations = true;
 	
