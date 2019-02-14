@@ -14,6 +14,7 @@ import java.nio.file.Paths;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
+import static BioFID.Util.writeToFile;
 import static org.apache.uima.fit.factory.AnalysisEngineFactory.createEngineDescription;
 import static org.apache.uima.fit.util.JCasUtil.select;
 import static org.apache.uima.fit.util.JCasUtil.selectCovered;
@@ -21,26 +22,22 @@ import static org.apache.uima.fit.util.JCasUtil.selectCovered;
 /**
  * Created on 21.01.2019.
  */
-public class PageParserExampleOut
-{
+public class PageParserExampleOut {
 	@Test
-	public void runAllTest()
-	{
+	public void runAllTest() {
 		String path = "src/test/out/9088917/9088369";
 		String pathname = "src/test/resources/9088917/9088369";
 		run(path, pathname);
 	}
 
 	@Test
-	public void runExternal()
-	{
+	public void runExternal() {
 		String path = "src/test/out/4704355";
 		String pathname = "G:/PowerFolders/bioFID/Export/Botanische Zeitschriften OCR/4704355";
 		run(path, pathname);
 	}
 
-	private void run(String path, String pathname)
-	{
+	private void run(String path, String pathname) {
 		try {
 			new File(path).mkdirs();
 			for (File folder : Objects.requireNonNull(new File(pathname).listFiles())) {
@@ -48,14 +45,14 @@ public class PageParserExampleOut
 					String content = exampleOutput(folder);
 					if (Strings.isNullOrEmpty(content))
 						continue;
-					writeToFile(Paths.get(path, folder.getName().replaceAll("\\.xml", ".txt")).toFile(), content);
+					writeToFile(Paths.get(path, folder.getName().replaceAll("\\.xml", ".txt")), content);
 				} else {
 					Paths.get(path, folder.getName()).toFile().mkdirs();
 					for (File file : Objects.requireNonNull(folder.listFiles())) {
 						String content = exampleOutput(file);
 						if (Strings.isNullOrEmpty(content))
 							continue;
-						writeToFile(Paths.get(path, folder.getName(), file.getName().replaceAll("\\.xml", ".txt")).toFile(), content);
+						writeToFile(Paths.get(path, folder.getName(), file.getName().replaceAll("\\.xml", ".txt")), content);
 					}
 				}
 			}
@@ -64,8 +61,7 @@ public class PageParserExampleOut
 		}
 	}
 
-	private String exampleOutput(File file) throws UIMAException
-	{
+	private String exampleOutput(File file) throws UIMAException {
 		// Input
 		String xml = "";
 		try (BufferedReader br = new BufferedReader(new FileReader(file))) {
@@ -76,7 +72,7 @@ public class PageParserExampleOut
 					PageParser.INPUT_XML, xml,
 					PageParser.PARAM_MIN_TOKEN_CONFIDENCE, 90,
 					PageParser.PARAM_DICT_PATH, "src/test/resources/Leipzig40MT2010_lowered.5.vocab");
-			
+
 			// Create a new JCas - "Holder"-Class for Annotation.
 			JCas inputCas = JCasFactory.createJCas();
 
@@ -102,14 +98,5 @@ public class PageParserExampleOut
 			e.printStackTrace();
 		}
 		return "";
-	}
-
-	private void writeToFile(File targetFile, String content)
-	{
-		try (BufferedWriter bw = new BufferedWriter(new FileWriter(targetFile))) {
-			bw.write(content);
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
 	}
 }

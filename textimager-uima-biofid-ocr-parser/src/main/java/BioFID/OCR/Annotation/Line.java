@@ -1,5 +1,6 @@
 package BioFID.OCR.Annotation;
 
+import BioFID.Util;
 import org.apache.uima.jcas.JCas;
 import org.texttechnologylab.annotation.ocr.OCRLine;
 import org.xml.sax.Attributes;

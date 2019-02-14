@@ -1,9 +1,9 @@
 package BioFID.OCR;
 
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
+import org.apache.commons.lang3.BooleanUtils;
 import org.apache.uima.UIMAException;
 import org.apache.uima.analysis_engine.AnalysisEngineDescription;
 import org.apache.uima.cas.impl.XmiCasSerializer;
@@ -26,15 +26,15 @@ import static org.apache.uima.fit.util.JCasUtil.indexCovered;
 import static org.apache.uima.fit.util.JCasUtil.select;
 
 public class DocumentFromMetadata {
-	
+
 	public static void main(String[] args) {
 		System.out.printf("Running DocumentFromMetadata with options: %s\n", Arrays.toString(args));
 		String sMetadataPath = args[0];
 		String sFileAtlasPath = args[1];
 		String sOutputPath = args[2];
 		String sVocabularyPath = args[3];
-		boolean bWriteRawText = Boolean.parseBoolean(Strings.nullToEmpty(args[4]));
-		
+		boolean bWriteRawText = BooleanUtils.toBoolean(args[4]) || BooleanUtils.toBoolean(args[4], "1", "0");
+
 		try {
 			ImmutableMap<String, String> fileAtlas = loadFileAtlas(Paths.get(sFileAtlasPath));
 			System.out.printf("Loaded atlas with %d entries.\n", fileAtlas.size());
@@ -45,7 +45,7 @@ public class DocumentFromMetadata {
 			System.out.println("Starting document parsing..");
 			for (ImmutableList<String> documentParts : metadata) {
 				String documentId = documentParts.get(0);
-				System.out.printf("\r%d/%d Parsing document with id %s ", count, documentParts.size(), documentId);
+				System.out.printf("\r%d/%d Parsing document with id %s ", count, metadata.size(), documentId);
 
 				ArrayList<String> pathList = new ArrayList<>();
 				for (String document : documentParts) {
@@ -56,29 +56,29 @@ public class DocumentFromMetadata {
 						DocumentParser.INPUT_PATHS, pathList.toArray(new String[0]),
 						DocumentParser.PARAM_MIN_TOKEN_CONFIDENCE, 90,
 						DocumentParser.PARAM_DICT_PATH, sVocabularyPath);
-				
+
 				JCas jCas = JCasFactory.createJCas();
-				
+
 				DocumentMetaData documentMetaData = DocumentMetaData.create(jCas);
 				documentMetaData.setDocumentId(documentId);
-				
+
 				SimplePipeline.runPipeline(jCas, documentParser);
-				
+
 				try (FileOutputStream fileOutputStream = com.google.common.io.Files.newOutputStreamSupplier(Paths.get(sOutputPath, documentId + ".xmi").toFile()).getOutput()) {
 					XmiCasSerializer.serialize(jCas.getCas(), fileOutputStream);
-					System.out.printf("\r%d/%d Wrote document %s.xmi", count, documentParts.size(), documentId);
+					System.out.printf("\r%d/%d Wrote document %s.xmi", count, metadata.size(), documentId);
 				} catch (SAXException e) {
 					System.err.printf("\nFailed serializing document %s!\n", documentId);
 					e.printStackTrace();
 				}
-				
+
 				if (bWriteRawText) {
-					try (BufferedWriter bufferedWriter = Files.newBufferedWriter(Paths.get(sOutputPath, documentId + ".txt"))) {
+					try (PrintWriter printWriter = new PrintWriter(new OutputStreamWriter(Files.newOutputStream(Paths.get(sOutputPath, documentId + ".txt")), StandardCharsets.UTF_8))) {
 						Map<OCRBlock, Collection<OCRToken>> blockCovered = indexCovered(jCas, OCRBlock.class, OCRToken.class);
 						for (OCRBlock ocrBlock : select(jCas, OCRBlock.class)) {
 							if (ocrBlock.getValid()) {
 								for (OCRToken ocrToken : blockCovered.get(ocrBlock)) {
-									bufferedWriter.write(ocrToken.getCoveredText());
+									printWriter.print(ocrToken.getCoveredText());
 								}
 							}
 						}
@@ -93,12 +93,12 @@ public class DocumentFromMetadata {
 			e.printStackTrace();
 		}
 	}
-	
-	
+
+
 	static private ArrayList<ImmutableList<String>> loadMetadata(Path pMetadataPath) throws IOException {
 		ArrayList<ImmutableList<String>> metadata = new ArrayList<>();
 		String[] metadataLines = Files.newBufferedReader(pMetadataPath, StandardCharsets.UTF_8).lines().toArray(String[]::new);
-		
+
 		ArrayList<String> currentMetaDocument = new ArrayList<>();
 //		String currentMetaDocumentName;
 		/// Skip first line
@@ -112,10 +112,10 @@ public class DocumentFromMetadata {
 			}
 			currentMetaDocument.add(split[0]);
 		}
-		
+
 		return metadata;
 	}
-	
+
 	static private ImmutableMap<String, String> loadFileAtlas(Path pFileAtlasPath) throws IOException, NullPointerException {
 		HashMap<String, String> fileAtlas = new HashMap<>();
 		try (BufferedReader bufferedReader = com.google.common.io.Files.newReader(pFileAtlasPath.toFile(), StandardCharsets.UTF_8)) {

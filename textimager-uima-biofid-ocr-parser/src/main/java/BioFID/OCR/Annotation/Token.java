@@ -1,5 +1,6 @@
 package BioFID.OCR.Annotation;
 
+import BioFID.Util;
 import com.google.common.collect.Lists;
 import org.apache.commons.math3.stat.descriptive.moment.Mean;
 import org.apache.uima.jcas.JCas;

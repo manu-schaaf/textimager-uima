@@ -1,9 +1,8 @@
 package BioFID.OCR;
 
 import BioFID.OCR.Annotation.*;
-import com.google.common.io.Files;
+import BioFID.Util;
 import de.tudarmstadt.ukp.dkpro.core.api.anomaly.type.Anomaly;
-import de.tudarmstadt.ukp.dkpro.core.api.ner.type.NamedEntity;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.SegmenterBase;
 import org.apache.commons.lang3.NotImplementedException;
 import org.apache.uima.UIMA_UnsupportedOperationException;
@@ -24,7 +23,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.stream.Collectors;
 
-import static BioFID.OCR.Annotation.Util.*;
+import static BioFID.Util.*;
 
 public class DocumentParser extends SegmenterBase {
 	
