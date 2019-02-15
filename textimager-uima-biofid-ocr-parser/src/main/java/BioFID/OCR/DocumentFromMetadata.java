@@ -2,6 +2,8 @@ package BioFID.OCR;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import de.tudarmstadt.ukp.dkpro.core.api.anomaly.type.Anomaly;
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.uima.UIMAException;
@@ -20,6 +22,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static org.apache.uima.fit.factory.AnalysisEngineFactory.createEngineDescription;
 import static org.apache.uima.fit.util.JCasUtil.indexCovered;
@@ -46,47 +49,56 @@ public class DocumentFromMetadata {
 			for (ImmutableList<String> documentParts : metadata) {
 				String documentId = documentParts.get(0);
 				System.out.printf("\r%d/%d Parsing document with id %s ", count, metadata.size(), documentId);
-
-				ArrayList<String> pathList = new ArrayList<>();
-				for (String document : documentParts) {
-					String path = fileAtlas.getOrDefault(document, null);
-					if (path != null && new File(path).isFile()) pathList.add(path);
-				}
-				AnalysisEngineDescription documentParser = createEngineDescription(DocumentParser.class,
-						DocumentParser.INPUT_PATHS, pathList.toArray(new String[0]),
-						DocumentParser.PARAM_MIN_TOKEN_CONFIDENCE, 90,
-						DocumentParser.PARAM_DICT_PATH, sVocabularyPath);
-
-				JCas jCas = JCasFactory.createJCas();
-
-				DocumentMetaData documentMetaData = DocumentMetaData.create(jCas);
-				documentMetaData.setDocumentId(documentId);
-
-				SimplePipeline.runPipeline(jCas, documentParser);
-
-				try (FileOutputStream fileOutputStream = com.google.common.io.Files.newOutputStreamSupplier(Paths.get(sOutputPath, documentId + ".xmi").toFile()).getOutput()) {
-					XmiCasSerializer.serialize(jCas.getCas(), fileOutputStream);
-					System.out.printf("\r%d/%d Wrote document %s.xmi", count, metadata.size(), documentId);
-				} catch (SAXException e) {
-					System.err.printf("\nFailed serializing document %s!\n", documentId);
-					e.printStackTrace();
-				}
-
-				if (bWriteRawText) {
-					try (PrintWriter printWriter = new PrintWriter(new OutputStreamWriter(Files.newOutputStream(Paths.get(sOutputPath, documentId + ".txt")), StandardCharsets.UTF_8))) {
-						Map<OCRBlock, Collection<OCRToken>> blockCovered = indexCovered(jCas, OCRBlock.class, OCRToken.class);
-						for (OCRBlock ocrBlock : select(jCas, OCRBlock.class)) {
-							if (ocrBlock.getValid()) {
-								for (OCRToken ocrToken : blockCovered.get(ocrBlock)) {
-									printWriter.print(ocrToken.getCoveredText());
+				
+				try {
+					ArrayList<String> pathList = new ArrayList<>();
+					for (String document : documentParts) {
+						String path = fileAtlas.getOrDefault(document, null);
+						if (path != null && new File(path).isFile()) pathList.add(path);
+					}
+					AnalysisEngineDescription documentParser = createEngineDescription(DocumentParser.class,
+							DocumentParser.INPUT_PATHS, pathList.toArray(new String[0]),
+							DocumentParser.PARAM_MIN_TOKEN_CONFIDENCE, 90,
+							DocumentParser.PARAM_DICT_PATH, sVocabularyPath);
+					
+					JCas jCas = JCasFactory.createJCas();
+					
+					DocumentMetaData documentMetaData = DocumentMetaData.create(jCas);
+					documentMetaData.setDocumentId(documentId);
+					
+					SimplePipeline.runPipeline(jCas, documentParser);
+					
+					try (FileOutputStream fileOutputStream = com.google.common.io.Files.newOutputStreamSupplier(Paths.get(sOutputPath, documentId + ".xmi").toFile()).getOutput()) {
+						XmiCasSerializer.serialize(jCas.getCas(), fileOutputStream);
+						System.out.printf("\r%d/%d Wrote document %s.xmi", count, metadata.size(), documentId);
+					} catch (SAXException e) {
+						System.err.printf("\nFailed serialization of XMI for document %s!\n", documentId);
+						e.printStackTrace();
+					}
+					
+					if (bWriteRawText) {
+						try (PrintWriter printWriter = new PrintWriter(new OutputStreamWriter(Files.newOutputStream(Paths.get(sOutputPath, documentId + ".txt")), StandardCharsets.UTF_8))) {
+							Map<OCRBlock, Collection<OCRToken>> blockCovered = indexCovered(jCas, OCRBlock.class, OCRToken.class);
+							ImmutableSet<OCRToken> anomalies = ImmutableSet.copyOf(indexCovered(jCas, Anomaly.class, OCRToken.class).values().stream().flatMap(Collection::stream).collect(Collectors.toSet()));
+							
+							for (OCRBlock ocrBlock : select(jCas, OCRBlock.class)) {
+								if (ocrBlock.getValid()) {
+									for (OCRToken ocrToken : blockCovered.get(ocrBlock)) {
+										if (anomalies.contains(ocrToken)) continue;
+										printWriter.print(ocrToken.getCoveredText());
+									}
 								}
 							}
+							System.out.printf(", %s.txt", documentId);
+						} catch (IOException e) {
+							System.err.printf("Failed serialization of raw text for document %s!\n", documentId);
 						}
 					}
-					System.out.printf(", wrote %s.txt", documentId);
 					count++;
+				} catch (NullPointerException e) {
+					System.err.printf("Caught NullPointerException while parsing document %s!\n", documentId);
+					e.printStackTrace();
 				}
-				System.out.flush();
 			}
 			System.out.println("\nFinished parsing.");
 		} catch (IOException | UIMAException e) {
