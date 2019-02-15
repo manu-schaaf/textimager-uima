@@ -119,14 +119,14 @@ class DocumentParserTest {
 		@Test
 		@DisplayName("Test Covered")
 		void testCovered() {
-			Map<OCRToken, Collection<OCRToken>> tokenCovered = indexCovering(jCas, OCRToken.class, OCRToken.class);
+			Map<OCRToken, Collection<OCRToken>> tokenCovering = indexCovering(jCas, OCRToken.class, OCRToken.class);
 
 			for (OCRToken OCRToken : select(jCas, OCRToken.class)) {
-				if (tokenCovered.keySet().contains(OCRToken)) {
+				if (tokenCovering.keySet().contains(OCRToken)) {
 					System.out.print("<covered>");
 				}
 				System.out.print(OCRToken.getCoveredText());
-				if (tokenCovered.keySet().contains(OCRToken)) {
+				if (tokenCovering.keySet().contains(OCRToken)) {
 					System.out.print("</covered>");
 				}
 				System.out.println();

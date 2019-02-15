@@ -198,15 +198,13 @@ public class ExportHandler extends DefaultHandler {
 	 *
 	 */
 	private void createToken() {
-		if (currToken == null || forceNewToken || currToken.isSpace()) {
-			if (currToken != null) {
-				currToken.end = totalChars;
-			}
+		if (currToken == null) {
+			createNewToken();
+		} else if (forceNewToken || currToken.isSpace()) {
+			currToken.end = totalChars;
 			createNewToken();
 		} else {
-			if (currToken != null) {
-				currToken.addSubToken();
-			}
+			currToken.addSubToken();
 		}
 	}
 	
