@@ -1,7 +1,9 @@
 package BioFID;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
+import org.apache.commons.cli.MissingArgumentException;
 import org.apache.http.client.HttpResponseException;
 import org.apache.uima.UIMAException;
 import org.apache.uima.analysis_engine.AnalysisEngine;
@@ -21,53 +23,93 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
 import java.util.stream.IntStream;
 
+import static BioFID.Util.writeToFile;
+
 public class TextAnnotatorFetch {
 	
-	public static void main(String[] args) {
-		final String textannotator = "http://141.2.108.253:50555/";
-		final String mongoDB = "https://resources.hucompute.org/mongo/";
-		final String sSession = "49C4CD978B91B2ECC31CACC30AD98460.jvm1";
-		final String sRepository = "14393";
+	static final String textannotator = "http://141.2.108.253:50555/";
+	static final String mongoDB = "https://resources.hucompute.org/mongo/";
+	static final String sRepository = "14393";
+	
+	static String sSession;
+	static String conllLocation;
+	static String XMILocation;
+	static String textLocation;
+	
+	public static void main(String[] args) throws MissingArgumentException {
+		ImmutableList<String> params = ImmutableList.copyOf(args);
+		
+		int index;
+		index = Integer.max(params.indexOf("-s"), params.indexOf("--session"));
+		if (index > -1) {
+			sSession = params.get(index + 1);
+		} else {
+			throw new MissingArgumentException("Missing --session");
+		}
+		
+		index = params.indexOf("--conll");
+		if (index > -1) {
+			conllLocation = params.get(index + 1);
+		} else {
+			throw new MissingArgumentException("Missing --conll");
+		}
+		
+		index = params.indexOf("--xmi");
+		if (index > -1) {
+			XMILocation = params.get(index + 1);
+		} else {
+			throw new MissingArgumentException("Missing --xmi");
+		}
+		
+		index = params.indexOf("--text");
+		if (index > -1) {
+			textLocation = params.get(index + 1);
+		} else {
+			throw new MissingArgumentException("Missing --text");
+		}
+		
+		index = params.indexOf("--threads");
+		final int pThreads = index > -1 ? Integer.parseInt(params.get(index + 1)) : 4;
 		
 		String requestURL = textannotator + "documents/" + sRepository;
-		System.out.printf("GET %s?session=%s\n", requestURL, sSession); // TODO: remove
 		final JSONObject remoteFiles = RESTUtils.getObjectFromRest(requestURL, sSession);
 		
-		System.out.println(remoteFiles);
-		
 		if (remoteFiles.getBoolean("success")) {
-			JSONArray rArray = remoteFiles.getJSONArray("result");
+			final JSONArray rArray = remoteFiles.getJSONArray("result");
 			
 			try {
+				final ForkJoinPool forkJoinPool = new ForkJoinPool(pThreads);
+				
+				System.out.printf("Running TextAnnotatorFetch in parallel with %d threads for %d files\n", forkJoinPool.getParallelism(), rArray.length());
+				
 				final AnalysisEngine conllEngine = AnalysisEngineFactory.createEngine(
 						ConllBIO2003Writer.class,
-						ConllBIO2003Writer.PARAM_TARGET_LOCATION, "/resources/public/stoeckel/BioFID/BioFID_NER_annotated_conll_3_18.02/",
+						ConllBIO2003Writer.PARAM_TARGET_LOCATION, conllLocation,
+						ConllBIO2003Writer.PARAM_CONLL_STRATEGY, 2,
 						ConllBIO2003Writer.PARAM_OVERWRITE, true,
 						ConllBIO2003Writer.PARAM_FILTER_FINGERPRINTED, true);
 				
-				ForkJoinPool forkJoinPool = new ForkJoinPool(4);
-
-//				IntStream.range(0, rArray.length()).sequential().forEachOrdered(a -> {
-				forkJoinPool.submit(() -> IntStream.range(0, rArray.length()).parallel().forEachOrdered(a -> {
+				int[] count = {0};
+				forkJoinPool.submit(() -> IntStream.range(0, rArray.length()).parallel().forEach(a -> {
 							try {
-//						                https://resources.hucompute.org/document/16205?session=49C4CD978B91B2ECC31CACC30AD98460.jvm1
 								String documentURI = mongoDB + rArray.get(a).toString();
-								System.out.printf("GET %s?session=%s\n", documentURI, sSession); // TODO: remove
 								JSONObject documentJSON = RESTUtils.getObjectFromRest(documentURI, sSession);
 								
 								if (documentJSON.getBoolean("success")) {
 									String documentName = documentJSON.getJSONObject("result").getString("name");
 									String cleanDocumentName = documentName.replaceFirst("[^_]*_(\\d+)_.*", "$1");
 									
+									// Download XMI
 									URL casURL = new URL(textannotator + "cas/" + rArray.get(a).toString() + "?session=" + sSession);
-									File utf8File = Paths.get("/resources/public/stoeckel/BioFID/BioFID_XMI_annotated_18.02/", cleanDocumentName + ".xmi").toFile();
+									File utf8File = Paths.get(XMILocation, cleanDocumentName + ".xmi").toFile();
 									
 									PrintWriter printWriter = new PrintWriter(Files.newWriter(utf8File, StandardCharsets.UTF_8));
-									BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(casURL.openStream(), StandardCharsets.ISO_8859_1));
+									BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(casURL.openStream()));
 									bufferedReader.lines().forEachOrdered(printWriter::println);
 									bufferedReader.close();
 									printWriter.close();
 									
+									// Process XMI & write conll
 									JCas jCas = JCasFactory.createJCas();
 									CasIOUtil.readXmi(jCas, utf8File);
 									
@@ -77,6 +119,13 @@ public class TextAnnotatorFetch {
 									documentMetaData.setDocumentTitle(documentName);
 									
 									conllEngine.process(jCas);
+									
+									// Write raw text
+									if (jCas.getDocumentText() == null || jCas.getDocumentText().isEmpty())
+										return;
+									
+									String content = jCas.getDocumentText();
+									writeToFile(Paths.get(textLocation, cleanDocumentName + ".txt"), content);
 								} else {
 									throw new HttpResponseException(400, String.format("Request to '%s' failed! Response: %s", documentURI, documentJSON.toString()));
 								}
@@ -88,12 +137,15 @@ public class TextAnnotatorFetch {
 							} catch (Exception e) {
 								e.printStackTrace();
 							}
-							System.out.printf("File %d/%d\n", a, rArray.length());
+							System.out.printf("\rFile %d/%d (running threads: %d, pool size: %d)",
+									count[0]++, rArray.length(), forkJoinPool.getRunningThreadCount(), forkJoinPool.getPoolSize());
 						})
 				).get();
 			} catch (UIMAException | InterruptedException | ExecutionException e) {
 				e.printStackTrace();
 			}
+		} else {
+			System.err.println(remoteFiles);
 		}
 	}
 }

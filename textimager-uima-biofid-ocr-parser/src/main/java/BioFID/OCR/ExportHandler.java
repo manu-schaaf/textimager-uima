@@ -30,8 +30,8 @@ public class ExportHandler extends DefaultHandler {
 	// Token
 	public ArrayList<Token> tokens = new ArrayList<>();
 	private Token currToken = null;
-	public int blockTopMin = 300;
-	public int charLeftMax = 1925;
+	public int blockTopMin = 0;
+	public int charLeftMax = Integer.MAX_VALUE;
 	
 	// Switches
 	private boolean character = false;

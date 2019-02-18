@@ -120,7 +120,7 @@ public class DocumentParser extends SegmenterBase {
 //					}
 				}
 				
-				lastOffset = ocrPage.getEnd(); // FIXME: may need + 1
+				lastOffset = ocrPage.getEnd();
 			}
 			
 			if (pUseLanguageTool) {

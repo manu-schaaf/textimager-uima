@@ -116,11 +116,26 @@ abstract public class Util {
 				if (!blockCovered.containsKey(ocrBlock) || blockCovered.get(ocrBlock) == null || blockCovered.get(ocrBlock).isEmpty())
 					continue;
 				for (OCRToken ocrToken : blockCovered.get(ocrBlock)) {
-					if (anomalies.contains(ocrToken) || tokenCovering.contains(ocrToken)) continue;
+					if (tokenCovering.contains(ocrToken)) continue;
+//					if (!ocrToken.getCoveredText().equals(" ") && (anomalies.contains(ocrToken) || tokenCovering.contains(ocrToken))) continue;
 					retStringBuilder.append(ocrToken.getCoveredText());
 				}
 			}
 		}
+
+//		StringBuilder debugStringBuilder = new StringBuilder();
+//		for (OCRBlock ocrBlock : select(jCas, OCRBlock.class)) {
+//			debugStringBuilder.append(String.format("<OCRBlock valid:%b, type:%s, top:%d, bottom:%d>\n", ocrBlock.getValid(), ocrBlock.getBlockType(), ocrBlock.getTop(), ocrBlock.getBottom()));
+//			if (!blockCovered.containsKey(ocrBlock) || blockCovered.get(ocrBlock) == null || blockCovered.get(ocrBlock).isEmpty())
+//				continue;
+//			for (OCRToken ocrToken : blockCovered.get(ocrBlock)) {
+//				if (tokenCovering.contains(ocrToken)) continue;
+////					if (!ocrToken.getCoveredText().equals(" ") && (anomalies.contains(ocrToken) || tokenCovering.contains(ocrToken))) continue;
+//				debugStringBuilder.append(ocrToken.getCoveredText());
+//			}
+//			debugStringBuilder.append("\n</OCRBlock>\n");
+//		}
+//		System.out.println(debugStringBuilder.toString());
 		
 		return retStringBuilder.toString();
 	}

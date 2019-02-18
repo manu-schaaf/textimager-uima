@@ -2,36 +2,21 @@ package BioFID.OCR;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import de.tudarmstadt.ukp.dkpro.core.api.anomaly.type.Anomaly;
-import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.uima.UIMAException;
-import org.apache.uima.analysis_engine.AnalysisEngineDescription;
-import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
-import org.apache.uima.cas.impl.XmiCasSerializer;
-import org.apache.uima.fit.factory.JCasFactory;
-import org.apache.uima.fit.pipeline.SimplePipeline;
-import org.apache.uima.jcas.JCas;
-import org.apache.uima.resource.ResourceInitializationException;
-import org.texttechnologylab.annotation.ocr.OCRBlock;
-import org.texttechnologylab.annotation.ocr.OCRToken;
-import org.xml.sax.SAXException;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.*;
-import java.util.stream.Collectors;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
 
-import static BioFID.Util.getValidText;
-import static org.apache.uima.fit.factory.AnalysisEngineFactory.createEngineDescription;
-import static org.apache.uima.fit.util.JCasUtil.indexCovered;
-import static org.apache.uima.fit.util.JCasUtil.select;
-
-public class DocumentFromMetadata {
+public class DocumentFromMetadata extends DocumentHelper {
 	
 	public static void main(String[] args) {
 		System.out.printf("Running DocumentFromMetadata with options: %s\n", Arrays.toString(args));
@@ -60,34 +45,8 @@ public class DocumentFromMetadata {
 						String path = fileAtlas.getOrDefault(document, null);
 						if (path != null && new File(path).isFile()) pathList.add(path);
 					}
-					AnalysisEngineDescription documentParser = createEngineDescription(DocumentParser.class,
-							DocumentParser.INPUT_PATHS, pathList.toArray(new String[0]),
-							DocumentParser.PARAM_MIN_TOKEN_CONFIDENCE, 90,
-							DocumentParser.PARAM_DICT_PATH, sVocabularyPath);
 					
-					JCas jCas = JCasFactory.createJCas();
-					
-					DocumentMetaData documentMetaData = DocumentMetaData.create(jCas);
-					documentMetaData.setDocumentId(documentId);
-					
-					SimplePipeline.runPipeline(jCas, documentParser);
-					
-					try (FileOutputStream fileOutputStream = com.google.common.io.Files.newOutputStreamSupplier(Paths.get(sOutputPath, documentId + ".xmi").toFile()).getOutput()) {
-						XmiCasSerializer.serialize(jCas.getCas(), fileOutputStream);
-//						System.out.printf("\r%d/%d Wrote document %s.xmi", count, metadata.size(), documentId);
-					} catch (SAXException | IOException e) {
-						System.err.printf("Failed serialization of XMI for document %s!\n", documentId);
-						e.printStackTrace();
-					}
-					
-					if (bWriteRawText) {
-						try (PrintWriter printWriter = new PrintWriter(new OutputStreamWriter(Files.newOutputStream(Paths.get(sOutputPath, documentId + ".txt")), StandardCharsets.UTF_8))) {
-							printWriter.print(getValidText(jCas));
-//							System.out.printf(", %s.txt", documentId);
-						} catch (IOException e) {
-							System.err.printf("Failed serialization of raw text for document %s!\n", documentId);
-						}
-					}
+					processDocumentPathList(sOutputPath, sVocabularyPath, bWriteRawText, documentId, pathList);
 				} catch (UIMAException e) {
 					System.err.printf(
 							"Caught UIMAException while parsing document %s!\n" +
@@ -108,7 +67,6 @@ public class DocumentFromMetadata {
 			e.printStackTrace();
 		}
 	}
-	
 	
 	static private ArrayList<ImmutableList<String>> loadMetadata(Path pMetadataPath) throws IOException {
 		ArrayList<ImmutableList<String>> metadata = new ArrayList<>();

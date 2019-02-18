@@ -1,7 +1,6 @@
 package BioFID.OCR;
 
-import BioFID.OCR.PageParser;
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Streams;
 import com.google.common.io.Files;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
 import de.tudarmstadt.ukp.dkpro.core.api.syntax.type.chunk.Chunk;
@@ -9,14 +8,13 @@ import org.apache.uima.UIMAException;
 import org.apache.uima.analysis_engine.AnalysisEngineDescription;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.pipeline.SimplePipeline;
-import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
-import org.apache.uima.jcas.cas.TOP;
 
 import java.io.*;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.apache.uima.fit.factory.AnalysisEngineFactory.createEngineDescription;
 import static org.apache.uima.fit.util.JCasUtil.select;
@@ -29,24 +27,23 @@ public class PageRecursiveRunner {
 		String outPath = "~/Documents/out/9031458/";
 
 //		boolean keepFolderStructure = true;
-		
-		try {
-			ImmutableList<File> files = Files.fileTreeTraverser().postOrderTraversal(new File(basePath)).toList();
-			System.out.printf("Traversing %d elements..\n\n\n", files.size());
-			System.out.flush();
-			for (File file : files) {
+		Stream<File> files = Streams.stream(Files.fileTraverser().depthFirstPostOrder(new File(basePath)));
+		System.out.printf("Traversing %d elements..\n\n\n", files.count());
+		System.out.flush();
+		files.forEachOrdered(file -> {
+			try {
 				if (file.isDirectory())
-					continue;
+					return;
 				Path relativePath = Paths.get(file.getAbsolutePath().substring(basePath.length()));
 				Path finalPath = Paths.get(outPath, relativePath.toString().replaceAll("\\.xml", ".txt"));
 				finalPath.getParent().toFile().mkdirs();
 				
 				String content = exampleOutput(file);
 				writeToFile(finalPath.toFile(), content);
+			} catch (UIMAException e) {
+				e.printStackTrace();
 			}
-		} catch (UIMAException e) {
-			e.printStackTrace();
-		}
+		});
 	}
 	
 	private static String exampleOutput(File file) throws UIMAException {
