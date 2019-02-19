@@ -76,7 +76,7 @@ public class DocumentFromFileHierarchy extends DocumentHelper {
 			
 			ForkJoinPool forkJoinPool = new ForkJoinPool(64);
 			
-			forkJoinPool.execute(() -> documentParentDirs.parallelStream().forEach(documentParentDir -> {
+			forkJoinPool.submit(() -> documentParentDirs.parallelStream().forEach(documentParentDir -> {
 				File[] files = documentParentDir.listFiles();
 				if (Objects.isNull(files) || files.length == 0) return;
 				
@@ -106,7 +106,7 @@ public class DocumentFromFileHierarchy extends DocumentHelper {
 							e.getCause().getStackTrace()[0].toString()
 					);
 				}
-			}));
+			})).get();
 			
 			System.out.println("\nFinished parsing.");
 		} catch (MissingArgumentException e) {

@@ -120,7 +120,7 @@ public class TextAnnotatorFetch extends AbstractRunner {
 					ImmutableList.of(conllLocation + "si0", conllLocation + "si1", conllLocation + "si2").forEach(d -> new File(d).mkdirs());
 					
 					int[] count = {0};
-					remotePool.execute(() -> IntStream.range(0, rArray.length()).parallel().forEach(a -> {
+					remotePool.submit(() -> IntStream.range(0, rArray.length()).parallel().forEach(a -> {
 						try {
 							String documentURI = mongoDB + rArray.get(a).toString();
 							JSONObject documentJSON = RESTUtils.getObjectFromRest(documentURI, sSession);
@@ -192,7 +192,7 @@ public class TextAnnotatorFetch extends AbstractRunner {
 						}
 						System.out.printf("\rFile %d/%d (running remote threads: %d, remote pool size: %d)",
 								count[0]++, rArray.length(), remotePool.getRunningThreadCount(), remotePool.getPoolSize());
-					}));
+					})).get();
 					
 					remotePool.shutdown();
 				} catch (UIMAException e) {
