@@ -1,14 +1,13 @@
 package BioFID.OCR;
 
 import BioFID.OCR.Annotation.*;
-
-import static BioFID.OCR.Annotation.Block.*;
-
 import org.xml.sax.Attributes;
 import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
 
 import java.util.ArrayList;
+
+import static BioFID.OCR.Annotation.Block.blockTypeEnum;
 
 public class ExportHandler extends DefaultHandler {
 	// Pages
@@ -100,7 +99,7 @@ public class ExportHandler extends DefaultHandler {
 			case "charParams":
 				String wordStart = attributes.getValue("wordStart");
 				
-				if (((wordStart != null && wordStart.equals("true")) || forceNewToken) && !lastTokenWasHyphen) {
+				if (currToken == null || (((wordStart != null && wordStart.equals("true")) || forceNewToken) && !lastTokenWasHyphen)) {
 					createToken();
 				}
 				
@@ -167,7 +166,7 @@ public class ExportHandler extends DefaultHandler {
 					lastTokenWasHyphen = true;
 				} else {
 					lastTokenWasHyphen = false;
-					currToken.addChar(curr_char);
+					currToken.addChar(curr_char); // FIXME: random bug.
 					currToken.addCharAttributes(currCharAttributes);
 					totalChars++;
 				}

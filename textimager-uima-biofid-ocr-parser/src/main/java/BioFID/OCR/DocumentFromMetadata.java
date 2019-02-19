@@ -24,7 +24,7 @@ public class DocumentFromMetadata extends DocumentHelper {
 		String sFileAtlasPath = args[1];
 		String sOutputPath = args[2];
 		String sVocabularyPath = args[3];
-		boolean bWriteRawText = BooleanUtils.toBoolean(args[4]) || BooleanUtils.toBoolean(args[4], "1", "0");
+		String sRawPath = args[4];
 		
 		try {
 			ImmutableMap<String, String> fileAtlas = loadFileAtlas(Paths.get(sFileAtlasPath));
@@ -46,7 +46,7 @@ public class DocumentFromMetadata extends DocumentHelper {
 						if (path != null && new File(path).isFile()) pathList.add(path);
 					}
 					
-					processDocumentPathList(sOutputPath, sVocabularyPath, bWriteRawText, documentId, pathList);
+					processDocumentPathList(sOutputPath, sVocabularyPath, sRawPath, documentId, pathList);
 				} catch (UIMAException e) {
 					System.err.printf(
 							"Caught UIMAException while parsing document %s!\n" +

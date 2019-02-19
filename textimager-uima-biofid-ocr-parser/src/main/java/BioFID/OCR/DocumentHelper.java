@@ -1,5 +1,6 @@
 package BioFID.OCR;
 
+import BioFID.AbstractRunner;
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import org.apache.uima.UIMAException;
 import org.apache.uima.analysis_engine.AnalysisEngineDescription;
@@ -21,9 +22,9 @@ import java.util.ArrayList;
 import static BioFID.Util.getValidText;
 import static org.apache.uima.fit.factory.AnalysisEngineFactory.createEngineDescription;
 
-abstract public class DocumentHelper {
+abstract class DocumentHelper extends AbstractRunner {
 	
-	public static void processDocumentPathList(String sOutputPath, String sVocabularyPath, boolean bWriteRawText, String documentId, ArrayList<String> pathList) throws UIMAException {
+	protected static void processDocumentPathList(String sOutputPath, String sVocabularyPath, String sRawPath, String documentId, ArrayList<String> pathList) throws UIMAException {
 		AnalysisEngineDescription documentParser = createEngineDescription(DocumentParser.class,
 				DocumentParser.INPUT_PATHS, pathList.toArray(new String[0]),
 				DocumentParser.PARAM_MIN_TOKEN_CONFIDENCE, 75,
@@ -45,7 +46,7 @@ abstract public class DocumentHelper {
 			e.printStackTrace();
 		}
 		
-		if (bWriteRawText) {
+		if (!sRawPath.isEmpty()) {
 			try (PrintWriter printWriter = new PrintWriter(new OutputStreamWriter(Files.newOutputStream(Paths.get(sOutputPath, documentId + ".txt")), StandardCharsets.UTF_8))) {
 				printWriter.print(getValidText(jCas));
 //							System.out.printf(", %s.txt", documentId);

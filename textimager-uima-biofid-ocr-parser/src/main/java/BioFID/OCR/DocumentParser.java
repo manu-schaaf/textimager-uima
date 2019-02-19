@@ -96,6 +96,9 @@ public class DocumentParser extends SegmenterBase {
 					aJCas.addFsToIndexes(line.wrap(aJCas, lastOffset));
 				}
 				for (Token token : exportHandler.tokens) {
+					if (token.isSpace())
+						continue;
+					
 					OCRToken ocrToken = token.wrap(aJCas, lastOffset);
 					aJCas.addFsToIndexes(ocrToken);
 					
@@ -103,8 +106,6 @@ public class DocumentParser extends SegmenterBase {
 						aJCas.addFsToIndexes(subtoken);
 					}
 					
-					if (token.isSpace())
-						continue;
 					boolean inDict = inDict(token.getTokenString(), dict);
 					if (!inDict && (token.getAverageCharConfidence() < pMinTokenConfidence || !(token.isWordNormal || token.isWordFromDictionary || token.isWordNumeric))) {
 						Anomaly anomaly = new Anomaly(aJCas, token.start, token.end);
