@@ -22,6 +22,7 @@ import java.io.*;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
 import java.util.stream.IntStream;
 
@@ -196,6 +197,10 @@ public class TextAnnotatorFetch extends AbstractRunner {
 					
 					remotePool.shutdown();
 				} catch (UIMAException e) {
+					e.printStackTrace();
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				} catch (ExecutionException e) {
 					e.printStackTrace();
 				}
 			} else {

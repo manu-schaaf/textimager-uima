@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -112,6 +113,10 @@ public class DocumentFromFileHierarchy extends DocumentHelper {
 		} catch (MissingArgumentException e) {
 			System.err.println(e.getMessage());
 			printUsage();
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		} catch (ExecutionException e) {
+			e.printStackTrace();
 		}
 	}
 	
