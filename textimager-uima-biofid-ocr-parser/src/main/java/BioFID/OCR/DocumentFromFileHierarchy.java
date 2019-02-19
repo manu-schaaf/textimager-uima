@@ -24,6 +24,7 @@ public class DocumentFromFileHierarchy extends DocumentHelper {
 	private static String sOutputPath;
 	private static String sVocabularyPath;
 	private static String sRawOutput;
+	private static int bias = 1;
 	
 	public static void main(String[] args) {
 		try {
@@ -56,11 +57,16 @@ public class DocumentFromFileHierarchy extends DocumentHelper {
 				sRawOutput = params.get(index + 1);
 			}
 			
+			index = params.indexOf("--bias");
+			if (index > -1) {
+				bias = Integer.parseInt(params.get(index + 1));
+			}
+			
 			System.out.printf("Running DocumentFromFileHierarchy with options: %s\n", Arrays.toString(args));
 			
 			Stream<File> fileStream = Streams.stream(Files.fileTraverser().depthFirstPreOrder(new File(sFileRootPath)));
 			
-			Map<File, Integer> dirDepthMap = fileStream.filter(File::isDirectory).collect(Collectors.toMap(Function.identity(), file -> file.toPath().relativize(Paths.get(sFileRootPath)).getNameCount() - 1));
+			Map<File, Integer> dirDepthMap = fileStream.filter(File::isDirectory).collect(Collectors.toMap(Function.identity(), file -> file.toPath().relativize(Paths.get(sFileRootPath)).getNameCount() - bias));
 			
 			// Tiefe: Band = 1, Heft? = 2, Artikel = 3
 			ImmutableList<File> documentParentDirs = ImmutableList.copyOf(dirDepthMap.entrySet().stream().filter(e -> e.getKey().isDirectory()).filter(e -> e.getValue() == 2).map(Map.Entry::getKey).collect(Collectors.toList()));
