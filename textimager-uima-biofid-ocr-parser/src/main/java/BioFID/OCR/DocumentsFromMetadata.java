@@ -2,7 +2,6 @@ package BioFID.OCR;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import org.apache.commons.lang3.BooleanUtils;
 import org.apache.uima.UIMAException;
 
 import java.io.BufferedReader;
@@ -16,10 +15,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 
-public class DocumentFromMetadata extends DocumentHelper {
+public class DocumentsFromMetadata extends AbstractDocumentParser {
 	
 	public static void main(String[] args) {
-		System.out.printf("Running DocumentFromMetadata with options: %s\n", Arrays.toString(args));
+		System.out.printf("Running DocumentsFromMetadata with options: %s\n", Arrays.toString(args));
 		String sMetadataPath = args[0];
 		String sFileAtlasPath = args[1];
 		String sOutputPath = args[2];

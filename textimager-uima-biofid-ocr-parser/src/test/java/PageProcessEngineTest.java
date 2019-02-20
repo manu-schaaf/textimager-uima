@@ -1,4 +1,4 @@
-import BioFID.OCR.PageParser;
+import BioFID.OCR.PageProcessEngine;
 import de.tudarmstadt.ukp.dkpro.core.api.anomaly.type.Anomaly;
 import de.tudarmstadt.ukp.dkpro.core.api.anomaly.type.SpellingAnomaly;
 import de.tudarmstadt.ukp.dkpro.core.api.ner.type.NamedEntity;
@@ -18,7 +18,7 @@ import java.util.stream.Collectors;
 import static org.apache.uima.fit.factory.AnalysisEngineFactory.createEngineDescription;
 import static org.apache.uima.fit.util.JCasUtil.*;
 
-public class PageParserTest
+public class PageProcessEngineTest
 {
 	
 	final boolean printAnnotations = true;
@@ -82,11 +82,11 @@ public class PageParserTest
 	
 	private void testTokenization(String xml) throws UIMAException {
 		// Create a new Engine Description.
-		AnalysisEngineDescription pageParser = createEngineDescription(PageParser.class,
-				PageParser.INPUT_XML, xml,
-				PageParser.PARAM_USE_LANGUAGE_TOOL, true,
-				PageParser.PARAM_MIN_TOKEN_CONFIDENCE, 90,
-				PageParser.PARAM_DICT_PATH, "src/test/resources/Leipzig40MT2010_lowered.5.vocab");
+		AnalysisEngineDescription pageParser = createEngineDescription(PageProcessEngine.class,
+				PageProcessEngine.INPUT_XML, xml,
+				PageProcessEngine.PARAM_USE_LANGUAGE_TOOL, true,
+				PageProcessEngine.PARAM_MIN_TOKEN_CONFIDENCE, 90,
+				PageProcessEngine.PARAM_DICT_PATH, "src/test/resources/Leipzig40MT2010_lowered.5.vocab");
 		
 		// Create a new JCas - "Holder"-Class for Annotation.
 		JCas inputCas = JCasFactory.createJCas();

@@ -27,7 +27,7 @@ import java.util.List;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-public class PageParser extends SegmenterBase
+public class PageProcessEngine extends SegmenterBase
 {
 	
 	public static final String INPUT_XML = "pInputPaths";
@@ -61,34 +61,34 @@ public class PageParser extends SegmenterBase
 
 			SAXParserFactory saxParserFactory = SAXParserFactory.newInstance();
 			SAXParser saxParser = saxParserFactory.newSAXParser();
-			ExportHandler exportHandler = new ExportHandler();
-			exportHandler.charLeftMax = pCharLeftMax;
-			exportHandler.blockTopMin = pBlockTopMin;
+			FineReaderExportHandler fineReaderExportHandler = new FineReaderExportHandler();
+			fineReaderExportHandler.charLeftMax = pCharLeftMax;
+			fineReaderExportHandler.blockTopMin = pBlockTopMin;
 			InputStream inputStream = IOUtils.toInputStream(pInputXML, Charsets.UTF_8);
-			saxParser.parse(inputStream, exportHandler);
+			saxParser.parse(inputStream, fineReaderExportHandler);
 			
-			String text = exportHandler.tokens.stream().map(Token::getTokenString).collect(Collectors.joining(""));
+			String text = fineReaderExportHandler.tokens.stream().map(Token::getTokenString).collect(Collectors.joining(""));
 			aJCas.setDocumentText(text);
 			
-			for (Block OCRBlock : exportHandler.blocks) {
+			for (Block OCRBlock : fineReaderExportHandler.blocks) {
 				Chunk chunk = new Chunk(aJCas, OCRBlock.start, OCRBlock.end);
 				chunk.setChunkValue(OCRBlock.valid ? "true" : "false");
 				aJCas.addFsToIndexes(chunk);
 			}
 			
-			for (Paragraph par : exportHandler.paragraphs) {
+			for (Paragraph par : fineReaderExportHandler.paragraphs) {
 				aJCas.addFsToIndexes(new de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Paragraph(aJCas, par.start, par.end));
 			}
 			
-			for (Line OCRLine : exportHandler.lines) {
+			for (Line OCRLine : fineReaderExportHandler.lines) {
 				aJCas.addFsToIndexes(new Sentence(aJCas, OCRLine.start, OCRLine.end));
 			}
 			
-			for (Token OCRToken : exportHandler.tokens) {
+			for (Token OCRToken : fineReaderExportHandler.tokens) {
 				aJCas.addFsToIndexes(new de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token(aJCas, OCRToken.start, OCRToken.end));
 			}
 			
-			for (Token OCRToken : exportHandler.tokens) {
+			for (Token OCRToken : fineReaderExportHandler.tokens) {
 				if (OCRToken.isSpace())
 					continue;
 				boolean inDict = inDict(OCRToken.getTokenString());

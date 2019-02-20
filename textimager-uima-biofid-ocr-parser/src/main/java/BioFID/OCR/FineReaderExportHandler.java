@@ -9,7 +9,7 @@ import java.util.ArrayList;
 
 import static BioFID.OCR.Annotation.Block.blockTypeEnum;
 
-public class ExportHandler extends DefaultHandler {
+public class FineReaderExportHandler extends DefaultHandler {
 	// Pages
 	public ArrayList<Page> pages = new ArrayList<>();
 	private Page currPage = null;
@@ -36,7 +36,7 @@ public class ExportHandler extends DefaultHandler {
 	private boolean character = false;
 	private boolean characterIsAllowed = false;
 	private boolean forceNewToken = false;
-	private boolean lastTokenWasSpace = false;
+	public boolean lastTokenWasSpace = false;
 	private boolean lastTokenWasHyphen = false;
 	private boolean inLine = false;
 

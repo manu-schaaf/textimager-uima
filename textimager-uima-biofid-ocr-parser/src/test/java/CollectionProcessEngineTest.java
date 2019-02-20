@@ -1,4 +1,4 @@
-import BioFID.OCR.DocumentParser;
+import BioFID.OCR.CollectionProcessEngine;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;
 import org.apache.uima.UIMAException;
@@ -30,8 +30,8 @@ import java.util.Map;
 import static org.apache.uima.fit.factory.AnalysisEngineFactory.createEngineDescription;
 import static org.apache.uima.fit.util.JCasUtil.*;
 
-@DisplayName("DocumentParser Test")
-class DocumentParserTest {
+@DisplayName("CollectionProcessEngine Test")
+class CollectionProcessEngineTest {
 	
 	//	static final ImmutableList<String> documentIds = ImmutableList.of("9032259", "9031469", "9031472", "9031473", "9031474", "9031475", "9031476", "9031477", "9032261");
 	static final ImmutableList<String> documentIds = ImmutableList.of("9699895", "9655813", "9655814", "9655815", "9655816", "9655817", "9655818", "9655819", "9655820", "9655821", "9655822", "9655823", "9655824", "9655825", "9655826", "9655827", "9655828", "9655829", "9655830", "9655831", "9655832", "9655833", "9655834", "9655835", "9655836", "9655837", "9655838", "9655839", "9655840", "9655841", "9655842", "9655843", "9655844");
@@ -60,10 +60,10 @@ class DocumentParserTest {
 		
 		System.out.println(pathList);
 		
-		AnalysisEngineDescription documentParser = createEngineDescription(DocumentParser.class,
-				DocumentParser.INPUT_PATHS, pathList.toArray(new String[0]),
-				DocumentParser.PARAM_MIN_TOKEN_CONFIDENCE, 90,
-				DocumentParser.PARAM_DICT_PATH, "src/test/resources/Leipzig40MT2010_lowered.5.vocab");
+		AnalysisEngineDescription documentParser = createEngineDescription(CollectionProcessEngine.class,
+				CollectionProcessEngine.INPUT_PATHS, pathList.toArray(new String[0]),
+				CollectionProcessEngine.PARAM_MIN_TOKEN_CONFIDENCE, 90,
+				CollectionProcessEngine.PARAM_DICT_PATH, "src/test/resources/Leipzig40MT2010_lowered.5.vocab");
 		
 		JCas inputCas = JCasFactory.createJCas();
 		

@@ -1,9 +1,9 @@
 package BioFID.OCR;
 
 import BioFID.OCR.Annotation.*;
-import BioFID.Util;
 import com.google.common.collect.ImmutableList;
 import de.tudarmstadt.ukp.dkpro.core.api.anomaly.type.Anomaly;
+import de.tudarmstadt.ukp.dkpro.core.api.anomaly.type.SuggestedAction;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.SegmenterBase;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Document;
 import org.apache.commons.lang3.NotImplementedException;
@@ -11,6 +11,7 @@ import org.apache.uima.UIMA_UnsupportedOperationException;
 import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
 import org.apache.uima.fit.descriptor.ConfigurationParameter;
 import org.apache.uima.jcas.JCas;
+import org.apache.uima.jcas.cas.FSArray;
 import org.texttechnologylab.annotation.ocr.OCRLine;
 import org.texttechnologylab.annotation.ocr.OCRToken;
 import org.texttechnologylab.annotation.ocr.OCRpage;
@@ -26,32 +27,37 @@ import java.util.HashSet;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-import static BioFID.Util.inDict;
-import static BioFID.Util.loadDict;
+import static BioFID.Util.*;
 
 //import org.languagetool.JLanguageTool;
 
-public class DocumentParser extends SegmenterBase {
+public class CollectionProcessEngine extends SegmenterBase {
 
 	public static final String INPUT_PATHS = "pInputPaths";
-	public static final String PARAM_DICT_PATH = "pDictPath";
-	public static final String PARAM_MIN_TOKEN_CONFIDENCE = "pMinTokenConfidence";
-	public static final String PARAM_USE_LANGUAGE_TOOL = "pUseLanguageTool";
-	public static final String PARAM_CHAR_LEFT_MAX = "pCharLeftMax";
-	public static final String PARAM_BLOCK_TOP_MIN = "pBlockTopMin";
-	public static final String PARAM_MULTI_DOC = "pMultiDocArr";
 	@ConfigurationParameter(name = INPUT_PATHS, mandatory = true)
 	protected String[] pInputPaths;
+	public static final String PARAM_DICT_PATH = "pDictPath";
 	@ConfigurationParameter(name = PARAM_DICT_PATH, mandatory = false)
 	protected String pDictPath;
+	public static final String PARAM_MIN_TOKEN_CONFIDENCE = "pMinTokenConfidence";
 	@ConfigurationParameter(name = PARAM_MIN_TOKEN_CONFIDENCE, mandatory = false, defaultValue = "80")
 	protected Integer pMinTokenConfidence;
+	public static final String PARAM_USE_LANGUAGE_TOOL = "pUseLanguageTool";
 	@ConfigurationParameter(name = PARAM_USE_LANGUAGE_TOOL, mandatory = false, defaultValue = "false")
 	protected Boolean pUseLanguageTool;
+	public static final String PARAM_CHAR_LEFT_MAX = "pCharLeftMax";
 	@ConfigurationParameter(name = PARAM_CHAR_LEFT_MAX, mandatory = false, defaultValue = "99999")
 	protected Integer pCharLeftMax;
+	public static final String PARAM_BLOCK_TOP_MIN = "pBlockTopMin";
 	@ConfigurationParameter(name = PARAM_BLOCK_TOP_MIN, mandatory = false, defaultValue = "300")
 	protected Integer pBlockTopMin;
+	public static final String PARAM_MIN_LINE_LETTER_RATIO = "pMinLineLetterRatio";
+	@ConfigurationParameter(name = PARAM_MIN_LINE_LETTER_RATIO, mandatory = false, defaultValue = "2.5")
+	protected Double pMinLineLetterRatio;
+	public static final String PARAM_MIN_CHARACTERS_PER_TOKEN = "pMinCharactersPerToken";
+	@ConfigurationParameter(name = PARAM_MIN_CHARACTERS_PER_TOKEN, mandatory = false, defaultValue = "3")
+	protected Double pMinCharactersPerToken;
+	public static final String PARAM_MULTI_DOC = "pMultiDocArr";
 	@ConfigurationParameter(name = PARAM_MULTI_DOC, mandatory = false)
 	protected String[] pMultiDocArr;
 
@@ -66,9 +72,12 @@ public class DocumentParser extends SegmenterBase {
 			SAXParserFactory saxParserFactory = SAXParserFactory.newInstance();
 			SAXParser saxParser = saxParserFactory.newSAXParser();
 
-			final HashMap<String, ExportHandler> pages = new HashMap<>(pInputPaths.length);
+			final HashMap<String, FineReaderExportHandler> pages = new HashMap<>(pInputPaths.length);
+			boolean lastTokenWasSpace = false;
 			for (String pagePath : pInputPaths) {
-				pages.put(pagePath, Util.getExportHandler(saxParser, pagePath, pCharLeftMax, pBlockTopMin));
+				FineReaderExportHandler fineReaderExportHandler = getExportHandler(saxParser, pagePath, pCharLeftMax, pBlockTopMin, lastTokenWasSpace);
+				pages.put(pagePath, fineReaderExportHandler);
+				lastTokenWasSpace = fineReaderExportHandler.lastTokenWasSpace;
 			}
 			/// Check if any of the files contains more than one document. FIXME: implement multi page documents
 			if (pages.values().stream().anyMatch(page -> page.pages.size() > 1)) {
@@ -96,26 +105,27 @@ public class DocumentParser extends SegmenterBase {
 
 			for (int i = 0; i < pInputPaths.length; i++) {
 				String inputPath = pInputPaths[i];
-				ExportHandler exportHandler = pages.get(inputPath);
+				FineReaderExportHandler fineReaderExportHandler = pages.get(inputPath);
 				String pageId = Paths.get(inputPath).getFileName().toString();
 
-				Page page = exportHandler.pages.get(0);
+				Page page = fineReaderExportHandler.pages.get(0);
 				page.pageId = pageId;
 				page.pageNumber = i;
 				OCRpage ocrPage = page.wrap(aJCas, lastOffset);
 				aJCas.addFsToIndexes(ocrPage);
 
-				for (Block block : exportHandler.blocks) {
+				for (Block block : fineReaderExportHandler.blocks) {
 					aJCas.addFsToIndexes(block.wrap(aJCas, lastOffset));
 				}
-				for (Paragraph paragraph : exportHandler.paragraphs) {
+				for (Paragraph paragraph : fineReaderExportHandler.paragraphs) {
 					aJCas.addFsToIndexes(paragraph.wrap(aJCas, lastOffset));
 				}
-				for (Line line : exportHandler.lines) {
+				for (Line line : fineReaderExportHandler.lines) {
 					OCRLine ocrLine = line.wrap(aJCas, lastOffset);
 					aJCas.addFsToIndexes(ocrLine);
+					tagGarbageLine(aJCas, ocrLine);
 				}
-				for (Token token : exportHandler.tokens) {
+				for (Token token : fineReaderExportHandler.tokens) {
 					if (token.isSpace())
 						continue;
 
@@ -129,8 +139,14 @@ public class DocumentParser extends SegmenterBase {
 					boolean inDict = inDict(token.getTokenString(), dict);
 					if (!inDict && (token.getAverageCharConfidence() < pMinTokenConfidence || !(token.isWordNormal || token.isWordFromDictionary || token.isWordNumeric))) {
 						Anomaly anomaly = new Anomaly(aJCas, token.start, token.end);
+						anomaly.setCategory("BioFID_Abby_Token_Heuristic");
 						anomaly.setDescription(String.format("AvgTokenConfidence:%f, isWordNormal:%b, isWordFromDictionary:%b, inDict:%b, isWordNumeric:%b, suspiciousChars:%d",
 								token.getAverageCharConfidence(), token.isWordNormal, token.isWordFromDictionary, inDict, token.isWordNumeric, token.suspiciousChars));
+						SuggestedAction suggestedAction = new SuggestedAction(aJCas);
+						suggestedAction.setReplacement(token.getTokenString());
+						FSArray fsArray = new FSArray(aJCas, 1);
+						fsArray.set(0, suggestedAction);
+						anomaly.setSuggestions(fsArray);
 						aJCas.addFsToIndexes(anomaly);
 					}
 //					else if (false && token.containsHyphen() || token.subTokenStrings().size() > 1) { // FIXME
@@ -169,6 +185,31 @@ public class DocumentParser extends SegmenterBase {
 
 		} catch (SAXException | ParserConfigurationException | IOException e) {
 			e.printStackTrace();
+		}
+	}
+
+	private void tagGarbageLine(JCas jCas, OCRLine ocrLine) {
+		boolean b;
+		String coveredText = ocrLine.getCoveredText();
+
+		int letterCount = countMatches(letterPattern.matcher(coveredText));
+		int otherCount = countMatches(otherPattern.matcher(coveredText));
+		double letterRatio = letterCount / (1d * otherCount);
+		b = letterRatio >= pMinLineLetterRatio;
+
+		double charactersPerToken = coveredText.length() / (1d * coveredText.split("\\s+").length);
+		b &= charactersPerToken >= pMinCharactersPerToken;
+
+		if (!b) {
+			Anomaly anomaly = new Anomaly(jCas, ocrLine.getBegin(), ocrLine.getEnd());
+			anomaly.setCategory("BioFID_Garbage_Line_Anomaly");
+			anomaly.setDescription(String.format("letterRatio:%03f, charactersPerToken:%03f", letterRatio, charactersPerToken));
+			SuggestedAction suggestedAction = new SuggestedAction(jCas);
+			suggestedAction.setReplacement("");
+			FSArray fsArray = new FSArray(jCas, 1);
+			fsArray.set(0, suggestedAction);
+			anomaly.setSuggestions(fsArray);
+			jCas.addFsToIndexes(anomaly);
 		}
 	}
 

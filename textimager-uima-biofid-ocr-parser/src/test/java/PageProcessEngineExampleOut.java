@@ -1,4 +1,4 @@
-import BioFID.OCR.PageParser;
+import BioFID.OCR.PageProcessEngine;
 import com.google.common.base.Strings;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
 import de.tudarmstadt.ukp.dkpro.core.api.syntax.type.chunk.Chunk;
@@ -22,7 +22,7 @@ import static org.apache.uima.fit.util.JCasUtil.selectCovered;
 /**
  * Created on 21.01.2019.
  */
-public class PageParserExampleOut {
+public class PageProcessEngineExampleOut {
 	@Test
 	public void runAllTest() {
 		String path = "src/test/out/9088917/9088369";
@@ -68,10 +68,10 @@ public class PageParserExampleOut {
 			xml = br.lines().collect(Collectors.joining("\n"));
 
 			// Create a new Engine Description.
-			AnalysisEngineDescription pageParser = createEngineDescription(PageParser.class,
-					PageParser.INPUT_XML, xml,
-					PageParser.PARAM_MIN_TOKEN_CONFIDENCE, 90,
-					PageParser.PARAM_DICT_PATH, "src/test/resources/Leipzig40MT2010_lowered.5.vocab");
+			AnalysisEngineDescription pageParser = createEngineDescription(PageProcessEngine.class,
+					PageProcessEngine.INPUT_XML, xml,
+					PageProcessEngine.PARAM_MIN_TOKEN_CONFIDENCE, 90,
+					PageProcessEngine.PARAM_DICT_PATH, "src/test/resources/Leipzig40MT2010_lowered.5.vocab");
 
 			// Create a new JCas - "Holder"-Class for Annotation.
 			JCas inputCas = JCasFactory.createJCas();

@@ -53,11 +53,11 @@ public class PageRecursiveRunner {
 			xml = br.lines().collect(Collectors.joining("\n"));
 			
 			// Create a new Engine Description.
-			AnalysisEngineDescription pageParser = createEngineDescription(PageParser.class,
-					PageParser.INPUT_XML, xml,
-					PageParser.PARAM_MIN_TOKEN_CONFIDENCE, 90,
-					PageParser.PARAM_BLOCK_TOP_MIN, 400,
-					PageParser.PARAM_DICT_PATH, "~/Documents/BioFID/textimager-uima/textimager-uima-biofid-ocr-parser/src/test/resources/Leipzig40MT2010_lowered.5.vocab");
+			AnalysisEngineDescription pageParser = createEngineDescription(PageProcessEngine.class,
+					PageProcessEngine.INPUT_XML, xml,
+					PageProcessEngine.PARAM_MIN_TOKEN_CONFIDENCE, 90,
+					PageProcessEngine.PARAM_BLOCK_TOP_MIN, 400,
+					PageProcessEngine.PARAM_DICT_PATH, "~/Documents/BioFID/textimager-uima/textimager-uima-biofid-ocr-parser/src/test/resources/Leipzig40MT2010_lowered.5.vocab");
 			
 			// Create a new JCas - "Holder"-Class for Annotation.
 			JCas inputCas = JCasFactory.createJCas();

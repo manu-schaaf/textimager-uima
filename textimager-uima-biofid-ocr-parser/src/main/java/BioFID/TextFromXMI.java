@@ -1,6 +1,6 @@
 package BioFID;
 
-import BioFID.OCR.DocumentHelper;
+import BioFID.OCR.AbstractDocumentParser;
 import com.google.common.collect.Streams;
 import com.google.common.io.Files;
 import org.apache.uima.UIMAException;
@@ -20,7 +20,7 @@ import static BioFID.Util.writeToFile;
 /**
  * Created on 14.02.2019.
  */
-public class TextFromXMI extends DocumentHelper {
+public class TextFromXMI extends AbstractDocumentParser {
 
 	public static void main(String[] args) {
 		String sInputPath = args[0];

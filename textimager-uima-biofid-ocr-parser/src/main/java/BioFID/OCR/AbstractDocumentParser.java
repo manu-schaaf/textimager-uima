@@ -30,19 +30,19 @@ import java.util.stream.Collectors;
 import static org.apache.uima.fit.factory.AnalysisEngineFactory.createEngineDescription;
 import static org.apache.uima.fit.util.JCasUtil.*;
 
-public abstract class DocumentHelper extends AbstractRunner {
+public abstract class AbstractDocumentParser extends AbstractRunner {
 
 	protected static void processDocumentPathList(String sOutputPath, String sVocabularyPath, String sRawPath, String documentId, ArrayList<String> pathList) throws UIMAException {
 		processDocumentPathList(sOutputPath, sVocabularyPath, sRawPath, documentId, pathList, null);
 	}
 
 	protected static void processDocumentPathList(String sOutputPath, String sVocabularyPath, String sRawPath, String documentId, ArrayList<String> pathList, @Nullable String[] multiDocArray) throws UIMAException {
-		AnalysisEngineDescription documentParser = createEngineDescription(DocumentParser.class,
-				DocumentParser.INPUT_PATHS, pathList.toArray(new String[0]),
-				DocumentParser.PARAM_MIN_TOKEN_CONFIDENCE, 75,
-				DocumentParser.PARAM_BLOCK_TOP_MIN, 0,
-				DocumentParser.PARAM_DICT_PATH, sVocabularyPath,
-				DocumentParser.PARAM_MULTI_DOC, multiDocArray);
+		AnalysisEngineDescription documentParser = createEngineDescription(CollectionProcessEngine.class,
+				CollectionProcessEngine.INPUT_PATHS, pathList.toArray(new String[0]),
+				CollectionProcessEngine.PARAM_MIN_TOKEN_CONFIDENCE, 75,
+				CollectionProcessEngine.PARAM_BLOCK_TOP_MIN, 0,
+				CollectionProcessEngine.PARAM_DICT_PATH, sVocabularyPath,
+				CollectionProcessEngine.PARAM_MULTI_DOC, multiDocArray);
 
 		JCas jCas = JCasFactory.createJCas();
 

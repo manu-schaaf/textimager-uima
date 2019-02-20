@@ -11,13 +11,11 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ForkJoinPool;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class DocumentFromFileHierarchy extends DocumentHelper {
+public class CollectionsFromFileHierarchy extends AbstractDocumentParser {
 
 	private static String sFileRootPath;
 	private static String sOutputPath;
@@ -70,31 +68,46 @@ public class DocumentFromFileHierarchy extends DocumentHelper {
 
 			sortAlNum = params.indexOf("--sortAlNum") > -1;
 
-			System.out.printf("Running DocumentFromFileHierarchy with options: %s\n", Arrays.toString(args));
+			System.out.printf("Running CollectionsFromFileHierarchy with options: %s\n", Arrays.toString(args));
 
 			Stream<File> fileStream = Streams.stream(Files.fileTraverser().depthFirstPreOrder(new File(sFileRootPath)));
-			final Map<File, Integer> dirDepthMap = fileStream.filter(File::isDirectory).collect(Collectors.toMap(Function.identity(), file -> file.toPath().relativize(Paths.get(sFileRootPath)).getNameCount()));
+			final Map<File, Integer> dirDepthMap = fileStream.filter(File::isDirectory)
+					.collect(Collectors.toMap(Function.identity(), file -> file.toPath().relativize(Paths.get(sFileRootPath)).getNameCount()));
+
 			dirDepthMap.remove(new File(sFileRootPath));
 
 			// Tiefe: Band = 1, Heft? = 2, Artikel = 3
-			ImmutableList<File> documentParentDirs = ImmutableList.copyOf(dirDepthMap.entrySet().stream().filter(e -> e.getKey().isDirectory()).filter(e -> e.getValue() == depth).map(Map.Entry::getKey).collect(Collectors.toList()));
+			ImmutableList<File> documentParentDirs = ImmutableList.copyOf(dirDepthMap.entrySet().stream()
+					.filter(e -> e.getKey().isDirectory())
+					.filter(e -> e.getValue() == depth)
+					.map(Map.Entry::getKey)
+					.collect(Collectors.toList()));
 
 			final int[] count = {0};
-			System.out.printf("Starting parsing %d documents..\n", documentParentDirs.size());
+			long documentCount = dirDepthMap.entrySet().stream()
+					.filter(e -> e.getKey().isDirectory())
+					.filter(e -> e.getValue() == documentDepth)
+					.count();
+			System.out.printf("Starting parsing %d collections with %d documents..\n", documentParentDirs.size(), documentCount);
 
-			ForkJoinPool forkJoinPool = new ForkJoinPool(64);
-
-			forkJoinPool.submit(() -> documentParentDirs.parallelStream().forEach(documentParentDir -> {
+			documentParentDirs.parallelStream().forEach(documentParentDir -> {
 				ArrayList<File> files;
 				if (sortAlNum) {
-					files = Streams.stream(Files.fileTraverser().depthFirstPreOrder(documentParentDir)).sequential().filter(File::isFile).sorted().collect(Collectors.toCollection(ArrayList::new));
+					files = Streams.stream(Files.fileTraverser().depthFirstPreOrder(documentParentDir))
+							.sequential()
+							.filter(File::isFile)
+							.sorted()
+							.collect(Collectors.toCollection(ArrayList::new));
 				} else {
-					files = Streams.stream(Files.fileTraverser().depthFirstPreOrder(documentParentDir)).sequential().filter(File::isFile).collect(Collectors.toCollection(ArrayList::new));
+					files = Streams.stream(Files.fileTraverser().depthFirstPreOrder(documentParentDir))
+							.sequential()
+							.filter(File::isFile)
+							.collect(Collectors.toCollection(ArrayList::new));
 				}
 				if (files.size() == 0) return;
 
 				String documentId = documentParentDir.getName();
-				System.out.printf("\r%d/%d Parsing document with id %s..", ++count[0], documentParentDirs.size(), documentId);
+				System.out.printf("\r%d/%d Parsing collection with id %s..", ++count[0], documentParentDirs.size(), documentId);
 
 				try {
 					ArrayList<String> pathList = files.stream().sequential().map(File::getAbsolutePath).collect(Collectors.toCollection(ArrayList::new));
@@ -102,7 +115,7 @@ public class DocumentFromFileHierarchy extends DocumentHelper {
 
 					processDocumentPathList(sOutputPath, sVocabularyPath, sRawOutput, documentId, pathList, documentPaths);
 				} catch (UIMAException e) {
-					System.err.printf("Caught UIMAException while parsing document %s!\n" +
+					System.err.printf("Caught UIMAException while parsing collection %s!\n" +
 									"%s\n" +
 									"\t%s\n" +
 									"Caused by: %s\n" +
@@ -114,28 +127,25 @@ public class DocumentFromFileHierarchy extends DocumentHelper {
 							e.getCause().getStackTrace()[0].toString()
 					);
 				}
-			})).get();
+			});
 
 			System.out.println("\nFinished parsing.");
 		} catch (MissingArgumentException e) {
 			System.err.println(e.getMessage());
 			printUsage();
-		} catch (InterruptedException e) {
-			e.printStackTrace();
-		} catch (ExecutionException e) {
-			e.printStackTrace();
 		}
 	}
 
 
 	private static void printUsage() {
-		System.out.println("Process XML Abby FineReader exports from entire collections by traversing a file hierarchy. The root path should be the top folder of a collection (Band).\n" +
-				"Usage: java -cp $classpaths DocumentFromFileHierarchy [args]\n" +
+		System.out.println("Process XML Abby FineReader exports from entire collections by traversing a file hierarchy. The root path should be the top folder of a collection (Band/Zeitschrift).\n" +
+				"Usage: java -cp $classpaths CollectionsFromFileHierarchy [args]\n" +
 				"Arguments:\n" +
 				"\t--input, -i\tInput root path.\n" +
 				"\t--output, -o\tXMI Output path.\n" +
 				"\t--vocab, -v\tVocabulary path.\n" +
-				"\t--depth, -d\tThe target document root depth.\n" +
+				"\t--depth, -d\tThe target collection root depth.\n" +
+				"\t--document-depth\tThe depth at which individual documents are separated.\n" +
 				"\t--raw, -v\tOptional, raw output path.\n" +
 				"\t--sortAlNum\tOptional, if true re-sort document level files alpha-numerically. Otherwise, the files will be in depth-first pre-order sequence.");
 	}
