@@ -23,7 +23,7 @@ public class FromFile {
 					ConllBIO2003Writer.class,
 					ConllBIO2003Writer.PARAM_TARGET_LOCATION, "/home/s3676959/Documents/BioFID/data/NER/annotated_conll/",
 					ConllBIO2003Writer.PARAM_OVERWRITE, true,
-					ConllBIO2003Writer.PARAM_CONLL_STRATEGY, 1,
+					ConllBIO2003Writer.PARAM_STRATEGY_INDEX, 1,
 					ConllBIO2003Writer.PARAM_FILTER_FINGERPRINTED, true,
 					ConllBIO2003Writer.PARAM_EXPORT_RAW, true,
 					ConllBIO2003Writer.PARAM_EXPORT_RAW_ONLY, false,

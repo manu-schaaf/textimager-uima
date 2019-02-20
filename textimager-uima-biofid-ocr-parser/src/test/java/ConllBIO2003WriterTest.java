@@ -97,7 +97,7 @@ public class ConllBIO2003WriterTest {
 					ConllBIO2003Writer.class,
 					ConllBIO2003Writer.PARAM_TARGET_LOCATION, "src/test/out/",
 					ConllBIO2003Writer.PARAM_OVERWRITE, true,
-					ConllBIO2003Writer.PARAM_CONLL_STRATEGY, 1,
+					ConllBIO2003Writer.PARAM_STRATEGY_INDEX, 1,
 					ConllBIO2003Writer.PARAM_FILTER_FINGERPRINTED, true);
 			
 			CasIOUtil.readXmi(jCas, new File("src/test/resources/de_9032686_1925_Marx, Arno.xmi"));
@@ -152,7 +152,7 @@ public class ConllBIO2003WriterTest {
 					ConllBIO2003Writer.PARAM_TARGET_LOCATION, "src/test/out/",
 					ConllBIO2003Writer.PARAM_OVERWRITE, true,
 					ConllBIO2003Writer.PARAM_NAMED_ENTITY_COLUMNS, 3,
-					ConllBIO2003Writer.PARAM_CONLL_STRATEGY, 1);
+					ConllBIO2003Writer.PARAM_STRATEGY_INDEX, 1);
 			
 			conllEngine.process(jCas);
 		} catch (UIMAException e) {
