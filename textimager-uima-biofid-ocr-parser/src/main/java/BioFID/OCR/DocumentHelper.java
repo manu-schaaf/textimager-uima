@@ -1,6 +1,9 @@
 package BioFID.OCR;
 
 import BioFID.AbstractRunner;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import de.tudarmstadt.ukp.dkpro.core.api.anomaly.type.Anomaly;
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import org.apache.uima.UIMAException;
 import org.apache.uima.analysis_engine.AnalysisEngineDescription;
@@ -8,8 +11,11 @@ import org.apache.uima.cas.impl.XmiCasSerializer;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.pipeline.SimplePipeline;
 import org.apache.uima.jcas.JCas;
+import org.texttechnologylab.annotation.ocr.OCRBlock;
+import org.texttechnologylab.annotation.ocr.OCRToken;
 import org.xml.sax.SAXException;
 
+import javax.annotation.Nullable;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
@@ -18,26 +24,33 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.stream.Collectors;
 
-import static BioFID.Util.getValidText;
 import static org.apache.uima.fit.factory.AnalysisEngineFactory.createEngineDescription;
+import static org.apache.uima.fit.util.JCasUtil.*;
 
-abstract class DocumentHelper extends AbstractRunner {
-	
+public abstract class DocumentHelper extends AbstractRunner {
+
 	protected static void processDocumentPathList(String sOutputPath, String sVocabularyPath, String sRawPath, String documentId, ArrayList<String> pathList) throws UIMAException {
+		processDocumentPathList(sOutputPath, sVocabularyPath, sRawPath, documentId, pathList, null);
+	}
+
+	protected static void processDocumentPathList(String sOutputPath, String sVocabularyPath, String sRawPath, String documentId, ArrayList<String> pathList, @Nullable String[] multiDocArray) throws UIMAException {
 		AnalysisEngineDescription documentParser = createEngineDescription(DocumentParser.class,
 				DocumentParser.INPUT_PATHS, pathList.toArray(new String[0]),
 				DocumentParser.PARAM_MIN_TOKEN_CONFIDENCE, 75,
 				DocumentParser.PARAM_BLOCK_TOP_MIN, 0,
-				DocumentParser.PARAM_DICT_PATH, sVocabularyPath);
-		
+				DocumentParser.PARAM_DICT_PATH, sVocabularyPath,
+				DocumentParser.PARAM_MULTI_DOC, multiDocArray);
+
 		JCas jCas = JCasFactory.createJCas();
-		
+
 		DocumentMetaData documentMetaData = DocumentMetaData.create(jCas);
 		documentMetaData.setDocumentId(documentId);
-		
+
 		SimplePipeline.runPipeline(jCas, documentParser);
-		
+
 		try (FileOutputStream fileOutputStream = new FileOutputStream(Paths.get(sOutputPath, documentId + ".xmi").toFile())) {
 			XmiCasSerializer.serialize(jCas.getCas(), fileOutputStream);
 //						System.out.printf("\r%d/%d Wrote document %s.xmi", count, metadata.size(), documentId);
@@ -45,7 +58,7 @@ abstract class DocumentHelper extends AbstractRunner {
 			System.err.printf("Failed serialization of XMI for document %s!\n", documentId);
 			e.printStackTrace();
 		}
-		
+
 		if (!sRawPath.isEmpty()) {
 			try (PrintWriter printWriter = new PrintWriter(new OutputStreamWriter(Files.newOutputStream(Paths.get(sOutputPath, documentId + ".txt")), StandardCharsets.UTF_8))) {
 				printWriter.print(getValidText(jCas));
@@ -55,5 +68,43 @@ abstract class DocumentHelper extends AbstractRunner {
 			}
 		}
 	}
-	
+
+
+	public static String getValidText(JCas jCas) {
+		ImmutableMap<OCRBlock, Collection<OCRToken>> blockCovered = ImmutableMap.copyOf(indexCovered(jCas, OCRBlock.class, OCRToken.class));
+
+		ImmutableSet<OCRToken> tokenCovering = ImmutableSet.copyOf(indexCovering(jCas, OCRToken.class, OCRToken.class).keySet());
+		ImmutableSet<OCRToken> anomalies = ImmutableSet.copyOf(indexCovered(jCas, Anomaly.class, OCRToken.class).values().stream().flatMap(Collection::stream).collect(Collectors.toSet()));
+
+		StringBuilder retStringBuilder = new StringBuilder();
+
+		for (OCRBlock ocrBlock : select(jCas, OCRBlock.class)) {
+			if (ocrBlock.getValid()) {
+				if (!blockCovered.containsKey(ocrBlock) || blockCovered.get(ocrBlock) == null || blockCovered.get(ocrBlock).isEmpty())
+					continue;
+				for (OCRToken ocrToken : blockCovered.get(ocrBlock)) {
+					if (tokenCovering.contains(ocrToken)) continue;
+//					if (!ocrToken.getCoveredText().equals(" ") && (anomalies.contains(ocrToken) || tokenCovering.contains(ocrToken))) continue;
+					retStringBuilder.append(ocrToken.getCoveredText()).append(" ");
+				}
+			}
+		}
+
+//		StringBuilder debugStringBuilder = new StringBuilder();
+//		for (OCRBlock ocrBlock : select(jCas, OCRBlock.class)) {
+//			debugStringBuilder.append(String.format("<OCRBlock valid:%b, type:%s, top:%d, bottom:%d>\n", ocrBlock.getValid(), ocrBlock.getBlockType(), ocrBlock.getTop(), ocrBlock.getBottom()));
+//			if (!blockCovered.containsKey(ocrBlock) || blockCovered.get(ocrBlock) == null || blockCovered.get(ocrBlock).isEmpty())
+//				continue;
+//			for (OCRToken ocrToken : blockCovered.get(ocrBlock)) {
+//				if (tokenCovering.contains(ocrToken)) continue;
+////					if (!ocrToken.getCoveredText().equals(" ") && (anomalies.contains(ocrToken) || tokenCovering.contains(ocrToken))) continue;
+//				debugStringBuilder.append(ocrToken.getCoveredText());
+//			}
+//			debugStringBuilder.append("\n</OCRBlock>\n");
+//		}
+//		System.out.println(debugStringBuilder.toString());
+
+		return retStringBuilder.toString();
+	}
+
 }

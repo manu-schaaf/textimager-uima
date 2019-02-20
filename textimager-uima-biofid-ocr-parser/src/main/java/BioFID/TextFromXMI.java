@@ -1,5 +1,6 @@
 package BioFID;
 
+import BioFID.OCR.DocumentHelper;
 import com.google.common.collect.Streams;
 import com.google.common.io.Files;
 import org.apache.uima.UIMAException;
@@ -14,19 +15,18 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
 import java.util.stream.Stream;
 
-import static BioFID.Util.getValidText;
 import static BioFID.Util.writeToFile;
 
 /**
  * Created on 14.02.2019.
  */
-public class TextFromXMI {
-	
+public class TextFromXMI extends DocumentHelper {
+
 	public static void main(String[] args) {
 		String sInputPath = args[0];
 		String sOutputPath = args[1];
-		
-		
+
+
 		Stream<File> fileStream = Streams.stream(Files.fileTraverser().breadthFirst(Paths.get(sInputPath).toFile())).filter(File::isFile);
 		final long size = fileStream.count();
 		int[] count = {0};
@@ -41,9 +41,9 @@ public class TextFromXMI {
 							CasIOUtil.readXmi(jCas, file);
 							if (jCas.getDocumentText().isEmpty())
 								return;
-							
+
 							String content = getValidText(jCas);
-							
+
 							String outFileName = file.getName().replaceAll("\\.xm[il]", ".txt");
 							System.out.printf("\r%d/%d Writing %s (running threads: %d, pool size: %d)",
 									count[0]++, size, outFileName, forkJoinPool.getRunningThreadCount(), forkJoinPool.getPoolSize());
@@ -56,5 +56,5 @@ public class TextFromXMI {
 			e.printStackTrace();
 		}
 	}
-	
+
 }

@@ -13,25 +13,25 @@ public class ExportHandler extends DefaultHandler {
 	// Pages
 	public ArrayList<Page> pages = new ArrayList<>();
 	private Page currPage = null;
-	
+
 	// Block
 	public ArrayList<Block> blocks = new ArrayList<>();
 	private Block currBlock = null;
-	
+
 	// Paragraphs
 	public ArrayList<Paragraph> paragraphs = new ArrayList<>();
 	private Paragraph currParagraph = null;
-	
+
 	// Lines
 	public ArrayList<Line> lines = new ArrayList<>();
 	private Line currLine = null;
-	
+
 	// Token
 	public ArrayList<Token> tokens = new ArrayList<>();
 	private Token currToken = null;
 	public int blockTopMin = 0;
 	public int charLeftMax = Integer.MAX_VALUE;
-	
+
 	// Switches
 	private boolean character = false;
 	private boolean characterIsAllowed = false;
@@ -39,18 +39,18 @@ public class ExportHandler extends DefaultHandler {
 	private boolean lastTokenWasSpace = false;
 	private boolean lastTokenWasHyphen = false;
 	private boolean inLine = false;
-	
+
 	// Formatting
 //	private String currLang = null;
 //	private String currFont = null;
 //	private String currFontSize = null;
-	
+
 	private Attributes currCharAttributes = null;
-	
+
 	// Statistics
 	private int totalChars = 0;
-	
-	
+
+
 	@Override
 	public void startElement(String uri, String localName, String qName, Attributes attributes) throws SAXException {
 		switch (qName) {
@@ -64,9 +64,9 @@ public class ExportHandler extends DefaultHandler {
 				currBlock.start = totalChars;
 				currBlock.valid = blockObeysRules(currBlock);
 				blocks.add(currBlock);
-				
+
 				inLine = false;
-				
+
 				character = false;
 				break;
 			}
@@ -81,7 +81,7 @@ public class ExportHandler extends DefaultHandler {
 				currLine = new Line(attributes);
 				currLine.start = totalChars;
 				lines.add(currLine);
-				
+
 				inLine = true;
 				break;
 			case "formatting":
@@ -98,20 +98,20 @@ public class ExportHandler extends DefaultHandler {
 				break;
 			case "charParams":
 				String wordStart = attributes.getValue("wordStart");
-				
+
 				if (currToken == null || (((wordStart != null && wordStart.equals("true")) || forceNewToken) && !lastTokenWasHyphen)) {
 					createToken();
 				}
-				
+
 				currCharAttributes = attributes; // TODO: use char obj
 				character = true; // TODO: use char obj
-				
+
 				Char ocrChar = new Char(attributes);
 				characterIsAllowed = charObeysRules(ocrChar);
 				break;
 		}
 	}
-	
+
 	@Override
 	public void endElement(String uri, String localName, String qName) throws SAXException {
 		switch (qName) {
@@ -139,12 +139,12 @@ public class ExportHandler extends DefaultHandler {
 		}
 		character = false;
 	}
-	
+
 	private void setEnd(Annotation Annotation) {
 		if (Annotation != null)
 			Annotation.end = totalChars;
 	}
-	
+
 	@Override
 	public void characters(char[] ch, int start, int length) throws SAXException {
 		if (character && characterIsAllowed) {
@@ -160,7 +160,7 @@ public class ExportHandler extends DefaultHandler {
 					currToken.addSubToken();
 				}
 				lastTokenWasSpace = false;
-				
+
 				/// The hyphen character ¬ does not contribute to the total character count
 				if (curr_char.equals("¬")) {
 					lastTokenWasHyphen = true;
@@ -168,31 +168,31 @@ public class ExportHandler extends DefaultHandler {
 					lastTokenWasHyphen = false;
 					currToken.addChar(curr_char); // FIXME: random bug.
 					currToken.addCharAttributes(currCharAttributes);
-					totalChars++;
+					totalChars += length;
 				}
 			}
 			character = false;
 		}
 	}
-	
+
 	private void addSpace() {
 		/// Do not add spaces if the preceding token is a space, the ¬ hyphenation character or there has not been any token
 		if (lastTokenWasSpace || lastTokenWasHyphen || currToken == null)
 			return;
-		
+
 		/// If the current token already contains characters, create a new token for the space
 		if (currToken.length() > 0) {
 			forceNewToken = true;
 			createToken();
 		}
-		
+
 		/// Add the space character and increase token count
 		currToken.addChar(" ");
 		totalChars++;
 		forceNewToken = true;
 		lastTokenWasSpace = true;
 	}
-	
+
 	/**
 	 *
 	 */
@@ -206,15 +206,15 @@ public class ExportHandler extends DefaultHandler {
 			currToken.addSubToken();
 		}
 	}
-	
+
 	private void createNewToken() {
 		currToken = new Token();
 		currToken.start = totalChars;
 		tokens.add(currToken);
-		
+
 		forceNewToken = false;
 	}
-	
+
 	/**
 	 * Check if the current Block obeys the rules given for this type of article.
 	 * TODO: dynamic rules from file
@@ -225,7 +225,7 @@ public class ExportHandler extends DefaultHandler {
 	private boolean blockObeysRules(Block OCRBlock) {
 		return OCRBlock != null && OCRBlock.blockType == blockTypeEnum.Text && OCRBlock.top >= blockTopMin;
 	}
-	
+
 	private boolean charObeysRules(Char ocrChar) {
 		return ocrChar != null && ocrChar.left <= charLeftMax;
 	}

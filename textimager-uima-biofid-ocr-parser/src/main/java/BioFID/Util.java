@@ -101,42 +101,4 @@ abstract public class Util {
 			e.printStackTrace();
 		}
 	}
-	
-	
-	public static String getValidText(JCas jCas) {
-		ImmutableMap<OCRBlock, Collection<OCRToken>> blockCovered = ImmutableMap.copyOf(indexCovered(jCas, OCRBlock.class, OCRToken.class));
-		
-		ImmutableSet<OCRToken> tokenCovering = ImmutableSet.copyOf(indexCovering(jCas, OCRToken.class, OCRToken.class).keySet());
-		ImmutableSet<OCRToken> anomalies = ImmutableSet.copyOf(indexCovered(jCas, Anomaly.class, OCRToken.class).values().stream().flatMap(Collection::stream).collect(Collectors.toSet()));
-		
-		StringBuilder retStringBuilder = new StringBuilder();
-		
-		for (OCRBlock ocrBlock : select(jCas, OCRBlock.class)) {
-			if (ocrBlock.getValid()) {
-				if (!blockCovered.containsKey(ocrBlock) || blockCovered.get(ocrBlock) == null || blockCovered.get(ocrBlock).isEmpty())
-					continue;
-				for (OCRToken ocrToken : blockCovered.get(ocrBlock)) {
-					if (tokenCovering.contains(ocrToken)) continue;
-//					if (!ocrToken.getCoveredText().equals(" ") && (anomalies.contains(ocrToken) || tokenCovering.contains(ocrToken))) continue;
-					retStringBuilder.append(ocrToken.getCoveredText());
-				}
-			}
-		}
-
-//		StringBuilder debugStringBuilder = new StringBuilder();
-//		for (OCRBlock ocrBlock : select(jCas, OCRBlock.class)) {
-//			debugStringBuilder.append(String.format("<OCRBlock valid:%b, type:%s, top:%d, bottom:%d>\n", ocrBlock.getValid(), ocrBlock.getBlockType(), ocrBlock.getTop(), ocrBlock.getBottom()));
-//			if (!blockCovered.containsKey(ocrBlock) || blockCovered.get(ocrBlock) == null || blockCovered.get(ocrBlock).isEmpty())
-//				continue;
-//			for (OCRToken ocrToken : blockCovered.get(ocrBlock)) {
-//				if (tokenCovering.contains(ocrToken)) continue;
-////					if (!ocrToken.getCoveredText().equals(" ") && (anomalies.contains(ocrToken) || tokenCovering.contains(ocrToken))) continue;
-//				debugStringBuilder.append(ocrToken.getCoveredText());
-//			}
-//			debugStringBuilder.append("\n</OCRBlock>\n");
-//		}
-//		System.out.println(debugStringBuilder.toString());
-		
-		return retStringBuilder.toString();
-	}
 }

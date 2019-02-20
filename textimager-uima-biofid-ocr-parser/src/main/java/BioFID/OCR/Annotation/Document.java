@@ -1,4 +1,4 @@
-package BioFID.OCR;
+package BioFID.OCR.Annotation;
 
 import BioFID.Util;
 import com.google.common.base.Strings;
