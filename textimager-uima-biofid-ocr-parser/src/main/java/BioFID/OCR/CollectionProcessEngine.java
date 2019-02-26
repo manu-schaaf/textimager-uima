@@ -190,12 +190,12 @@ public class CollectionProcessEngine extends SegmenterBase {
 
 	}
 
-	private void tagGarbageLine(JCas jCas, String description, int begin, int end, String bioFID_garbage_line_anomaly, String s) {
+	private void tagGarbageLine(JCas jCas, String description, int begin, int end, String anomalyType, String replacement) {
 		Anomaly anomaly = new Anomaly(jCas, begin, end);
-		anomaly.setCategory(bioFID_garbage_line_anomaly);
+		anomaly.setCategory(anomalyType);
 		anomaly.setDescription(description);
 		SuggestedAction suggestedAction = new SuggestedAction(jCas);
-		suggestedAction.setReplacement(s);
+		suggestedAction.setReplacement(replacement);
 		FSArray fsArray = new FSArray(jCas, 1);
 		fsArray.set(0, suggestedAction);
 		anomaly.setSuggestions(fsArray);
@@ -244,7 +244,7 @@ public class CollectionProcessEngine extends SegmenterBase {
 
 		if (!bool) {
 			String description = String.format("wordCount:%d > 0, spacesByLength:%03f < 1 / 3d, avgTokenLength:%03f >= 3, regularTextRatio:%03f > 2.5", wordCount, spacesByLength, avgTokenLength, regularTextRatio);
-			tagGarbageLine(jCas, description, ocrLine.getBegin(), ocrLine.getEnd(), "BioFID_Garbage_Line_Anomaly", "");
+			tagGarbageLine(jCas, description, ocrLine.getBegin(), ocrLine.getEnd(), "BioFID_Old_Garbage_Line_Anomaly", "");
 		}
 	}
 }
