@@ -7,6 +7,7 @@ import de.tudarmstadt.ukp.dkpro.core.api.anomaly.type.SuggestedAction;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.SegmenterBase;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Document;
 import org.apache.commons.lang3.NotImplementedException;
+import org.apache.commons.text.StringEscapeUtils;
 import org.apache.uima.UIMA_UnsupportedOperationException;
 import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
 import org.apache.uima.fit.descriptor.ConfigurationParameter;
@@ -24,6 +25,7 @@ import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
@@ -49,7 +51,7 @@ public class CollectionProcessEngine extends SegmenterBase {
 	@ConfigurationParameter(name = PARAM_CHAR_LEFT_MAX, mandatory = false, defaultValue = "99999")
 	protected Integer pCharLeftMax;
 	public static final String PARAM_BLOCK_TOP_MIN = "pBlockTopMin";
-	@ConfigurationParameter(name = PARAM_BLOCK_TOP_MIN, mandatory = false, defaultValue = "300")
+	@ConfigurationParameter(name = PARAM_BLOCK_TOP_MIN, mandatory = false, defaultValue = "0")
 	protected Integer pBlockTopMin;
 	public static final String PARAM_MIN_LINE_LETTER_RATIO = "pMinLineLetterRatio";
 	@ConfigurationParameter(name = PARAM_MIN_LINE_LETTER_RATIO, mandatory = false, defaultValue = "2.5")
@@ -65,6 +67,10 @@ public class CollectionProcessEngine extends SegmenterBase {
 	@ConfigurationParameter(name = PARAM_USE_OLD_GARBAGE_DETECTION, mandatory = false, defaultValue = "false")
 	protected Boolean pUseOldGarbageDetection;
 
+	public static final String PARAM_UNESCAPE_HTML = "pUnescapeHTML";
+	@ConfigurationParameter(name = PARAM_UNESCAPE_HTML, mandatory = false, defaultValue = "true")
+	protected Boolean pUnescapeHTML;
+
 
 	private HashSet<String> dict;
 
@@ -73,7 +79,7 @@ public class CollectionProcessEngine extends SegmenterBase {
 
 		try {
 			dict = loadDict(pDictPath);
-//			JLanguageTool langTool = new JLanguageTool(new org.languagetool.language.GermanyGerman()); // FIXME
+//			JLanguageTool langTool = new JLanguageTool(new org.languagetool.language.GermanyGerman()); // FIXME: LanguageTool error
 			SAXParserFactory saxParserFactory = SAXParserFactory.newInstance();
 			SAXParser saxParser = saxParserFactory.newSAXParser();
 
@@ -84,17 +90,26 @@ public class CollectionProcessEngine extends SegmenterBase {
 				pages.put(pagePath, fineReaderExportHandler);
 				lastTokenWasSpace = fineReaderExportHandler.lastTokenWasSpace;
 			}
-			/// Check if any of the files contains more than one document. FIXME: implement multi page documents
+			// Check if any of the files contains more than one document. TODO: implement multi page documents
 			if (pages.values().stream().anyMatch(page -> page.pages.size() > 1)) {
-				throw new UIMA_UnsupportedOperationException(new NotImplementedException("Input documents may not contain more than one page."));
+				String invalidPages = pages.entrySet().stream().filter(entry -> entry.getValue().pages.size() > 1).map(Map.Entry::getKey).collect(Collectors.joining("; "));
+				throw new UIMA_UnsupportedOperationException(new NotImplementedException("Input documents may not contain more than one page.\nDocuments in question: " + invalidPages));
 			}
 
-			final StringBuilder text = new StringBuilder();
+			// build collection SOFA string from individual pages
+			final StringBuilder textBuilder = new StringBuilder();
 			for (String pagePath : pInputPaths) {
-				text.append(pages.get(pagePath).tokens.stream().map(Token::getTokenString).collect(Collectors.joining("")));
+				textBuilder.append(pages.get(pagePath).tokens.stream().map(Token::getTokenString).collect(Collectors.joining("")));
+			}
+			String text = textBuilder.toString();
+
+			// Remove HTML escapes
+			if (pUnescapeHTML) {
+				text = StringEscapeUtils.unescapeHtml4(text);
 			}
 
-			aJCas.setDocumentText(text.toString());
+			// Set SOFA string
+			aJCas.setDocumentText(text);
 
 			int lastOffset = 0;
 			int lastDocumentOffset = 0;
@@ -176,6 +191,7 @@ public class CollectionProcessEngine extends SegmenterBase {
 				aJCas.addFsToIndexes(lastDocument);
 			}
 
+			// FIXME
 			if (pUseLanguageTool) {
 //				languageToolSpellcheck(aJCas, langTool, text);
 			}
