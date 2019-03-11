@@ -10,6 +10,7 @@ import java.io.File;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -75,9 +76,11 @@ public class CollectionsFromFileHierarchy extends AbstractDocumentParser {
 					.collect(Collectors.toMap(Function.identity(), file -> file.toPath().relativize(Paths.get(sFileRootPath)).getNameCount()));
 
 			dirDepthMap.remove(new File(sFileRootPath));
-
-			// Tiefe: Band = 1, Heft? = 2, Artikel = 3
-			ImmutableList<File> documentParentDirs = ImmutableList.copyOf(dirDepthMap.entrySet().stream()
+			
+			// Alternativen:
+			// Sammlung = 1, Band = 2, Heft = 3, Artikel = 4
+			// Sammlung = 1,
+			ImmutableList<File> collectionDirs = ImmutableList.copyOf(dirDepthMap.entrySet().stream()
 					.filter(e -> e.getKey().isDirectory())
 					.filter(e -> e.getValue() == depth)
 					.map(Map.Entry::getKey)
@@ -88,15 +91,15 @@ public class CollectionsFromFileHierarchy extends AbstractDocumentParser {
 					.filter(e -> e.getKey().isDirectory())
 					.filter(e -> e.getValue() == documentDepth)
 					.count();
-			System.out.printf("Starting parsing %d collections with %d documents..\n", documentParentDirs.size(), documentCount);
-
-			documentParentDirs.parallelStream().forEach(documentParentDir -> {
+			System.out.printf("Starting parsing %d collections with %d documents..\n", collectionDirs.size(), documentCount);
+			
+			collectionDirs.parallelStream().forEach(documentParentDir -> {
 				ArrayList<File> files;
 				if (sortAlNum) {
 					files = Streams.stream(Files.fileTraverser().depthFirstPreOrder(documentParentDir))
 							.sequential()
 							.filter(File::isFile)
-							.sorted()
+							.sorted(Comparator.comparing(File::getName))
 							.collect(Collectors.toCollection(ArrayList::new));
 				} else {
 					files = Streams.stream(Files.fileTraverser().depthFirstPreOrder(documentParentDir))
@@ -107,7 +110,7 @@ public class CollectionsFromFileHierarchy extends AbstractDocumentParser {
 				if (files.size() == 0) return;
 
 				String documentId = documentParentDir.getName();
-				System.out.printf("\r%d/%d Parsing collection with id %s..", ++count[0], documentParentDirs.size(), documentId);
+				System.out.printf("\r%d/%d Parsing collection with id %s..", ++count[0], collectionDirs.size(), documentId);
 
 				try {
 					ArrayList<String> pathList = files.stream().sequential().map(File::getAbsolutePath).collect(Collectors.toCollection(ArrayList::new));
