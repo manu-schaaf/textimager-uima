@@ -7,6 +7,7 @@ import de.tudarmstadt.ukp.dkpro.core.api.anomaly.type.SuggestedAction;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.SegmenterBase;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Document;
 import org.apache.commons.lang3.NotImplementedException;
+import org.apache.commons.text.StringEscapeUtils;
 import org.apache.uima.UIMA_UnsupportedOperationException;
 import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
 import org.apache.uima.fit.descriptor.ConfigurationParameter;
@@ -24,6 +25,7 @@ import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
@@ -34,7 +36,7 @@ import static BioFID.Util.*;
 public class CollectionProcessEngine extends SegmenterBase {
 
 	public static final String INPUT_PATHS = "pInputPaths";
-	@ConfigurationParameter(name = INPUT_PATHS, mandatory = true)
+	@ConfigurationParameter(name = INPUT_PATHS)
 	protected String[] pInputPaths;
 	public static final String PARAM_DICT_PATH = "pDictPath";
 	@ConfigurationParameter(name = PARAM_DICT_PATH, mandatory = false)
@@ -49,7 +51,7 @@ public class CollectionProcessEngine extends SegmenterBase {
 	@ConfigurationParameter(name = PARAM_CHAR_LEFT_MAX, mandatory = false, defaultValue = "99999")
 	protected Integer pCharLeftMax;
 	public static final String PARAM_BLOCK_TOP_MIN = "pBlockTopMin";
-	@ConfigurationParameter(name = PARAM_BLOCK_TOP_MIN, mandatory = false, defaultValue = "300")
+	@ConfigurationParameter(name = PARAM_BLOCK_TOP_MIN, mandatory = false, defaultValue = "0")
 	protected Integer pBlockTopMin;
 	public static final String PARAM_MIN_LINE_LETTER_RATIO = "pMinLineLetterRatio";
 	@ConfigurationParameter(name = PARAM_MIN_LINE_LETTER_RATIO, mandatory = false, defaultValue = "2.5")
@@ -61,6 +63,15 @@ public class CollectionProcessEngine extends SegmenterBase {
 	@ConfigurationParameter(name = PARAM_MULTI_DOC, mandatory = false)
 	protected String[] pMultiDocArr;
 
+	public static final String PARAM_USE_OLD_GARBAGE_DETECTION = "pUseOldGarbageDetection";
+	@ConfigurationParameter(name = PARAM_USE_OLD_GARBAGE_DETECTION, mandatory = false, defaultValue = "false")
+	protected Boolean pUseOldGarbageDetection;
+
+	public static final String PARAM_UNESCAPE_HTML = "pUnescapeHTML";
+	@ConfigurationParameter(name = PARAM_UNESCAPE_HTML, mandatory = false, defaultValue = "true")
+	protected Boolean pUnescapeHTML;
+
+
 	private HashSet<String> dict;
 
 	@Override
@@ -68,7 +79,7 @@ public class CollectionProcessEngine extends SegmenterBase {
 
 		try {
 			dict = loadDict(pDictPath);
-//			JLanguageTool langTool = new JLanguageTool(new org.languagetool.language.GermanyGerman()); // FIXME
+//			JLanguageTool langTool = new JLanguageTool(new org.languagetool.language.GermanyGerman()); // FIXME: LanguageTool error
 			SAXParserFactory saxParserFactory = SAXParserFactory.newInstance();
 			SAXParser saxParser = saxParserFactory.newSAXParser();
 
@@ -79,17 +90,26 @@ public class CollectionProcessEngine extends SegmenterBase {
 				pages.put(pagePath, fineReaderExportHandler);
 				lastTokenWasSpace = fineReaderExportHandler.lastTokenWasSpace;
 			}
-			/// Check if any of the files contains more than one document. FIXME: implement multi page documents
+			// Check if any of the files contains more than one document. TODO: implement multi page documents
 			if (pages.values().stream().anyMatch(page -> page.pages.size() > 1)) {
-				throw new UIMA_UnsupportedOperationException(new NotImplementedException("Input documents may not contain more than one page."));
+				String invalidPages = pages.entrySet().stream().filter(entry -> entry.getValue().pages.size() > 1).map(Map.Entry::getKey).collect(Collectors.joining("; "));
+				throw new UIMA_UnsupportedOperationException(new NotImplementedException("Input documents may not contain more than one page.\nDocuments in question: " + invalidPages));
 			}
 
-			final StringBuilder text = new StringBuilder();
+			// build collection SOFA string from individual pages
+			final StringBuilder textBuilder = new StringBuilder();
 			for (String pagePath : pInputPaths) {
-				text.append(pages.get(pagePath).tokens.stream().map(Token::getTokenString).collect(Collectors.joining("")));
+				textBuilder.append(pages.get(pagePath).tokens.stream().map(Token::getTokenString).collect(Collectors.joining("")));
+			}
+			String text = textBuilder.toString();
+
+			// Remove HTML escapes
+			if (pUnescapeHTML) {
+				text = StringEscapeUtils.unescapeHtml4(text);
 			}
 
-			aJCas.setDocumentText(text.toString());
+			// Set SOFA string
+			aJCas.setDocumentText(text);
 
 			int lastOffset = 0;
 			int lastDocumentOffset = 0;
@@ -123,7 +143,7 @@ public class CollectionProcessEngine extends SegmenterBase {
 				for (Line line : fineReaderExportHandler.lines) {
 					OCRLine ocrLine = line.wrap(aJCas, lastOffset);
 					aJCas.addFsToIndexes(ocrLine);
-					tagGarbageLine(aJCas, ocrLine);
+					detectGarbageLine(aJCas, ocrLine);
 				}
 				for (Token token : fineReaderExportHandler.tokens) {
 					if (token.isSpace())
@@ -138,16 +158,8 @@ public class CollectionProcessEngine extends SegmenterBase {
 
 					boolean inDict = inDict(token.getTokenString(), dict);
 					if (!inDict && (token.getAverageCharConfidence() < pMinTokenConfidence || !(token.isWordNormal || token.isWordFromDictionary || token.isWordNumeric))) {
-						Anomaly anomaly = new Anomaly(aJCas, token.start, token.end);
-						anomaly.setCategory("BioFID_Abby_Token_Heuristic");
-						anomaly.setDescription(String.format("AvgTokenConfidence:%f, isWordNormal:%b, isWordFromDictionary:%b, inDict:%b, isWordNumeric:%b, suspiciousChars:%d",
-								token.getAverageCharConfidence(), token.isWordNormal, token.isWordFromDictionary, inDict, token.isWordNumeric, token.suspiciousChars));
-						SuggestedAction suggestedAction = new SuggestedAction(aJCas);
-						suggestedAction.setReplacement(token.getTokenString());
-						FSArray fsArray = new FSArray(aJCas, 1);
-						fsArray.set(0, suggestedAction);
-						anomaly.setSuggestions(fsArray);
-						aJCas.addFsToIndexes(anomaly);
+						tagGarbageLine(aJCas, String.format("AvgTokenConfidence:%f, isWordNormal:%b, isWordFromDictionary:%b, inDict:%b, isWordNumeric:%b, suspiciousChars:%d",
+								token.getAverageCharConfidence(), token.isWordNormal, token.isWordFromDictionary, inDict, token.isWordNumeric, token.suspiciousChars), token.start, token.end, "BioFID_Abby_Token_Heuristic", token.getTokenString());
 					}
 //					else if (false && token.containsHyphen() || token.subTokenStrings().size() > 1) { // FIXME
 //						NamedEntity annotation = new NamedEntity(aJCas, token.start, token.end);
@@ -179,6 +191,7 @@ public class CollectionProcessEngine extends SegmenterBase {
 				aJCas.addFsToIndexes(lastDocument);
 			}
 
+			// FIXME
 			if (pUseLanguageTool) {
 //				languageToolSpellcheck(aJCas, langTool, text);
 			}
@@ -188,33 +201,66 @@ public class CollectionProcessEngine extends SegmenterBase {
 		}
 	}
 
-	private void tagGarbageLine(JCas jCas, OCRLine ocrLine) {
-		boolean b;
+	@Override
+	protected void process(JCas aJCas, String text, int zoneBegin) throws AnalysisEngineProcessException {
+
+	}
+
+	private void tagGarbageLine(JCas jCas, String description, int begin, int end, String anomalyType, String replacement) {
+		Anomaly anomaly = new Anomaly(jCas, begin, end);
+		anomaly.setCategory(anomalyType);
+		anomaly.setDescription(description);
+		SuggestedAction suggestedAction = new SuggestedAction(jCas);
+		suggestedAction.setReplacement(replacement);
+		FSArray fsArray = new FSArray(jCas, 1);
+		fsArray.set(0, suggestedAction);
+		anomaly.setSuggestions(fsArray);
+		jCas.addFsToIndexes(anomaly);
+	}
+
+	private void detectGarbageLine(JCas jCas, OCRLine ocrLine) {
+		if (pUseOldGarbageDetection) {
+			detectGarbageLineOld(jCas, ocrLine);
+			return;
+		}
+		boolean bool;
 		String coveredText = ocrLine.getCoveredText();
 
 		int letterCount = countMatches(letterPattern.matcher(coveredText));
 		int otherCount = countMatches(otherPattern.matcher(coveredText));
 		double letterRatio = letterCount / (1d * otherCount);
-		b = letterRatio >= pMinLineLetterRatio;
+		bool = letterRatio >= pMinLineLetterRatio;
 
 		double charactersPerToken = coveredText.length() / (1d * coveredText.split("\\s+").length);
-		b &= charactersPerToken >= pMinCharactersPerToken;
+		bool &= charactersPerToken >= pMinCharactersPerToken;
 
-		if (!b) {
-			Anomaly anomaly = new Anomaly(jCas, ocrLine.getBegin(), ocrLine.getEnd());
-			anomaly.setCategory("BioFID_Garbage_Line_Anomaly");
-			anomaly.setDescription(String.format("letterRatio:%03f, charactersPerToken:%03f", letterRatio, charactersPerToken));
-			SuggestedAction suggestedAction = new SuggestedAction(jCas);
-			suggestedAction.setReplacement("");
-			FSArray fsArray = new FSArray(jCas, 1);
-			fsArray.set(0, suggestedAction);
-			anomaly.setSuggestions(fsArray);
-			jCas.addFsToIndexes(anomaly);
+		if (!bool) {
+			String description = String.format("letterRatio:%03f, charactersPerToken:%03f", letterRatio, charactersPerToken);
+			tagGarbageLine(jCas, description, ocrLine.getBegin(), ocrLine.getEnd(), "BioFID_Garbage_Line_Anomaly", "");
 		}
 	}
 
-	@Override
-	protected void process(JCas aJCas, String text, int zoneBegin) throws AnalysisEngineProcessException {
+	private void detectGarbageLineOld(JCas jCas, OCRLine ocrLine) {
+		String line = ocrLine.getCoveredText();
+		int wordCount = countMatches(wordPattern.matcher(line));
+		int spaceCount = countMatches(spacePattern.matcher((line)));
+		int tokenCount = countMatches(tokenPattern.matcher(line));
+		int textCharacterCount = countMatches(letterPattern.matcher(line));
+		int allNonSpaceCount = countMatches(allNonSpacePattern.matcher(line));
+		int otherCount = countMatches(otherPattern.matcher(line));
+		double spacesByLength = (1d * spaceCount) / (line.length() * 1d);
+		double avgTokenLength = (allNonSpaceCount * 1d) / (1d * tokenCount);
+		double regularTextRatio = textCharacterCount / (1d * otherCount);
 
+		// TODO: parametrize detectGarbageLineOld values if use is continued
+		boolean bool = wordCount > 0;
+		bool &= spacesByLength < 1 / 3d;
+		bool &= avgTokenLength >= 3;
+		bool &= regularTextRatio > 2.5;
+
+		if (!bool) {
+			String description = String.format("wordCount:%d > 0, spacesByLength:%03f < 1 / 3d, avgTokenLength:%03f >= 3, regularTextRatio:%03f > 2.5", wordCount, spacesByLength, avgTokenLength, regularTextRatio);
+			tagGarbageLine(jCas, description, ocrLine.getBegin(), ocrLine.getEnd(), "BioFID_Old_Garbage_Line_Anomaly", "");
+		}
 	}
 }
