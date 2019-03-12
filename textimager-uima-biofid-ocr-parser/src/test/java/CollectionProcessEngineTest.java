@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.texttechnologylab.annotation.ocr.OCRBlock;
 import org.texttechnologylab.annotation.ocr.OCRLine;
 import org.texttechnologylab.annotation.ocr.OCRToken;
-import org.texttechnologylab.annotation.ocr.OCRpage;
+import org.texttechnologylab.annotation.ocr.OCRPage;
 import org.xml.sax.SAXException;
 
 import java.io.BufferedReader;
@@ -91,9 +91,9 @@ class CollectionProcessEngineTest {
 		@Test
 		@DisplayName("Test Pages")
 		void testPages() {
-			Map<OCRpage, Collection<OCRToken>> pageCovered = indexCovered(jCas, OCRpage.class, OCRToken.class);
+			Map<OCRPage, Collection<OCRToken>> pageCovered = indexCovered(jCas, OCRPage.class, OCRToken.class);
 			
-			for (OCRpage ocrPage : select(jCas, OCRpage.class)) {
+			for (OCRPage ocrPage : select(jCas, OCRPage.class)) {
 				System.out.printf("<OCRPage number:%d, id:%s, begin:%d, end:%d>\n", ocrPage.getPageNumber(), ocrPage.getPageId(), ocrPage.getBegin(), ocrPage.getEnd());
 				for (OCRToken ocrToken : pageCovered.get(ocrPage)) {
 					System.out.print(ocrToken.getCoveredText());

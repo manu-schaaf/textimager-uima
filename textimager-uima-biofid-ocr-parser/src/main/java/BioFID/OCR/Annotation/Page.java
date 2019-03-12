@@ -2,7 +2,7 @@ package BioFID.OCR.Annotation;
 
 import BioFID.Util;
 import org.apache.uima.jcas.JCas;
-import org.texttechnologylab.annotation.ocr.OCRpage;
+import org.texttechnologylab.annotation.ocr.OCRPage;
 import org.xml.sax.Attributes;
 
 public class Page extends Annotation {
@@ -22,8 +22,8 @@ public class Page extends Annotation {
 	}
 	
 	@Override
-	public OCRpage wrap(JCas jCas, int offset) {
-		OCRpage ocrPage = new OCRpage(jCas, start + offset, end + offset);
+	public OCRPage wrap(JCas jCas, int offset) {
+		OCRPage ocrPage = new OCRPage(jCas, start + offset, end + offset);
 		ocrPage.setWidth(width);
 		ocrPage.setHeight(height);
 		ocrPage.setResolution(resolution);

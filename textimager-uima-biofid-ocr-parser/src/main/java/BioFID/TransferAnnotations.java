@@ -7,7 +7,12 @@ import de.tudarmstadt.ukp.dkpro.core.api.ner.type.NamedEntity;
 import org.apache.commons.cli.MissingArgumentException;
 import org.apache.commons.lang3.NotImplementedException;
 import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.math3.linear.RealVector;
+import org.apache.commons.math3.util.FastMath;
+import org.apache.commons.math3.util.MathArrays;
 import org.apache.uima.UIMAException;
+import org.apache.uima.cas.impl.CASSerializer;
+import org.apache.uima.cas.impl.XmiCasSerializer;
 import org.apache.uima.cas.text.AnnotationIndex;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.util.CasIOUtil;
@@ -16,15 +21,21 @@ import org.apache.uima.jcas.JCas;
 import org.apache.uima.jcas.cas.TOP;
 import org.apache.uima.jcas.tcas.Annotation;
 import org.texttechnologielab.annotation.type.Fingerprint;
+import org.xml.sax.SAXException;
 
+import java.io.BufferedOutputStream;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.InvalidPathException;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
 
 import static org.apache.uima.fit.util.JCasUtil.select;
+import static org.neo4j.kernel.impl.util.Converters.toFile;
 
 /**
  * @author Manuel Stoeckel
@@ -33,7 +44,9 @@ import static org.apache.uima.fit.util.JCasUtil.select;
 public class TransferAnnotations extends AbstractRunner {
 	private static String sFrom;
 	private static String sTo;
+	private static String sOut;
 	private static InputType inputType;
+	private static Path outDir;
 	
 	enum InputType {
 		PATH, REGEX, LIST
@@ -56,6 +69,17 @@ public class TransferAnnotations extends AbstractRunner {
 				sTo = params.get(index + 1);
 			} else {
 				throw new MissingArgumentException("Missing --to\n");
+			}
+			
+			index = Integer.max(params.indexOf("-o"), params.indexOf("--out"));
+			if (index > -1) {
+				outDir = Paths.get(params.get(index + 1));
+				if (!outDir.toFile().exists())
+					throw new InvalidPathException(outDir.toString(), "Output directory does not exist!");
+				if (outDir.toFile().isFile())
+					throw new InvalidPathException(outDir.toString(), "Output directory is a file!");
+			} else {
+				throw new MissingArgumentException("Missing --out\n");
 			}
 			
 			index = Integer.max(params.indexOf("-i"), params.indexOf("--input-type"));
@@ -103,6 +127,10 @@ public class TransferAnnotations extends AbstractRunner {
 	}
 	
 	public static void alignAnnotations(HashSet<ImmutablePair<File, File>> pairs) {
+		int totalCount = 0;
+		int totalAllCount = 0;
+		ArrayList<Double> avg = new ArrayList<>();
+		
 		for (ImmutablePair<File, File> pair : pairs) {
 			File fromFile = pair.getLeft();
 			File toFile = pair.getRight();
@@ -117,7 +145,10 @@ public class TransferAnnotations extends AbstractRunner {
 					continue;
 				
 				HashSet<TOP> fingerprinted = select(fromCas, Fingerprint.class).stream().map(Fingerprint::getReference).collect(Collectors.toCollection(HashSet::new));
-				List<NamedEntity> namedEntities = select(fromCas, NamedEntity.class).stream().filter(fingerprinted::contains).collect(Collectors.toList());
+				List<NamedEntity> namedEntities = select(fromCas, NamedEntity.class).stream().filter(fingerprinted::contains).sorted(Comparator.comparingInt(NamedEntity::getBegin)).collect(Collectors.toList());
+				
+				if (namedEntities.isEmpty())
+					continue;
 				
 				int count = 0;
 				int allCount = 0;
@@ -127,31 +158,35 @@ public class TransferAnnotations extends AbstractRunner {
 						toCas.addFsToIndexes(ne);
 					}
 				} else {
-					int lastTargetOffset = 0;
-					int lastSourceOffset = 0;
+					HashMap<String, Integer> lastTargetOffsetMap = new HashMap<>();
 					for (NamedEntity neSource : namedEntities) {
-						int index = toCas.getDocumentText().indexOf(neSource.getCoveredText(), lastTargetOffset);
+						String coveredText = neSource.getCoveredText();
+						int lastTargetOffset = lastTargetOffsetMap.getOrDefault(coveredText, 0);
+						int index = toCas.getDocumentText().indexOf(coveredText, lastTargetOffset);
 						if (index > -1) {
 							count++;
-							NamedEntity neTarget = new NamedEntity(toCas, index, index + neSource.getCoveredText().length());
+							NamedEntity neTarget = new NamedEntity(toCas, index, index + coveredText.length());
 							neTarget.setValue(neSource.getValue());
 							neTarget.setIdentifier(neSource.getIdentifier());
 							toCas.addFsToIndexes(neTarget);
-							if (lastSourceOffset < neSource.getBegin() && lastTargetOffset == neTarget.getBegin()) {
-								lastTargetOffset = neTarget.getBegin() + 1; // FIXME!!
-							} else {
-								lastTargetOffset = neTarget.getBegin();
-							}
-							lastSourceOffset = neSource.getBegin();
+							lastTargetOffsetMap.put(coveredText, neTarget.getEnd());
 						}
 						allCount++;
 					}
 				}
+				totalCount += count;
+				totalAllCount += allCount;
+				avg.add(count * 1.0 / allCount);
+				
+				XmiCasSerializer.serialize(toCas.getCas(), new FileOutputStream(Paths.get(outDir.toString(), toFile.getName()).toFile()));
+				
 				System.out.printf("Found %d/%d NEs in '%s'.\n", count, allCount, fromFile.getName());
-			} catch (UIMAException | IOException e) {
+				System.out.flush();
+			} catch (UIMAException | IOException | SAXException e) {
 				e.printStackTrace();
 			}
 		}
+		System.out.printf("Found total %d/%d NEs, avg. precision %01.3f.\n", totalCount, totalAllCount, avg.stream().reduce(0.0, (a, b) -> a + b) / avg.size());
 	}
 	
 	private static void getFileLists(ArrayList<File> fromList, ArrayList<File> toList) throws IOException {
@@ -196,12 +231,13 @@ public class TransferAnnotations extends AbstractRunner {
 			}
 		}
 		
-		System.out.printf("Matched %d pairs:\n", pairs.size());
+		System.out.printf("Matched %d pairs.\n", pairs.size());
 		pairs.forEach(System.out::println);
 		System.out.flush();
 		
-		System.err.printf("Missed %d pairs:\n", missed.size());
+		System.err.printf("Missed %d pairs.\n", missed.size());
 		System.err.println(missed);
+		System.err.flush();
 		
 		return pairs;
 	}

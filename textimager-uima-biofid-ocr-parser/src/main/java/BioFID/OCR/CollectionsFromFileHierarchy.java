@@ -8,11 +8,9 @@ import org.apache.uima.UIMAException;
 
 import java.io.File;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -23,9 +21,12 @@ public class CollectionsFromFileHierarchy extends AbstractDocumentParser {
 	private static String sVocabularyPath;
 	private static String sRawOutput;
 	private static int depth = 1;
-	private static int documentDepth = 3;
+	//	private static int documentDepth = 3;
 	private static boolean sortAlNum = false;
-
+	
+	private static final Predicate<File> isLeafDir = dir -> Arrays.stream(Objects.requireNonNull(dir.listFiles())).noneMatch(File::isDirectory);
+	
+	
 	public static void main(String[] args) {
 		try {
 			getParams(args);
@@ -57,10 +58,10 @@ public class CollectionsFromFileHierarchy extends AbstractDocumentParser {
 				depth = Integer.parseInt(params.get(index + 1));
 			}
 
-			index = params.indexOf("--document-depth");
-			if (index > -1) {
-				documentDepth = Integer.parseInt(params.get(index + 1));
-			}
+//			index = params.indexOf("--document-depth");
+//			if (index > -1) {
+//				documentDepth = Integer.parseInt(params.get(index + 1));
+//			}
 
 			index = Integer.max(params.indexOf("--raw"), params.indexOf("-r"));
 			if (index > -1) {
@@ -77,9 +78,9 @@ public class CollectionsFromFileHierarchy extends AbstractDocumentParser {
 
 			dirDepthMap.remove(new File(sFileRootPath));
 			
-			// Alternativen:
+			// Alternativen: FIXME
 			// Sammlung = 1, Band = 2, Heft = 3, Artikel = 4
-			// Sammlung = 1,
+			// Sammlung = 1, Band = 2, Artikel = 3
 			ImmutableList<File> collectionDirs = ImmutableList.copyOf(dirDepthMap.entrySet().stream()
 					.filter(e -> e.getKey().isDirectory())
 					.filter(e -> e.getValue() == depth)
@@ -89,34 +90,37 @@ public class CollectionsFromFileHierarchy extends AbstractDocumentParser {
 			final int[] count = {0};
 			long documentCount = dirDepthMap.entrySet().stream()
 					.filter(e -> e.getKey().isDirectory())
-					.filter(e -> e.getValue() == documentDepth)
+					.filter(e -> isLeafDir.test(e.getKey()))
 					.count();
 			System.out.printf("Starting parsing %d collections with %d documents..\n", collectionDirs.size(), documentCount);
 			
 			collectionDirs.parallelStream().forEach(documentParentDir -> {
-				ArrayList<File> files;
+				ArrayList<String> files;
 				if (sortAlNum) {
 					files = Streams.stream(Files.fileTraverser().depthFirstPreOrder(documentParentDir))
 							.sequential()
 							.filter(File::isFile)
 							.sorted(Comparator.comparing(File::getName))
+							.map(File::getAbsolutePath)
 							.collect(Collectors.toCollection(ArrayList::new));
 				} else {
 					files = Streams.stream(Files.fileTraverser().depthFirstPreOrder(documentParentDir))
 							.sequential()
 							.filter(File::isFile)
+							.map(File::getAbsolutePath)
 							.collect(Collectors.toCollection(ArrayList::new));
 				}
 				if (files.size() == 0) return;
 
 				String documentId = documentParentDir.getName();
 				System.out.printf("\r%d/%d Parsing collection with id %s..", ++count[0], collectionDirs.size(), documentId);
-
+				
+				
 				try {
-					ArrayList<String> pathList = files.stream().sequential().map(File::getAbsolutePath).collect(Collectors.toCollection(ArrayList::new));
-					String[] documentPaths = dirDepthMap.entrySet().stream().filter(e -> e.getKey().isDirectory()).filter(e -> e.getValue() == documentDepth).map(Map.Entry::getKey).map(File::getAbsolutePath).toArray(String[]::new);
-
-					processDocumentPathList(sOutputPath, sVocabularyPath, sRawOutput, documentId, pathList, documentPaths);
+//					ArrayList<String> pathList = files.stream().sequential().map(File::getAbsolutePath).collect(Collectors.toCollection(ArrayList::new));
+//					String[] documentPaths = dirDepthMap.entrySet().stream().filter(e -> e.getKey().isDirectory()).filter(e -> isLeafDir.test(e.getKey())).map(Map.Entry::getKey).map(File::getAbsolutePath).toArray(String[]::new);
+					
+					processDocumentPathList(sOutputPath, sVocabularyPath, sRawOutput, documentId, files, true);
 				} catch (UIMAException e) {
 					System.err.printf("Caught UIMAException while parsing collection %s!\n" +
 									"%s\n" +
