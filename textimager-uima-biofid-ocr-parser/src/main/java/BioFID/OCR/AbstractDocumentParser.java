@@ -47,7 +47,7 @@ public abstract class AbstractDocumentParser extends AbstractRunner {
 		JCas jCas = JCasFactory.createJCas();
 		
 		DocumentMetaData documentMetaData = DocumentMetaData.create(jCas);
-		documentMetaData.setDocumentId(documentId);
+		documentMetaData.setDocumentId(documentId); // FIXME: migrate to collectionId
 		
 		SimplePipeline.runPipeline(jCas, documentParser);
 		
