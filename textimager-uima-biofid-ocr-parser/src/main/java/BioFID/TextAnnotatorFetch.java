@@ -78,7 +78,7 @@ public class TextAnnotatorFetch extends AbstractRunner {
 			final boolean reserialize = forceUTF8 & params.indexOf("--reserialize") > -1;
 
 			index = params.indexOf("--strategyIndex");
-			final int strategyIndex = (index > -1) ? Integer.parseInt(params.get(index)) : 2;
+			final int strategyIndex = (index > -1) ? Integer.parseInt(params.get(index)) : 0;
 
 			index = params.indexOf("--repository");
 			if (index > -1) {
@@ -205,6 +205,6 @@ public class TextAnnotatorFetch extends AbstractRunner {
 				"\t--forceUTF8\t\tOptional, if set the XMIs will be dowloaded as a string and saved in UTF-8 format.\n" +
 				"\t--reserialize\tOptional, use with --forceUTF8. If set the XMIs will be reserialized after download, adding additional metadata.\n" +
 				"\t--repository\tOptional, the target repository. Default: 14393.\n" +
-				"\t--strategyIndex\tThe conll stacking strategy index. 0=top-down-bottom-up, 1=top-down, 2=bottom-up. Default: 2.");
+				"\t--strategyIndex\tThe conll stacking strategy index. 0=top-down-bottom-up, 1=top-down, 2=bottom-up. Default: 0.");
 	}
 }
