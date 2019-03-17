@@ -120,7 +120,7 @@ public class CollectionsFromFileHierarchy extends AbstractDocumentParser {
 //					ArrayList<String> pathList = files.stream().sequential().map(File::getAbsolutePath).collect(Collectors.toCollection(ArrayList::new));
 //					String[] documentPaths = dirDepthMap.entrySet().stream().filter(e -> e.getKey().isDirectory()).filter(e -> isLeafDir.test(e.getKey())).map(Map.Entry::getKey).map(File::getAbsolutePath).toArray(String[]::new);
 					
-					processDocumentPathList(sOutputPath, sVocabularyPath, sRawOutput, documentId, files, true);
+					processDocumentPathList(sOutputPath, sVocabularyPath, sRawOutput, documentId, files, true, documentParentDir);
 				} catch (UIMAException e) {
 					System.err.printf("Caught UIMAException while parsing collection %s!\n" +
 									"%s\n" +

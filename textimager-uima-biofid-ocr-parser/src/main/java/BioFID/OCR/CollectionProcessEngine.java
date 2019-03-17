@@ -22,6 +22,7 @@ import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -38,6 +39,11 @@ public class CollectionProcessEngine extends SegmenterBase {
 	public static final String INPUT_PATHS = "pInputPaths";
 	@ConfigurationParameter(name = INPUT_PATHS)
 	protected String[] pInputPaths;
+
+	public static final String COLLECTION_ROOT_DIR = "pCollectionRootDir";
+	@ConfigurationParameter(name = COLLECTION_ROOT_DIR, mandatory = false)
+	protected String pCollectionRootDir;
+
 	public static final String PARAM_DICT_PATH = "pDictPath";
 	@ConfigurationParameter(name = PARAM_DICT_PATH, mandatory = false)
 	protected String pDictPath;
@@ -163,32 +169,27 @@ public class CollectionProcessEngine extends SegmenterBase {
 //					}
 				}
 
-				lastOffset = ocrPage.getEnd();
 				/* Every parent directory denotes its own Document annotation, recurring directories will get expanded each time */
 				String currentDocumentParent = Paths.get(inputPath).getParent().toString();
 				String currentDocumentParentName = Paths.get(inputPath).getParent().getFileName().toString();
-				if (pMultiDoc && !currentDocumentParent.equals(lastDocumentParent)) {
+				if (pMultiDoc) {
 					if (Objects.nonNull(lastDocument)) {
-						aJCas.removeFsFromIndexes(lastDocument);
-						lastDocument.setEnd(lastOffset);
-						aJCas.addFsToIndexes(lastDocument);
-						lastDocumentOffset = lastOffset;
+						endDocuments(aJCas, ocrPage.getEnd(), documentLookup, currentDocumentParent);
 					}
 					if (documentLookup.containsKey(currentDocumentParent)) {
 						lastDocument = documentLookup.get(currentDocumentParent);
 					} else {
 						lastDocument = new OCRDocument(aJCas);
-						lastDocument.setBegin(lastDocumentOffset);
+						lastDocument.setBegin(lastOffset);
 						lastDocument.setDocumentname(currentDocumentParentName);
 						documentLookup.put(currentDocumentParent, lastDocument);
 					}
-					lastDocumentParent = currentDocumentParent;
 				}
+				lastDocumentParent = currentDocumentParent;
+				lastOffset = ocrPage.getEnd();
 			}
 			if (Objects.nonNull(lastDocument)) {
-				aJCas.removeFsFromIndexes(lastDocument);
-				lastDocument.setEnd(lastOffset);
-				aJCas.addFsToIndexes(lastDocument);
+				endDocuments(aJCas, lastOffset, documentLookup, lastDocumentParent);
 			}
 
 			// FIXME: LanguageTool
@@ -198,6 +199,20 @@ public class CollectionProcessEngine extends SegmenterBase {
 
 		} catch (SAXException | ParserConfigurationException | IOException e) {
 			e.printStackTrace();
+		}
+	}
+
+	private void endDocuments(JCas aJCas, int lastOffset, HashMap<String, OCRDocument> documentLookup, String lastDocumentParent) {
+		Path tempPath = Paths.get(lastDocumentParent);
+		while (!tempPath.equals(Paths.get(pCollectionRootDir).toAbsolutePath())) {
+			if (documentLookup.containsKey(tempPath.toString())) {
+				OCRDocument tempDocument = documentLookup.get(tempPath.toString());
+
+				aJCas.removeFsFromIndexes(tempDocument);
+				tempDocument.setEnd(lastOffset);
+				aJCas.addFsToIndexes(tempDocument);
+			}
+			tempPath = tempPath.getParent();
 		}
 	}
 
