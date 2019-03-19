@@ -47,12 +47,14 @@ public class NeuralNERTest {
 	public void test_conll2010() throws UIMAException {
 		JCas cas = getExampleJCas();
 
-		AnalysisEngineDescription spacyNer = createEngineDescription(NeuralNER.class,
+        AnalysisEngineDescription NeuralNerEngine = createEngineDescription(NeuralNER.class,
 				NeuralNER.PARAM_DOCKER_IMAGE, "textimager-neuralnetwork-ner",
 				NeuralNER.PARAM_MODEL_NAME, "conll2010-tuebadz",
-				NeuralNER.PARAM_REST_ENDPOINT,"http://sirao.hucompute.org:5001");
+                NeuralNER.PARAM_REST_ENDPOINT, "http://localhost:5000"
+//				NeuralNER.PARAM_REST_ENDPOINT,"http://sirao.hucompute.org:5001"
+        );
 
-		SimplePipeline.runPipeline(cas, spacyNer);
+        SimplePipeline.runPipeline(cas, NeuralNerEngine);
 
 		String[] ents = new String[]{"I-ORG"};
 
@@ -61,13 +63,14 @@ public class NeuralNERTest {
 		assertArrayEquals(ents, casEnts);
 	}
 
-	@Test
+    //	@Test
 	public void test_conll() throws UIMAException {
 		JCas cas = getExampleJCas();
 
 		AnalysisEngineDescription spacyNer = createEngineDescription(NeuralNER.class,
 				NeuralNER.PARAM_DOCKER_IMAGE, "textimager-neuralnetwork-ner",
-				NeuralNER.PARAM_MODEL_NAME, "conll");
+                NeuralNER.PARAM_MODEL_NAME, "conll",
+                NeuralNER.PARAM_REST_ENDPOINT, "http://localhost:5000");
 
 		SimplePipeline.runPipeline(cas, spacyNer);
 
@@ -84,8 +87,8 @@ public class NeuralNERTest {
 
 		AnalysisEngineDescription spacyNer = createEngineDescription(NeuralNER.class,
 				NeuralNER.PARAM_DOCKER_IMAGE, "textimager-neuralnetwork-ner",
-				NeuralNER.PARAM_MODEL_NAME, "conll-germeval-tuebadz-europarl"
-//				NeuralNER.PARAM_REST_ENDPOINT,"http://localhost:5000"
+                NeuralNER.PARAM_MODEL_NAME, "conll-germeval-tuebadz-europarl",
+                NeuralNER.PARAM_REST_ENDPOINT, "http://localhost:5000"
 				);
 
 
@@ -103,7 +106,8 @@ public class NeuralNERTest {
 
 		AnalysisEngineDescription spacyNer = createEngineDescription(NeuralNER.class,
 				NeuralNER.PARAM_DOCKER_IMAGE, "textimager-neuralnetwork-ner",
-				NeuralNER.PARAM_MODEL_NAME, "germeval");
+                NeuralNER.PARAM_MODEL_NAME, "germeval",
+                NeuralNER.PARAM_REST_ENDPOINT, "http://localhost:5000");
 
 		SimplePipeline.runPipeline(cas, spacyNer);
 

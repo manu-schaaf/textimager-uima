@@ -41,7 +41,8 @@ class Model(object):
                 cPickle.dump(parameters, f)
         else:
             assert parameters is None and models_path is None
-            # Model location
+            # Model locatio
+            assert os.path.exists(model_path)
             self.model_path = model_path
             self.parameters_path = os.path.join(model_path, 'parameters.pkl')
             self.mappings_path = os.path.join(model_path, 'mappings.pkl')

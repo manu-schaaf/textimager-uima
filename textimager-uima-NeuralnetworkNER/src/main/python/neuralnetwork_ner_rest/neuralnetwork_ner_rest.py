@@ -72,7 +72,7 @@ def ner():
     begin_end = request.json["begin_end"]
     if model is None:
         ## Model loading
-        print "Loading model " + model_name + ".."
+        print "Loading model " + models[model_name] + ".."
         model = Model(model_path="models/" + models[model_name])
         parameters = model.parameters
     
