@@ -41,18 +41,13 @@ models = {
 
 @app.route("/")
 def hello():
-    return "Neural Architectures for Named Entity Recognition - REST Server - https://github.com/texttechnologylab\n"
+    return "Neural Architectures for Taxon Recognition - REST Server - https://github.com/texttechnologylab\n"
 
 
 # NER
 @app.route("/ner", methods=['POST'])
 def ner():
-    global model
-    global f_eval
-    global parameters
-    global word_to_id
-    global char_to_id
-    global tag_to_id
+    global model, parameters, word_to_id, char_to_id, tag_to_id, f_eval
     model_name = request.json["model"]
     words = request.json["words"]
     begin_end = request.json["begin_end"]
@@ -117,10 +112,5 @@ def load_model(model_name='BioFID'):
 
 
 # TODO: add dynamic modelloading
-model = None
+global model, parameters, word_to_id, char_to_id, tag_to_id, f_eval
 load_model()
-f_eval = None
-parameters = None
-word_to_id = None
-char_to_id = None
-tag_to_id = None

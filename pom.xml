@@ -47,7 +47,15 @@
         <!--<module>textimager-uima-cltk</module>-->
         <!--<module>textimager-uima-fasttext</module>-->
         <!--<module>textimager-uima-io</module>-->
-        <module>textimager-uima-NeuralnetworkNER</module>
+        <!--<module>textimager-uima-fastsense</module>-->
+        <!--<module>textimager-uima-io-embeddings</module>-->
+        <!--<module>textimager-uima-laxt</module>-->
+        <!--<module>textimager-uima-polyglot</module>-->
+        <!--<module>textimager-uima-resha-turkish-stemmer</module>-->
+        <!--<module>textimager-uima-toolkit-expansion</module>-->
+        <!--<module>textimager-uima-turkish-deasciifier</module>-->
+        <!--<module>textimager-uima-zemberek</module>-->
+        <!--<module>textimager-uima-NeuralnetworkNER</module>-->
         <module>textimager-uima-taxon-recognition</module>
     </modules>
 </project>
