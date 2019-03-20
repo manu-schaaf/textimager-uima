@@ -97,7 +97,7 @@ public class Token extends Annotation {
 	}
 	
 	public boolean isSpace() {
-		return charList != null && charList.size() == 1 && charList.get(0).equals(" ");
+		return charList != null && charList.stream().allMatch(s -> s.matches("\\s*"));
 	}
 	
 	public void setContainsHyphen() {
