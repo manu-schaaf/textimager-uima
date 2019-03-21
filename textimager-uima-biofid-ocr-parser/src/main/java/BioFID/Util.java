@@ -2,11 +2,15 @@ package BioFID;
 
 import BioFID.OCR.FineReaderExportHandler;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import de.tudarmstadt.ukp.dkpro.core.api.anomaly.type.SpellingAnomaly;
 import org.apache.uima.jcas.JCas;
 import org.jetbrains.annotations.NotNull;
 import org.languagetool.JLanguageTool;
 import org.languagetool.rules.RuleMatch;
+import org.texttechnologylab.annotation.ocr.OCRDocument;
+import org.texttechnologylab.annotation.ocr.OCRToken;
 import org.xml.sax.SAXException;
 
 import javax.xml.parsers.SAXParser;
@@ -36,19 +40,19 @@ abstract public class Util {
 			Pattern.UNICODE_CHARACTER_CLASS);
 	public static final Pattern allNonSpacePattern = Pattern.compile("[^\\p{Z}]", Pattern.UNICODE_CHARACTER_CLASS);
 	public static final Pattern nonGarbageLine = Pattern.compile("^[\\w\\p{Z}♂♀¬°½±]{3,}$|^[\\w\\p{Z}\\p{P}\\p{Sm}\\p{N}\\p{Sc}♂♀¬°½±^]{5,}$|^[\\p{Z}]*$|^[\\p{N}\\p{Punct}\\p{Z}]+$", Pattern.UNICODE_CHARACTER_CLASS);
-
+	
 	public static int parseInt(String s) {
 		return Strings.isNullOrEmpty(s) ? 0 : Integer.parseInt(s);
 	}
-
+	
 	public static float parseFloat(String s) {
 		return Strings.isNullOrEmpty(s) ? 0f : Float.parseFloat(s);
 	}
-
+	
 	public static boolean parseBoolean(String s) {
 		return !Strings.isNullOrEmpty(s) && Boolean.parseBoolean(s);
 	}
-
+	
 	@NotNull
 	public static FineReaderExportHandler getExportHandler(SAXParser saxParser, String pagePath, Integer pCharLeftMax, Integer pBlockTopMin, boolean pLastTokenWasSpace) throws SAXException, IOException {
 		FineReaderExportHandler fineReaderExportHandler = new FineReaderExportHandler();
@@ -59,7 +63,7 @@ abstract public class Util {
 		saxParser.parse(inputStream, fineReaderExportHandler);
 		return fineReaderExportHandler;
 	}
-
+	
 	public static void languageToolSpellcheck(JCas aJCas, JLanguageTool langTool, StringBuilder text) throws IOException {
 		List<RuleMatch> ruleMatches = langTool.check(text.toString(), false, JLanguageTool.ParagraphHandling.NORMAL);
 		for (RuleMatch ruleMatch : ruleMatches) {
@@ -69,8 +73,8 @@ abstract public class Util {
 			aJCas.addFsToIndexes(spellingAnomaly);
 		}
 	}
-
-
+	
+	
 	public static HashSet<String> loadDict(String pDictPath) throws IOException {
 		HashSet<String> dict = new HashSet<>();
 		if (pDictPath != null) {
@@ -80,18 +84,18 @@ abstract public class Util {
 		}
 		return dict;
 	}
-
+	
 	public static boolean inDict(String token, HashSet<String> dict) {
 		return inDict(token, dict, true);
 	}
-
+	
 	public static boolean inDict(String token, HashSet<String> dict, boolean lowerCase) {
 		Pattern pattern = Pattern.compile("[^-\\p{Alnum}]", Pattern.UNICODE_CHARACTER_CLASS);
 		String word = pattern.matcher(token).replaceAll("");
 		word = lowerCase ? word.toLowerCase() : word;
 		return dict != null && !word.isEmpty() && dict.contains(word);
 	}
-
+	
 	public static void writeToFile(Path targetFilePath, String content) {
 		try (PrintWriter pw = new PrintWriter(new OutputStreamWriter(Files.newOutputStream(targetFilePath), StandardCharsets.UTF_8))) {
 			pw.print(content);
@@ -99,7 +103,7 @@ abstract public class Util {
 			e.printStackTrace();
 		}
 	}
-
+	
 	public static void writeToFile(Path targetFilePath, Iterable<String> lines) {
 		try (PrintWriter pw = new PrintWriter(new OutputStreamWriter(Files.newOutputStream(targetFilePath), StandardCharsets.UTF_8))) {
 			for (String line : lines) {
@@ -109,7 +113,7 @@ abstract public class Util {
 			e.printStackTrace();
 		}
 	}
-
+	
 	@NotNull
 	private static <T, S> HashMap<T, Collection<S>> revertMapOfCollections(Map<S, Collection<T>> sCollectionTMap) {
 		HashMap<T, Collection<S>> hashMap = new HashMap<>();
@@ -120,12 +124,21 @@ abstract public class Util {
 		}));
 		return hashMap;
 	}
-
+	
 	public static int countMatches(Matcher matcher) {
 		int count = 0;
 		while (matcher.find()) {
 			count++;
 		}
 		return count;
+	}
+	
+	public static void processDocument(OCRDocument ocrDocument, final Map<OCRDocument, Collection<OCRToken>> documentMap, final Set<OCRToken> tokenCovering, final Set<OCRToken> anomalies, final StringBuilder retStringBuilder) {
+		for (OCRToken ocrToken : documentMap.get(ocrDocument)) {
+			if (tokenCovering.contains(ocrToken) || anomalies.contains(ocrToken)) {
+				continue;
+			}
+			retStringBuilder.append(ocrToken.getCoveredText()).append(" ");
+		}
 	}
 }

@@ -1,9 +1,9 @@
 package BioFID.OCR;
 
 import BioFID.AbstractRunner;
+import BioFID.Util;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterators;
 import de.tudarmstadt.ukp.dkpro.core.api.anomaly.type.Anomaly;
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import org.apache.uima.UIMAException;
@@ -13,7 +13,6 @@ import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.pipeline.SimplePipeline;
 import org.apache.uima.jcas.JCas;
 import org.texttechnologylab.annotation.ocr.OCRDocument;
-import org.texttechnologylab.annotation.ocr.OCRLine;
 import org.texttechnologylab.annotation.ocr.OCRToken;
 import org.xml.sax.SAXException;
 
@@ -130,16 +129,7 @@ public abstract class AbstractDocumentParser extends AbstractRunner {
 		for (OCRDocument ocrDocument : ocrDocuments) {
 			if (!documentCoveringToken.containsKey(ocrDocument) || ocrDocument.getCoveredText().isEmpty())
 				continue;
-			for (OCRToken ocrToken : documentCoveringToken.get(ocrDocument)) {
-				if (tokenCovering.contains(ocrToken)) {
-					continue;
-				}
-				if (anomalies.contains(ocrToken)) {
-//					skipped.add(ocrToken.getCoveredText());
-					continue;
-				}
-				retStringBuilder.append(ocrToken.getCoveredText()).append(" ");
-			}
+			Util.processDocument(ocrDocument, documentCoveringToken, tokenCovering, anomalies, retStringBuilder);
 		}
 
 //		System.out.println(select(jCas, OCRLine.class).stream().map(OCRLine::getCoveredText).collect(Collectors.joining("\n")));

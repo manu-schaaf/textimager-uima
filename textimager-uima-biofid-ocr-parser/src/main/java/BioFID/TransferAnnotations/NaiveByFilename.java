@@ -1,5 +1,6 @@
-package BioFID;
+package BioFID.TransferAnnotations;
 
+import BioFID.AbstractRunner;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Streams;
 import com.google.common.io.Files;
@@ -41,7 +42,7 @@ import static org.neo4j.kernel.impl.util.Converters.toFile;
  * @author Manuel Stoeckel
  * Created on 11.03.19
  */
-public class TransferAnnotations extends AbstractRunner {
+public class NaiveByFilename extends AbstractRunner {
 	private static String sFrom;
 	private static String sTo;
 	private static String sOut;

@@ -60,7 +60,7 @@ public class FineReaderExportHandler extends DefaultHandler {
 				currPage.start = totalChars;
 				pages.add(currPage);
 				break;
-			case "block": {
+			case "block":
 				currBlock = new Block(attributes);
 				currBlock.start = totalChars;
 				currBlock.valid = blockObeysRules(currBlock);
@@ -70,7 +70,6 @@ public class FineReaderExportHandler extends DefaultHandler {
 				
 				character = false;
 				break;
-			}
 			case "text":
 				break;
 			case "par":
