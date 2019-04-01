@@ -7,6 +7,7 @@ import de.tudarmstadt.ukp.dkpro.core.api.ner.type.NamedEntity;
 import org.apache.commons.lang3.NotImplementedException;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.jcas.cas.TOP;
+import org.jetbrains.annotations.NotNull;
 import org.texttechnologielab.annotation.type.Fingerprint;
 
 import java.io.File;
@@ -20,7 +21,7 @@ import static org.apache.uima.fit.util.JCasUtil.select;
 
 abstract class AnnotationTransferHelper extends AbstractRunner {
 
-    static boolean transferAnnotations(JCas fromCas, JCas toCas, int[] counts) {
+    static boolean transferAnnotations(JCas fromCas, JCas toCas, final int[] counts, final int initialOffset, final int maximumOffset) {
         if (Objects.isNull(fromCas.getDocumentText()) || Objects.isNull(toCas.getDocumentText()))
             return true;
 
@@ -30,21 +31,30 @@ abstract class AnnotationTransferHelper extends AbstractRunner {
         if (namedEntities.isEmpty())
             return true;
 
-        if (fromCas.getDocumentText().equals(toCas.getDocumentText())) {
-            for (NamedEntity ne : namedEntities) {
-                toCas.addFsToIndexes(ne);
+        if (fromCas.getDocumentText().equals(toCas.getDocumentText().substring(initialOffset, maximumOffset))) {
+            for (NamedEntity neSource : namedEntities) {
+                NamedEntity neTarget = getNamedEntity(toCas, neSource, neSource.getBegin() + initialOffset, neSource.getEnd() + initialOffset);
+                toCas.addFsToIndexes(neTarget);
+                counts[0]++;
+                counts[1]++;
+            }
+        } else if (fromCas.getDocumentText().contains(toCas.getDocumentText().substring(initialOffset, maximumOffset))) {
+            int offset = fromCas.getDocumentText().indexOf(toCas.getDocumentText().substring(initialOffset, maximumOffset));
+            for (NamedEntity neSource : namedEntities) {
+                NamedEntity neTarget = getNamedEntity(toCas, neSource, neSource.getBegin() + offset + initialOffset, neSource.getEnd() + offset + initialOffset);
+                toCas.addFsToIndexes(neTarget);
+                counts[0]++;
+                counts[1]++;
             }
         } else {
             HashMap<String, Integer> lastTargetOffsetMap = new HashMap<>();
             for (NamedEntity neSource : namedEntities) {
                 String coveredText = neSource.getCoveredText();
-                int lastTargetOffset = lastTargetOffsetMap.getOrDefault(coveredText, 0);
+                int lastTargetOffset = lastTargetOffsetMap.getOrDefault(coveredText, initialOffset);
                 int index = toCas.getDocumentText().indexOf(coveredText, lastTargetOffset);
-                if (index > -1) {
+                if (index > -1 && index < maximumOffset) {
                     counts[0]++;
-                    NamedEntity neTarget = new NamedEntity(toCas, index, index + coveredText.length());
-                    neTarget.setValue(neSource.getValue());
-                    neTarget.setIdentifier(neSource.getIdentifier());
+                    NamedEntity neTarget = getNamedEntity(toCas, neSource, index, index + coveredText.length());
                     toCas.addFsToIndexes(neTarget);
                     lastTargetOffsetMap.put(coveredText, neTarget.getEnd());
                 }
@@ -52,6 +62,14 @@ abstract class AnnotationTransferHelper extends AbstractRunner {
             }
         }
         return false;
+    }
+
+    @NotNull
+    private static NamedEntity getNamedEntity(JCas toCas, NamedEntity neSource, int begin, int end) {
+        NamedEntity neTarget = new NamedEntity(toCas, begin, end);
+        neTarget.setValue(neSource.getValue());
+        neTarget.setIdentifier(neSource.getIdentifier());
+        return neTarget;
     }
 
     enum InputType {
