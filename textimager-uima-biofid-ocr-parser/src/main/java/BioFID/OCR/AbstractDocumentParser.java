@@ -1,7 +1,7 @@
 package BioFID.OCR;
 
 import BioFID.AbstractRunner;
-import BioFID.Util;
+import BioFID.Utility.Util;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import de.tudarmstadt.ukp.dkpro.core.api.anomaly.type.Anomaly;

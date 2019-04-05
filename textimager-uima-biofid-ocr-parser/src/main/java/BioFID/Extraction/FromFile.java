@@ -1,4 +1,4 @@
-package BioFID;
+package BioFID.Extraction;
 
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import org.apache.uima.UIMAException;

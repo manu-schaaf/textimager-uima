@@ -1,5 +1,6 @@
-package BioFID;
+package BioFID.Extraction;
 
+import BioFID.AbstractRunner;
 import com.google.common.collect.ImmutableSet;
 import de.tudarmstadt.ukp.dkpro.core.api.anomaly.type.Anomaly;
 import org.apache.commons.cli.MissingArgumentException;
@@ -19,8 +20,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static BioFID.Util.processDocument;
-import static BioFID.Util.writeToFile;
+import static BioFID.Utility.Util.processDocument;
+import static BioFID.Utility.Util.writeToFile;
 import static java.lang.System.exit;
 import static org.apache.uima.fit.util.JCasUtil.*;
 

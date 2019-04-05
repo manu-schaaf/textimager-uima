@@ -14,7 +14,7 @@ import java.nio.file.Paths;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-import static BioFID.Util.writeToFile;
+import static BioFID.Utility.Util.writeToFile;
 import static org.apache.uima.fit.factory.AnalysisEngineFactory.createEngineDescription;
 import static org.apache.uima.fit.util.JCasUtil.select;
 import static org.apache.uima.fit.util.JCasUtil.selectCovered;
@@ -25,15 +25,15 @@ import static org.apache.uima.fit.util.JCasUtil.selectCovered;
 public class PageProcessEngineExampleOut {
 	@Test
 	public void runAllTest() {
-		String path = "src/test/out/9088917/9088369";
-		String pathname = "src/test/resources/9088917/9088369";
+		String path = "src/test/out/Biodiversity/9088917/9088369";
+		String pathname = "src/test/resources/Biodiversity/9088917/9088369";
 		run(path, pathname);
 	}
 
 	@Test
 	public void runExternal() {
 		String path = "src/test/out/4704355";
-		String pathname = "G:/PowerFolders/bioFID/Export/Botanische Zeitschriften OCR/4704355";
+		String pathname = "/home/s3676959/Documents/BioFID/Export/Botanische_Zeitschriften//4704355";
 		run(path, pathname);
 	}
 

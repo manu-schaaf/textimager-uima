@@ -1,5 +1,5 @@
-import BioFID.ConllBIO2003Writer;
-import BioFID.HierachialBioEncoder;
+import BioFID.Extraction.ConllBIO2003Writer;
+import BioFID.Extraction.HierachialBioEncoder;
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import de.tudarmstadt.ukp.dkpro.core.api.ner.type.Location;
 import de.tudarmstadt.ukp.dkpro.core.api.ner.type.Organization;

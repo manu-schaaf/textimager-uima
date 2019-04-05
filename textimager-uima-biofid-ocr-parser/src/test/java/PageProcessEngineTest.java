@@ -27,7 +27,7 @@ public class PageProcessEngineTest
 	public void testTokenizationTable() throws UIMAException {
 		// Input
 		String xml = "";
-		try (BufferedReader br = new BufferedReader(new FileReader(new File("src/test/resources/9088917/9088369/9031004/0046_9028573.xml")))) {
+		try (BufferedReader br = new BufferedReader(new FileReader(new File("src/test/resources/Biodiversity/9088917/9088369/9031004/0046_9028573.xml")))) {
 			xml = br.lines().collect(Collectors.joining("\n"));
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -42,7 +42,7 @@ public class PageProcessEngineTest
 	public void testTokenization47() throws UIMAException {
 		// Input
 		String xml = "";
-		try (BufferedReader br = new BufferedReader(new FileReader(new File("src/test/resources/9088917/9088369/9031004/0047_9028574.xml")))) {
+		try (BufferedReader br = new BufferedReader(new FileReader(new File("src/test/resources/Biodiversity/9088917/9088369/9031004/0047_9028574.xml")))) {
 			xml = br.lines().collect(Collectors.joining("\n"));
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -56,7 +56,7 @@ public class PageProcessEngineTest
 	public void testTokenization48() throws UIMAException {
 		// Input
 		String xml = "";
-		try (BufferedReader br = new BufferedReader(new FileReader(new File("src/test/resources/9088917/9088369/9031004/0048_9028575.xml")))) {
+		try (BufferedReader br = new BufferedReader(new FileReader(new File("src/test/resources/Biodiversity/9088917/9088369/9031004/0048_9028575.xml")))) {
 			xml = br.lines().collect(Collectors.joining("\n"));
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -70,7 +70,7 @@ public class PageProcessEngineTest
 	public void testTokenization49() throws UIMAException {
 		// Input
 		String xml = "";
-		try (BufferedReader br = new BufferedReader(new FileReader(new File("src/test/resources/9088917/9088369/9031004/0049_9028576.xml")))) {
+		try (BufferedReader br = new BufferedReader(new FileReader(new File("src/test/resources/Biodiversity/9088917/9088369/9031004/0049_9028576.xml")))) {
 			xml = br.lines().collect(Collectors.joining("\n"));
 		} catch (IOException e) {
 			e.printStackTrace();

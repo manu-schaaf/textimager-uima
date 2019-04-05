@@ -1,5 +1,6 @@
-package BioFID;
+package BioFID.Extraction;
 
+import BioFID.AbstractRunner;
 import com.google.common.io.Files;
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import org.apache.commons.cli.MissingArgumentException;
@@ -25,7 +26,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
 import java.util.stream.IntStream;
 
-import static BioFID.Util.writeToFile;
+import static BioFID.Utility.Util.writeToFile;
 
 public class TextAnnotatorFetch extends AbstractRunner {
 

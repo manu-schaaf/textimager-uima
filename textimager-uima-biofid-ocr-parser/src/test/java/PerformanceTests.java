@@ -1,5 +1,4 @@
 import com.google.common.base.Stopwatch;
-import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -7,8 +6,8 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.regex.Pattern;
 
-import static BioFID.Util.countMatches;
-import static BioFID.Util.tokenPattern;
+import static BioFID.Utility.Util.countMatches;
+import static BioFID.Utility.Util.tokenPattern;
 
 /**
  * Created on 26.02.2019.

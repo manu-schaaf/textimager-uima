@@ -1,4 +1,4 @@
-package BioFID;
+package BioFID.Extraction;
 
 import BioFID.OCR.AbstractDocumentParser;
 import com.google.common.collect.ImmutableMap;
@@ -10,7 +10,6 @@ import org.apache.uima.UIMAException;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.util.CasIOUtil;
 import org.apache.uima.jcas.JCas;
-import org.texttechnologylab.annotation.ocr.OCRBlock;
 import org.texttechnologylab.annotation.ocr.OCRDocument;
 import org.texttechnologylab.annotation.ocr.OCRToken;
 
@@ -24,7 +23,7 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static BioFID.Util.writeToFile;
+import static BioFID.Utility.Util.writeToFile;
 import static org.apache.uima.fit.util.JCasUtil.*;
 
 /**

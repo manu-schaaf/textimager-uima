@@ -1,4 +1,4 @@
-package BioFID;
+package BioFID.Utility;
 
 import java.util.HashMap;
 

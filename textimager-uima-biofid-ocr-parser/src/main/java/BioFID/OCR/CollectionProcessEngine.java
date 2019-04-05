@@ -1,7 +1,6 @@
 package BioFID.OCR;
 
 import BioFID.OCR.Annotation.*;
-import BioFID.Util;
 import de.tudarmstadt.ukp.dkpro.core.api.anomaly.type.Anomaly;
 import de.tudarmstadt.ukp.dkpro.core.api.anomaly.type.SuggestedAction;
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
@@ -29,10 +28,9 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import static BioFID.Util.*;
+import static BioFID.Utility.Util.*;
 
 //import org.languagetool.JLanguageTool;
 

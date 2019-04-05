@@ -1,6 +1,6 @@
 package BioFID.OCR.Annotation;
 
-import BioFID.Util;
+import BioFID.Utility.Util;
 import org.xml.sax.Attributes;
 
 /**
