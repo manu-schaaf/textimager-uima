@@ -1,6 +1,6 @@
 package BioFID.Extraction;
 
-import BioFID.OCR.AbstractDocumentParser;
+import BioFID.OCR.AbstractOCRParser;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
@@ -29,7 +29,7 @@ import static org.apache.uima.fit.util.JCasUtil.*;
 /**
  * Created on 14.02.2019.
  */
-public class TextFromXMI extends AbstractDocumentParser {
+public class TextFromXMI extends AbstractOCRParser {
 	
 	public static void main(String[] args) {
 		String sInputPath = args[0];

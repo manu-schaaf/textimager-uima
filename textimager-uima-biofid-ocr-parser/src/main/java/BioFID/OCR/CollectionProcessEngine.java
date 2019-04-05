@@ -121,15 +121,14 @@ public class CollectionProcessEngine extends SegmenterBase {
 			aJCas.setDocumentText(text);
 			
 			int lastOffset = 0;
-			int lastDocumentOffset = 0;
 			HashMap<String, OCRDocument> documentLookup = new HashMap<>();
 			OCRDocument lastDocument = null;
 			String lastDocumentParent = null;
 			
 			for (int i = 0; i < pInputPaths.length; i++) {
-				String inputPath = pInputPaths[i];
-				FineReaderExportHandler fineReaderExportHandler = pages.get(inputPath);
-				String pageId = Paths.get(inputPath).getFileName().toString();
+				String pageInputPath = pInputPaths[i];
+				FineReaderExportHandler fineReaderExportHandler = pages.get(pageInputPath);
+				String pageId = Paths.get(pageInputPath).getFileName().toString();
 				
 				Page page = fineReaderExportHandler.pages.get(0);
 				page.pageId = pageId;
@@ -173,22 +172,22 @@ public class CollectionProcessEngine extends SegmenterBase {
 				}
 				
 				/* Every parent directory denotes its own Document annotation, recurring directories will get expanded each time */
-				String currentDocumentParent = Paths.get(inputPath).getParent().toString();
-				String currentDocumentParentName = Paths.get(inputPath).getParent().getFileName().toString();
+				String currentDocumentPath = Paths.get(pageInputPath).getParent().toString();
+				String currentDocumentName = Paths.get(pageInputPath).getParent().getFileName().toString();
 				if (pMultiDoc) {
 					if (Objects.nonNull(lastDocument)) {
-						endDocuments(aJCas, ocrPage.getEnd(), documentLookup, currentDocumentParent);
+						endDocuments(aJCas, ocrPage.getEnd(), documentLookup, currentDocumentPath);
 					}
-					if (documentLookup.containsKey(currentDocumentParent)) {
-						lastDocument = documentLookup.get(currentDocumentParent);
+					if (documentLookup.containsKey(currentDocumentPath)) {
+						lastDocument = documentLookup.get(currentDocumentPath);
 					} else {
 						lastDocument = new OCRDocument(aJCas);
 						lastDocument.setBegin(lastOffset);
-						lastDocument.setDocumentname(currentDocumentParentName);
-						documentLookup.put(currentDocumentParent, lastDocument);
+						lastDocument.setDocumentname(currentDocumentName);
+						documentLookup.put(currentDocumentPath, lastDocument);
 					}
 				}
-				lastDocumentParent = currentDocumentParent;
+				lastDocumentParent = currentDocumentPath;
 				lastOffset = ocrPage.getEnd();
 			}
 			if (Objects.nonNull(lastDocument)) {

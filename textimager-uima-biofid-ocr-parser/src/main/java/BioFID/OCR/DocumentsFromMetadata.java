@@ -15,7 +15,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 
-public class DocumentsFromMetadata extends AbstractDocumentParser {
+public class DocumentsFromMetadata extends AbstractOCRParser {
 	
 	public static void main(String[] args) {
 		System.out.printf("Running DocumentsFromMetadata with options: %s\n", Arrays.toString(args));
