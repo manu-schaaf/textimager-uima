@@ -196,7 +196,7 @@ public abstract class AbstractOCRParser extends AbstractRunner {
 			articleMetadata.setDocumentId(article.getDocumentname());
 			
 			XmiCasSerializer.serialize(articleCas.getCas(), fileOutputStream);
-		} catch (SAXException | IOException | UIMAException e) {
+		} catch (SAXException | IOException | UIMAException | StringIndexOutOfBoundsException e) {
 			System.err.printf("Failed serialization of XMI for article %s!\n", article.getDocumentname());
 			e.printStackTrace();
 		}
