@@ -47,5 +47,6 @@
         <!--<module>textimager-uima-NeuralnetworkNER</module>-->
         <!--<module>textimager-uima-cltk</module>-->
         <module>textimager-uima-biofid-ocr-parser</module>
+        <module>textimager-uima-stringbased-taxon-tagger</module>
     </modules>
 </project>
