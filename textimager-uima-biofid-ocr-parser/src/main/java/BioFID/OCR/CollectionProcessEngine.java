@@ -72,6 +72,7 @@ public class CollectionProcessEngine extends SegmenterBase {
 	@ConfigurationParameter(name = PARAM_MULTI_DOC, mandatory = false, defaultValue = "false")
 	protected Boolean pMultiDoc;
 	
+	
 	public static final String PARAM_USE_OLD_GARBAGE_DETECTION = "pUseOldGarbageDetection";
 	@ConfigurationParameter(name = PARAM_USE_OLD_GARBAGE_DETECTION, mandatory = false, defaultValue = "false")
 	protected Boolean pUseOldGarbageDetection;
@@ -94,11 +95,16 @@ public class CollectionProcessEngine extends SegmenterBase {
 			
 			final HashMap<String, FineReaderExportHandler> pages = new HashMap<>(pInputPaths.length);
 			boolean lastTokenWasSpace = false;
+			
 			for (String pagePath : pInputPaths) {
 				FineReaderExportHandler fineReaderExportHandler = getExportHandler(saxParser, pagePath, pCharLeftMax, pBlockTopMin, lastTokenWasSpace);
 				pages.put(pagePath, fineReaderExportHandler);
 				lastTokenWasSpace = fineReaderExportHandler.lastTokenWasSpace;
+				
+				AbstractOCRParser.currentProgress.incrementAndGet();
+				AbstractOCRParser.printProgress(false);
 			}
+			
 			// Check if any of the files contains more than one document. TODO: implement multi page documents
 			if (pages.values().stream().anyMatch(page -> page.pages.size() > 1)) {
 				String invalidPages = pages.entrySet().stream().filter(entry -> entry.getValue().pages.size() > 1).map(Map.Entry::getKey).collect(Collectors.joining("; "));

@@ -18,7 +18,7 @@ public class CollectionsFromFileHierarchyTest {
 				"-o", "src/test/out/Biodiversity/",
 				"-v", "src/test/resources/Leipzig40MT2010_lowered.5.vocab",
 				"-d", "1",
-				"-r", "src/test/out/Biodiversity/",
+				"-txt", "src/test/out/Biodiversity/",
 				"--sortAlNum",
 				"--exportArticles", "src/test/out/Biodiversity/articles/"
 		});

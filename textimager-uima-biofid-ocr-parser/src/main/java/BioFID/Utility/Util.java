@@ -141,4 +141,23 @@ abstract public class Util {
 			retStringBuilder.append(ocrToken.getCoveredText()).append(" ");
 		}
 	}
+	
+	public static int getRelativeDepth(File root, File file) {
+		return getRelativeDepth(root.toPath(), file.toPath());
+	}
+	
+	public static int getRelativeDepth(String root, File file) {
+		return getRelativeDepth(Paths.get(root), file.toPath());
+	}
+	
+	/**
+	 * Convinience method to compute the length of the path between two paths.
+	 *
+	 * @param stem the stem path.
+	 * @param leaf the leaf path.
+	 * @return the length of the path stem->leaf.
+	 */
+	public static int getRelativeDepth(Path stem, Path leaf) {
+		return leaf.relativize(stem).getNameCount();
+	}
 }

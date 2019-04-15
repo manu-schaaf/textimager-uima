@@ -31,12 +31,17 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import static org.apache.uima.fit.factory.AnalysisEngineFactory.createEngineDescription;
 import static org.apache.uima.fit.util.JCasUtil.*;
 
 public abstract class AbstractOCRParser extends AbstractRunner {
+	
+	static AtomicInteger currentProgress = new AtomicInteger(0);
+	static AtomicInteger maxProgress = new AtomicInteger(0);
+	static long lastProgressPrint = 0L;
 	
 	protected static void processDocumentPathList(String sOutputPath, String sVocabularyPath, String sRawPath, String documentId, ArrayList<String> pathList) throws UIMAException {
 		processDocumentPathList(sOutputPath, sVocabularyPath, sRawPath, documentId, pathList, false, null, null);
@@ -57,7 +62,11 @@ public abstract class AbstractOCRParser extends AbstractRunner {
 		runPipline(jCas, documentParser, documentId, sOutputPath, sRawPath);
 	}
 	
-	protected static void processDocumentPathList(String sOutputPath, String sVocabularyPath, String sRawPath, String collectionId, ArrayList<String> pathList, boolean bMultiDoc, @Nullable File collectionRootDir, @Nullable String sArticleOutputPath) throws UIMAException {
+	protected static void processDocumentPathList(String sOutputPath, String sVocabularyPath, String sRawPath, String collectionId,
+	                                              ArrayList<String> pathList, boolean bMultiDoc,
+	                                              @Nullable File collectionRootDir, @Nullable String sArticleOutputPath) throws UIMAException {
+		AbstractOCRParser.maxProgress.addAndGet(pathList.size());
+		
 		AnalysisEngineDescription documentParser = createEngineDescription(CollectionProcessEngine.class,
 				CollectionProcessEngine.INPUT_PATHS, pathList.toArray(new String[0]),
 				CollectionProcessEngine.COLLECTION_ROOT_DIR, Objects.nonNull(collectionRootDir) ? collectionRootDir.toString() : "",
@@ -82,6 +91,8 @@ public abstract class AbstractOCRParser extends AbstractRunner {
 			
 			ocrDocuments.forEach(article -> exportArticleXmi(article, jCas, collectionId, sArticleOutputPath));
 		}
+		
+		AbstractOCRParser.maxProgress.addAndGet(-1 * pathList.size());
 	}
 	
 	/**
@@ -204,12 +215,12 @@ public abstract class AbstractOCRParser extends AbstractRunner {
 		}
 		
 		if (!sRawPath.isEmpty()) {
-			try (PrintWriter printWriter = new PrintWriter(new OutputStreamWriter(Files.newOutputStream(Paths.get(sOutputPath, collectionId + ".txt")), StandardCharsets.UTF_8))) {
+			try (PrintWriter printWriter = new PrintWriter(new OutputStreamWriter(Files.newOutputStream(Paths.get(sRawPath, collectionId + ".txt")), StandardCharsets.UTF_8))) {
 				printWriter.print(getValidText(jCas));
 			} catch (IOException e) {
 				System.err.printf("Failed serialization of plain text for document %s!\n", collectionId);
 			}
-			try (PrintWriter printWriter = new PrintWriter(new OutputStreamWriter(Files.newOutputStream(Paths.get(sOutputPath, collectionId + "_orig.txt")), StandardCharsets.UTF_8))) {
+			try (PrintWriter printWriter = new PrintWriter(new OutputStreamWriter(Files.newOutputStream(Paths.get(sRawPath, collectionId + "_orig.txt")), StandardCharsets.UTF_8))) {
 				printWriter.print(jCas.getDocumentText());
 			} catch (IOException e) {
 				System.err.printf("Failed serialization of raw text for document %s!\n", collectionId);
@@ -251,7 +262,6 @@ public abstract class AbstractOCRParser extends AbstractRunner {
 //			debugStringBuilder.append("\n</OCRBlock>\n");
 //		}
 //		System.out.println(debugStringBuilder.toString());
-		
 		ArrayList<OCRDocument> ocrDocuments = new ArrayList<>(select(jCas, OCRDocument.class));
 		ocrDocuments.removeAll(indexCovering(jCas, OCRDocument.class, OCRDocument.class).keySet());
 		
@@ -266,14 +276,17 @@ public abstract class AbstractOCRParser extends AbstractRunner {
 		
 		StringBuilder retStringBuilder = new StringBuilder();
 
-//		ArrayList<String> skipped = new ArrayList<>();
+//		    ArrayList<String> skipped = new ArrayList<>();
 		
 		for (OCRDocument ocrDocument : ocrDocuments) {
-			if (!documentCoveringToken.containsKey(ocrDocument) || ocrDocument.getCoveredText().isEmpty())
-				continue;
-			Util.processDocument(ocrDocument, documentCoveringToken, tokenCovering, anomalies, retStringBuilder);
+			try {
+				if (!documentCoveringToken.containsKey(ocrDocument) || ocrDocument.getCoveredText().isEmpty())
+					continue;
+				Util.processDocument(ocrDocument, documentCoveringToken, tokenCovering, anomalies, retStringBuilder);
+			} catch (StringIndexOutOfBoundsException e) {
+				e.printStackTrace();
+			}
 		}
-
 //		System.out.println(select(jCas, OCRLine.class).stream().map(OCRLine::getCoveredText).collect(Collectors.joining("\n")));
 //
 //		System.out.println();
@@ -283,4 +296,13 @@ public abstract class AbstractOCRParser extends AbstractRunner {
 		return retStringBuilder.toString();
 	}
 	
+	public static void printProgress(boolean force) {
+		long now = System.currentTimeMillis();
+		boolean diff = (now - lastProgressPrint) > 500;
+		if (force || diff || currentProgress.get() == maxProgress.get()) {
+			lastProgressPrint = now;
+			System.out.printf("\rCurrently processed/queued: %d/%d", currentProgress.get(), maxProgress.get());
+			System.out.flush(); // FIXME: System.out.flush() needed?
+		}
+	}
 }

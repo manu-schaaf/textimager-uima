@@ -14,6 +14,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class DocumentsFromMetadata extends AbstractOCRParser {
 	
@@ -31,12 +32,14 @@ public class DocumentsFromMetadata extends AbstractOCRParser {
 			ArrayList<ImmutableList<String>> metadata = loadMetadata(Paths.get(sMetadataPath));
 			System.out.printf("Loaded metadata for %d documents.\n", metadata.size());
 			
-			final int[] count = {0};
 			System.out.println("Starting document parsing..");
+			
+			AtomicInteger count = new AtomicInteger(0);
+			
 			metadata.parallelStream().forEach(documentParts -> {
 //			for (ImmutableList<String> documentParts : metadata) {
 				String documentId = documentParts.get(0);
-				System.out.printf("%d/%d Parsing document with id %s..\n", count[0]++, metadata.size(), documentId);
+				System.out.printf("%d/%d Parsing document with id %s..\n", count.incrementAndGet(), metadata.size(), documentId);
 				
 				try {
 					ArrayList<String> pathList = new ArrayList<>();
