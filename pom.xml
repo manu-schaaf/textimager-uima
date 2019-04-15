@@ -49,5 +49,6 @@
         <module>textimager-uima-io</module>
         <!--<module>textimager-uima-fasttext</module>-->
         <module>textimager-uima-taxon-recognition</module>
+        <module>textimager-uima-biofid-ocr-parser</module>
     </modules>
 </project>

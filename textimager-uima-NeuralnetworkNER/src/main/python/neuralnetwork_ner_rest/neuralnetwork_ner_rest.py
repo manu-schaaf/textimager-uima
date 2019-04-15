@@ -75,13 +75,13 @@ def ner():
         print "Loading model " + models[model_name] + ".."
         model = Model(model_path="models/" + models[model_name])
         parameters = model.parameters
-    
+
         # Load reverse mappings
         word_to_id, char_to_id, tag_to_id = [
             {v: k for k, v in x.items()}
             for x in [model.id_to_word, model.id_to_char, model.id_to_tag]
         ]
-    
+
         # Load the model
         _, f_eval = model.build(training=False, **parameters)
         model.reload()

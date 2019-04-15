@@ -52,7 +52,7 @@ suj=de.tudarmstadt.ukp.dkpro.core.api.syntax.type.dependency.Dependency
 prep=de.tudarmstadt.ukp.dkpro.core.api.syntax.type.dependency.Dependency
 #sub
 sub=de.tudarmstadt.ukp.dkpro.core.api.syntax.type.dependency.Dependency
-# Additional dependencies for manual annotation only
+# Additional dependencies for manual Annotation only
 #aff_moyen
 #arg_comp
 #arg_cons
