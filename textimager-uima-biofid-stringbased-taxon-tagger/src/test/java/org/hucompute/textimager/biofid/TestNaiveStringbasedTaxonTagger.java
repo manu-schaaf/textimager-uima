@@ -35,10 +35,9 @@ public class TestNaiveStringbasedTaxonTagger {
 	@Test
 	@DisplayName("Test")
 	public void test() throws UIMAException, IOException, SAXException {
-		Pattern letterAndSpaceClass = Pattern.compile("[^\\p{Alpha}\\-\\s.,;!?]+", Pattern.UNICODE_CHARACTER_CLASS);
 //		String documentText = "Der Alnion glutinosae-Verband ist wahrscheinlich besser der XXI. Klasse der Querceto-Fagetea anzuschließen und darin der Ordnung der Populetalia unterzustellen.\n";
 		
-		String modelLocation = "/home/s3676959/Documents/BioFID/models/Taxa_1-Skip-N-Gram.bin";
+//		String modelLocation = "/home/s3676959/Documents/BioFID/models/Taxa_1-Skip-N-Gram.bin";
 		String sourceLocation = "/resources/public/stoeckel/BioFID/taxa.txt";
 //		NaiveSkipGramModel.buildModel(modelLocation, sourceLocation, "de", true);
 
@@ -49,8 +48,6 @@ public class TestNaiveStringbasedTaxonTagger {
 				BreakIteratorSegmenter.PARAM_LANGUAGE, "de",
 				BreakIteratorSegmenter.PARAM_SPLIT_AT_APOSTROPHE, true));
 		final AnalysisEngine naiveTaggerEngine = AnalysisEngineFactory.createEngine(AnalysisEngineFactory.createEngineDescription(NaiveStringbasedTaxonTagger.class,
-				NaiveStringbasedTaxonTagger.PARAM_MODEL_LOCATION, modelLocation,
-				NaiveStringbasedTaxonTagger.PARAM_TRAIN_MODEL, false,
 				NaiveStringbasedTaxonTagger.PARAM_SOURCE_LOCATION, sourceLocation,
 				NaiveStringbasedTaxonTagger.PARAM_USE_LOWERCASE, true));
 		
@@ -63,7 +60,7 @@ public class TestNaiveStringbasedTaxonTagger {
 			
 			String documentText;
 			try (BufferedReader bufferedReader = Files.newReader(file, StandardCharsets.UTF_8)) {
-				documentText = bufferedReader.lines().map(s -> letterAndSpaceClass.matcher(s).replaceAll("")).map(s -> s.replaceAll("-", " ")).collect(Collectors.joining());
+				documentText = bufferedReader.lines().collect(Collectors.joining(" "));
 			}
 			jCas.setDocumentText(documentText);
 			
