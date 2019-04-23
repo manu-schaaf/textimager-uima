@@ -57,7 +57,7 @@ public class PageRecursiveRunner {
 					PageProcessEngine.INPUT_XML, xml,
 					PageProcessEngine.PARAM_MIN_TOKEN_CONFIDENCE, 90,
 					PageProcessEngine.PARAM_BLOCK_TOP_MIN, 400,
-					PageProcessEngine.PARAM_DICT_PATH, "~/Documents/BioFID/textimager-uima/textimager-uima-biofid-ocr-parser/src/test/resources/Leipzig40MT2010_lowered.5.vocab");
+					PageProcessEngine.PARAM_DICT_PATH, "~/Documents/BioFID/textimager-uima/textimager-uima-org-ocr-parser/src/test/resources/Leipzig40MT2010_lowered.5.vocab");
 			
 			// Create a new JCas - "Holder"-Class for Annotation.
 			JCas inputCas = JCasFactory.createJCas();

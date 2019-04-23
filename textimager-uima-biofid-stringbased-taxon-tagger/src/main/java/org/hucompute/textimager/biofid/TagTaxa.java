@@ -33,6 +33,7 @@ public class TagTaxa {
 		options.addOption(inputOption);
 		options.addOption("o", "output", true, "Output path.");
 		options.addOption("t", "taxa", true, "Taxa list path.");
+		options.addOption("m", "minlength", true, "Taxa minimum length. Default: 5.");
 		options.addOption("l", "lowercase", false, "Optional, if true use lowercase.");
 
 		try {
@@ -51,7 +52,8 @@ public class TagTaxa {
 
 			final AnalysisEngine naiveTaggerEngine = AnalysisEngineFactory.createEngine(AnalysisEngineFactory.createEngineDescription(NaiveStringbasedTaxonTagger.class,
 					NaiveStringbasedTaxonTagger.PARAM_SOURCE_LOCATION, taxaLocation,
-					NaiveStringbasedTaxonTagger.PARAM_USE_LOWERCASE, useLowerCase));
+					NaiveStringbasedTaxonTagger.PARAM_USE_LOWERCASE, useLowerCase),
+					NaiveStringbasedTaxonTagger.PARAM_MIN_LENGTH, 5);
 
 			for (String inputLocation : inputLocations) {
 				for (File file : Files.fileTraverser().breadthFirst(new File(inputLocation))) {

@@ -15,8 +15,10 @@ import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.pipeline.SimplePipeline;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
+import org.apache.uima.jcas.tcas.Annotation;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.texttechnologylab.annotation.type.Taxon;
 import org.xml.sax.SAXException;
 
 import java.io.BufferedReader;
@@ -36,7 +38,7 @@ public class TestNaiveStringbasedTaxonTagger {
 	@DisplayName("Test")
 	public void test() throws UIMAException, IOException, SAXException {
 //		String documentText = "Der Alnion glutinosae-Verband ist wahrscheinlich besser der XXI. Klasse der Querceto-Fagetea anzuschließen und darin der Ordnung der Populetalia unterzustellen.\n";
-		
+
 //		String modelLocation = "/home/s3676959/Documents/BioFID/models/Taxa_1-Skip-N-Gram.bin";
 		String sourceLocation = "/resources/public/stoeckel/BioFID/taxa.txt";
 //		NaiveSkipGramModel.buildModel(modelLocation, sourceLocation, "de", true);
@@ -74,6 +76,9 @@ public class TestNaiveStringbasedTaxonTagger {
 			SimplePipeline.runPipeline(jCas, naiveTaggerEngine);
 			XmiCasSerializer.serialize(jCas.getCas(), new FileOutputStream(new File("/home/s3676959/Documents/BioFID/temp.xmi")));
 //			executorService.submit(new XmiCasSerializerRunnable(jCas, new File("/home/s3676959/Documents/BioFID/temp.xmi")));
+
+//			System.out.println(JCasUtil.select(jCas, Token.class).stream().map(Annotation::getCoveredText).collect(Collectors.joining(" ")));
+			System.out.println(JCasUtil.select(jCas, Taxon.class).stream().map(taxon -> String.format("%s@(%d, %d)", taxon.getCoveredText(), taxon.getBegin(), taxon.getEnd())).collect(Collectors.joining(", ")));
 		}
 		executorService.shutdown();
 	}

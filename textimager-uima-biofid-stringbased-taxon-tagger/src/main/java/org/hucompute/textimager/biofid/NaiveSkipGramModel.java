@@ -13,10 +13,7 @@ import org.apache.commons.math3.util.Combinations;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -24,6 +21,7 @@ import java.util.stream.Stream;
 
 public class NaiveSkipGramModel {
 	
+	@Deprecated
 	public static POSModel buildModel(String modelLocation, String sourceLocation, String language, boolean useLowercase) throws IOException {
 		return trainModel(loadTaxaMap(sourceLocation), modelLocation, language, useLowercase);
 	}
@@ -52,6 +50,7 @@ public class NaiveSkipGramModel {
 	 * @return
 	 * @throws IOException
 	 */
+	@Deprecated
 	public static POSModel trainModel(Map<String, String> taxaMap, String modelLocation, String language, boolean useLowercase) throws IOException {
 		System.out.println("Building model..");
 		
