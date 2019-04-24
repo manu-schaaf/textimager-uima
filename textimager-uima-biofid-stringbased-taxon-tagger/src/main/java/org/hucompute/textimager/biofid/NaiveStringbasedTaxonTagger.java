@@ -10,8 +10,10 @@ import de.tudarmstadt.ukp.dkpro.core.api.segmentation.SegmenterBase;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.math3.util.Combinations;
+import org.apache.commons.math3.util.Pair;
 import org.apache.uima.UimaContext;
 import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
+import org.apache.uima.cas.impl.FeatureImpl;
 import org.apache.uima.fit.descriptor.ConfigurationParameter;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
@@ -38,7 +40,7 @@ public class NaiveStringbasedTaxonTagger extends SegmenterBase {
 	 */
 	public static final String PARAM_LANGUAGE = ComponentParameters.PARAM_LANGUAGE;
 	@ConfigurationParameter(name = PARAM_LANGUAGE, mandatory = false, defaultValue = "de")
-	protected String language;
+	protected static String language;
 	
 	/**
 	 * Location from which the taxon data is read.
@@ -59,15 +61,16 @@ public class NaiveStringbasedTaxonTagger extends SegmenterBase {
 	 */
 	public static final String PARAM_USE_LOWERCASE = "pUseLowercase";
 	@ConfigurationParameter(name = PARAM_USE_LOWERCASE, mandatory = false, defaultValue = "false")
-	protected Boolean pUseLowercase;
+	protected static Boolean pUseLowercase;
 	
 	private MappingProvider namedEntityMappingProvider;
-	private Map<String, String> plainTaxaMap = null;
-	private HashSet<String> skipGramSet = null;
+	private HashSet<String> skipGramSet;
+	private LinkedHashMap<String, String> dataTaxonMap;
+	private LinkedHashMap<String, String> taxonLookup;
 	
 	final AtomicInteger atomicInteger = new AtomicInteger(0);
 	
-	Pattern notLetterAndSpaceClass = Pattern.compile("[^\\p{Alpha}\\-\\s.,;!?]", Pattern.UNICODE_CHARACTER_CLASS);
+	Pattern nonTokenCharacterClass = Pattern.compile("[^\\p{Alpha}\\-\\s]+", Pattern.UNICODE_CHARACTER_CLASS);
 	
 	
 	@Override
@@ -79,10 +82,24 @@ public class NaiveStringbasedTaxonTagger extends SegmenterBase {
 		namedEntityMappingProvider.setOverride(MappingProvider.LANGUAGE, "de");
 		
 		try {
-			plainTaxaMap = NaiveStringbasedTaxonTagger.loadTaxaMap(sourceLocation);
-			skipGramSet = plainTaxaMap.values().stream()
-					.map(pUseLowercase ? s -> s.toLowerCase(Locale.forLanguageTag(language)) : Function.identity())
-					.flatMap(NaiveStringbasedTaxonTagger::getSkipGrams)
+			dataTaxonMap = NaiveStringbasedTaxonTagger.loadTaxaMap(sourceLocation);
+			HashMap<String, List<String>> skipGramMap = dataTaxonMap.keySet().stream()
+					.map(cs -> nonTokenCharacterClass.matcher(cs).replaceAll(""))
+					.map(String::trim)
+					.collect(Collectors.toMap(
+							Function.identity(),
+							NaiveStringbasedTaxonTagger::getSkipGramList,
+							(u, v) -> v,
+							HashMap::new));
+			taxonLookup = skipGramMap.entrySet().stream()
+					.flatMap(entry -> entry.getValue().stream().map(val -> new Pair<>(entry.getKey(), val)))
+					.collect(Collectors.toMap(
+							Pair::getSecond,
+							Pair::getFirst,
+							(u, v) -> null,
+							LinkedHashMap::new));
+			skipGramSet = skipGramMap.values().stream()
+					.flatMap(List::stream)
 					.filter(s -> !Strings.isNullOrEmpty(s))
 					.filter(s -> s.length() >= pMinLength)
 					.collect(Collectors.toCollection(HashSet::new));
@@ -120,7 +137,7 @@ public class NaiveStringbasedTaxonTagger extends SegmenterBase {
 //			POSModel model;
 //			if (pTrainModel) {
 //
-//				model = NaiveSkipGramModel.trainModel(plainTaxaMap, modelLocation, language, pUseLowercase);
+//				model = NaiveSkipGramModel.trainModel(dataTaxonMap, modelLocation, language, pUseLowercase);
 //			} else {
 //				model = NaiveSkipGramModel.loadModel(modelLocation);
 //			}
@@ -175,6 +192,7 @@ public class NaiveStringbasedTaxonTagger extends SegmenterBase {
 						Token fromToken = tokens.get(currOffset + index);
 						Token toToken = tokens.get(currOffset + index + j);
 						Taxon taxon = new Taxon(aJCas, fromToken.getBegin(), toToken.getEnd());
+						taxon.setIdentifier(dataTaxonMap.get(taxonLookup.get(skipGram)));
 						aJCas.addFsToIndexes(taxon);
 						atomicInteger.incrementAndGet();
 					}
@@ -197,20 +215,24 @@ public class NaiveStringbasedTaxonTagger extends SegmenterBase {
 	 * @return ArrayList of taxa.
 	 * @throws IOException if file is not found or an error occurs.
 	 */
-	public static Map<String, String> loadTaxaMap(String sourceLocation) throws IOException {
+	public static LinkedHashMap<String, String> loadTaxaMap(String sourceLocation) throws IOException {
 		System.out.println("Loading taxa..");
 		try (BufferedReader bufferedReader = Files.newReader(new File(sourceLocation), StandardCharsets.UTF_8)) {
 			return bufferedReader.lines()
 					.map(String::trim)
 					.filter(s -> !Strings.isNullOrEmpty(s))
+					.map(pUseLowercase ? s -> s.toLowerCase(Locale.forLanguageTag(language)) : Function.identity())
 					.collect(Collectors.toMap(
+							s -> s.split("\t", 2)[0],
 							s -> s.split("\t", 2)[1],
-							s -> s.split("\t", 2)[0]
-							, (u, v) -> v,
-							LinkedHashMap::new
-							)
+							(u, v) -> v,
+							LinkedHashMap::new)
 					);
 		}
+	}
+	
+	public static List<String> getSkipGramList(String pString) {
+		return getSkipGrams(pString).collect(Collectors.toList());
 	}
 	
 	/**

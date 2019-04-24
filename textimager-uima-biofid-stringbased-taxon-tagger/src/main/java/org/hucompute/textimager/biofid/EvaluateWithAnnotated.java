@@ -6,6 +6,7 @@ import com.google.common.io.Files;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Sentence;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
 import org.apache.uima.UIMAException;
+import org.apache.uima.UIMARuntimeException;
 import org.apache.uima.analysis_engine.AnalysisEngine;
 import org.apache.uima.fit.factory.AnalysisEngineFactory;
 import org.apache.uima.fit.factory.JCasFactory;
@@ -92,7 +93,7 @@ public class EvaluateWithAnnotated {
 							conllWriter.println();
 						lastLineWasEmpty = true;
 					}
-				} catch (UIMAException | IOException e) {
+				} catch (UIMAException | UIMARuntimeException | IOException e) {
 					e.printStackTrace();
 				}
 				if (!lastLineWasEmpty)
