@@ -66,9 +66,9 @@ public class NaiveStringbasedTaxonTagger extends SegmenterBase {
 	private LinkedHashMap<String, String> taxonUriMap;
 	private LinkedHashMap<String, String> taxonLookup;
 	
-	final AtomicInteger atomicInteger = new AtomicInteger(0);
+	private final AtomicInteger atomicInteger = new AtomicInteger(0);
 	
-	static Pattern nonTokenCharacterClass = Pattern.compile("[^\\p{Alpha}\\- ]+", Pattern.UNICODE_CHARACTER_CLASS);
+	private static Pattern nonTokenCharacterClass = Pattern.compile("[^\\p{Alpha}\\- ]+", Pattern.UNICODE_CHARACTER_CLASS);
 	
 	
 	@Override
@@ -120,7 +120,7 @@ public class NaiveStringbasedTaxonTagger extends SegmenterBase {
 					.filter(s -> s.length() >= pMinLength)
 					.collect(Collectors.toCollection(HashSet::new));
 			
-			System.out.printf("Finished loading %d skip-grams from %d taxa in %d ms.\n", skipGramSet.size(), taxonLookup.size(), System.currentTimeMillis() - startTime);
+			System.out.printf("Finished loading %d skip-grams from %d taxa in %d ms.\n", skipGramSet.size(), taxonUriMap.size(), System.currentTimeMillis() - startTime);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -145,8 +145,8 @@ public class NaiveStringbasedTaxonTagger extends SegmenterBase {
 		skipGramSet.stream()
 				.parallel()
 				.forEach(skipGram -> findTaxa(aJCas, tokens, tokenStrings, skipGram));
-		
-		System.out.printf("Tagged %d taxa.", atomicInteger.intValue());
+
+//		System.out.printf("\rTagged %d taxa.", atomicInteger.intValue());
 	}
 	
 	private void findTaxa(JCas aJCas, final ArrayList<Token> tokens, final ArrayList<String> tokenStrings, String skipGram) {
