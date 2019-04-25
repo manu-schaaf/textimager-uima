@@ -191,7 +191,7 @@ public class EvaluateWithAnnotated {
 				float recall = truePositivies.get() / ((float) truePositivies.get() + falseNegatives.get());
 				float f1 = 2 * (precision * recall) / (precision + recall);
 				int sum = trueNegatives.get() + truePositivies.get() + falseNegatives.get() + falsePositivies.get();
-				System.out.printf("\rFile %d/%d, Precision: %01.3f, Recall: %01.3f, F1: %01.3f,\ttotal: %d, tp: %d, fp: %d, tn: %d, fn: %d",
+				System.out.printf("\rFile %d/%d\t\tPrecision: %01.3f, Recall: %01.3f, F1: %01.3f\t\ttotal: %d, tp: %d, fp: %d, tn: %d, fn: %d",
 						fileIndex + 1, files.size(), precision, recall, f1, sum, truePositivies.get(), falsePositivies.get(), trueNegatives.get(), falseNegatives.get());
 			}
 		} finally {

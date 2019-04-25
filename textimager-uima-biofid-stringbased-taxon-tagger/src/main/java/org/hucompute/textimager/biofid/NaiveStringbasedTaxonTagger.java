@@ -112,7 +112,7 @@ public class NaiveStringbasedTaxonTagger extends SegmenterBase {
 								return null;
 							},
 							LinkedHashMap::new));
-			System.err.printf("Found %d duplicate skip-grams!\n", duplicateKeys.get());
+			System.err.printf("Ignoring %d duplicate skip-grams!\n", duplicateKeys.get());
 			
 			// {Skip-Gram}
 			skipGramSet = taxonLookup.keySet().stream()
