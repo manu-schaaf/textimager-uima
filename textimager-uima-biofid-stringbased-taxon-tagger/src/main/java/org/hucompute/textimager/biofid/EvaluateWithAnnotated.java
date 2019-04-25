@@ -26,10 +26,7 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -102,8 +99,9 @@ public class EvaluateWithAnnotated {
 		try {
 			boolean lastLineWasEmpty = true;
 			index = params.indexOf("-i");
-			Iterable<File> files = Files.fileTraverser().breadthFirst(new File(params.get(index + 1)));
-			for (File file : Streams.stream(files).filter(File::isFile).collect(Collectors.toList())) {
+			List<File> files = Streams.stream(Files.fileTraverser().breadthFirst(new File(params.get(index + 1)))).filter(File::isFile).collect(Collectors.toList());
+			for (int fileIndex = 0; fileIndex < files.size(); fileIndex++) {
+				File file = files.get(fileIndex);
 				try {
 					JCas aJCas = JCasFactory.createJCas();
 					CasIOUtils.load(java.nio.file.Files.newInputStream(file.toPath()), null, aJCas.getCas(), true);
@@ -153,16 +151,16 @@ public class EvaluateWithAnnotated {
 								bBegin = Lists.newArrayList(bTokenCoveringTaxa.get(bToken)).get(0).getBegin() == bToken.getBegin();
 							}
 							
-							if (!strict || (aBegin && bBegin)) {
-								if (a && b)
-									truePositivies.incrementAndGet();
-								if (a && !b)
-									falseNegatives.incrementAndGet();
-								if (!a && !b)
-									trueNegatives.incrementAndGet();
-								if (!a && b)
-									falsePositivies.incrementAndGet();
+							if (a && b) {
+								if (!strict || (aBegin && bBegin)) truePositivies.incrementAndGet();
+								else falseNegatives.incrementAndGet();
 							}
+							if (a && !b)
+								falseNegatives.incrementAndGet();
+							if (!a && !b)
+								trueNegatives.incrementAndGet();
+							if (!a && b)
+								falsePositivies.incrementAndGet();
 							
 							if (print && (a || b)) {
 								lastLineWasEmpty = false;
@@ -193,8 +191,8 @@ public class EvaluateWithAnnotated {
 				float recall = truePositivies.get() / ((float) truePositivies.get() + falseNegatives.get());
 				float f1 = 2 * (precision * recall) / (precision + recall);
 				int sum = trueNegatives.get() + truePositivies.get() + falseNegatives.get() + falsePositivies.get();
-				System.out.printf("\rPrecision: %01.3f, Recall: %01.3f, F1: %01.3f,\ttotal: %d, tp: %d, fp: %d, tn: %d, fn: %d",
-						precision, recall, f1, sum, truePositivies.get(), falsePositivies.get(), trueNegatives.get(), falseNegatives.get());
+				System.out.printf("\rFile %d/%d, Precision: %01.3f, Recall: %01.3f, F1: %01.3f,\ttotal: %d, tp: %d, fp: %d, tn: %d, fn: %d",
+						fileIndex + 1, files.size(), precision, recall, f1, sum, truePositivies.get(), falsePositivies.get(), trueNegatives.get(), falseNegatives.get());
 			}
 		} finally {
 			System.out.println("Waiting for serialization to finish..");
