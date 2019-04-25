@@ -13,12 +13,10 @@ import org.apache.commons.math3.util.Combinations;
 import org.apache.commons.math3.util.Pair;
 import org.apache.uima.UimaContext;
 import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
-import org.apache.uima.cas.impl.FeatureImpl;
 import org.apache.uima.fit.descriptor.ConfigurationParameter;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.ResourceInitializationException;
-import org.jetbrains.annotations.NotNull;
 import org.texttechnologylab.annotation.type.Taxon;
 
 import java.io.BufferedReader;
@@ -65,12 +63,12 @@ public class NaiveStringbasedTaxonTagger extends SegmenterBase {
 	
 	private MappingProvider namedEntityMappingProvider;
 	private HashSet<String> skipGramSet;
-	private LinkedHashMap<String, String> dataTaxonMap;
+	private LinkedHashMap<String, String> taxonUriMap;
 	private LinkedHashMap<String, String> taxonLookup;
 	
 	final AtomicInteger atomicInteger = new AtomicInteger(0);
 	
-	Pattern nonTokenCharacterClass = Pattern.compile("[^\\p{Alpha}\\-\\s]+", Pattern.UNICODE_CHARACTER_CLASS);
+	static Pattern nonTokenCharacterClass = Pattern.compile("[^\\p{Alpha}\\- ]+", Pattern.UNICODE_CHARACTER_CLASS);
 	
 	
 	@Override
@@ -82,27 +80,47 @@ public class NaiveStringbasedTaxonTagger extends SegmenterBase {
 		namedEntityMappingProvider.setOverride(MappingProvider.LANGUAGE, "de");
 		
 		try {
-			dataTaxonMap = NaiveStringbasedTaxonTagger.loadTaxaMap(sourceLocation);
-			HashMap<String, List<String>> skipGramMap = dataTaxonMap.keySet().stream()
-					.map(cs -> nonTokenCharacterClass.matcher(cs).replaceAll(""))
-					.map(String::trim)
+			System.out.println("Loading taxa..");
+			long startTime = System.currentTimeMillis();
+			AtomicInteger duplicateKeys = new AtomicInteger(0);
+			
+			// Taxon -> URI
+			taxonUriMap = NaiveStringbasedTaxonTagger.loadTaxaMap(sourceLocation);
+			
+			// Taxon -> [Skip-Grams]
+			HashMap<String, List<String>> skipGramMap = taxonUriMap.keySet().stream()
 					.collect(Collectors.toMap(
 							Function.identity(),
 							NaiveStringbasedTaxonTagger::getSkipGramList,
-							(u, v) -> v,
+							(u, v) -> {
+								duplicateKeys.incrementAndGet();
+								return v;
+							},
 							HashMap::new));
+			if (duplicateKeys.get() > 0)
+				System.err.printf("Found %d duplicate taxa!\n", duplicateKeys.get());
+			duplicateKeys.set(0);
+			
+			// Skip-Gram -> Taxon
 			taxonLookup = skipGramMap.entrySet().stream()
 					.flatMap(entry -> entry.getValue().stream().map(val -> new Pair<>(entry.getKey(), val)))
 					.collect(Collectors.toMap(
 							Pair::getSecond,
 							Pair::getFirst,
-							(u, v) -> null,
+							(u, v) -> { // Drop duplicate skip-grams to ensure bijective skip-gram <-> taxon mapping.
+								duplicateKeys.incrementAndGet();
+								return null;
+							},
 							LinkedHashMap::new));
-			skipGramSet = skipGramMap.values().stream()
-					.flatMap(List::stream)
+			System.err.printf("Found %d duplicate skip-grams!\n", duplicateKeys.get());
+			
+			// {Skip-Gram}
+			skipGramSet = taxonLookup.keySet().stream()
 					.filter(s -> !Strings.isNullOrEmpty(s))
 					.filter(s -> s.length() >= pMinLength)
 					.collect(Collectors.toCollection(HashSet::new));
+			
+			System.out.printf("Finished loading %d skip-grams from %d taxa in %d ms.\n", skipGramSet.size(), taxonLookup.size(), System.currentTimeMillis() - startTime);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -128,46 +146,9 @@ public class NaiveStringbasedTaxonTagger extends SegmenterBase {
 				.parallel()
 				.forEach(skipGram -> findTaxa(aJCas, tokens, tokenStrings, skipGram));
 		
-		System.out.printf("Tagged %d taxa.\n", atomicInteger.intValue());
+		System.out.printf("Tagged %d taxa.", atomicInteger.intValue());
 	}
-
-
-//	@Override
-//	protected void process(JCas aJCas, String text, int zoneBegin) throws AnalysisEngineProcessException {
-//			POSModel model;
-//			if (pTrainModel) {
-//
-//				model = NaiveSkipGramModel.trainModel(dataTaxonMap, modelLocation, language, pUseLowercase);
-//			} else {
-//				model = NaiveSkipGramModel.loadModel(modelLocation);
-//			}
-//
-//			Map<Sentence, Collection<Token>> sentenceTokenIndex = JCasUtil.indexCovered(aJCas, Sentence.class, Token.class);
-//			POSTaggerME tagger = new POSTaggerME(model);
-//
-//			System.out.println("Tagging");
-//			List<String[]> sentences = JCasUtil.select(aJCas, Sentence.class).stream()
-//					.map(sentenceTokenIndex::get)
-//					.map(c -> c.stream()
-//							.map(Token::getCoveredText)
-//							.map(pUseLowercase ? s -> s.toLowerCase(Locale.forLanguageTag(language)) : Function.identity())
-//							.toArray(String[]::new))
-//					.collect(Collectors.toList());
-//			for (String[] sentence : sentences) {
-//				Sequence[] sequences = tagger.topKSequences(sentence);
-//				if (Arrays.stream(sequences).flatMap(s -> s.getOutcomes().stream()).anyMatch(s -> s.equals("tax"))) {
-//					for (Sequence sequence : sequences) {
-//						List<String> outcomes = sequence.getOutcomes();
-//						System.out.println(IntStream.range(0, outcomes.size())
-//								.mapToObj(i -> Pair.create(sentence[i], outcomes.get(i)))
-//								.collect(Collectors.toList()));
-//					}
-//				}
-//			}
-//		System.out.println("Finished.");
-//	}
 	
-	@NotNull
 	private void findTaxa(JCas aJCas, final ArrayList<Token> tokens, final ArrayList<String> tokenStrings, String skipGram) {
 		int index;
 		String[] skipGramSplit = skipGram.split(" ");
@@ -192,7 +173,7 @@ public class NaiveStringbasedTaxonTagger extends SegmenterBase {
 						Token fromToken = tokens.get(currOffset + index);
 						Token toToken = tokens.get(currOffset + index + j);
 						Taxon taxon = new Taxon(aJCas, fromToken.getBegin(), toToken.getEnd());
-						taxon.setIdentifier(dataTaxonMap.get(taxonLookup.get(skipGram)));
+						taxon.setIdentifier(taxonUriMap.get(taxonLookup.get(skipGram)));
 						aJCas.addFsToIndexes(taxon);
 						atomicInteger.incrementAndGet();
 					}
@@ -216,14 +197,12 @@ public class NaiveStringbasedTaxonTagger extends SegmenterBase {
 	 * @throws IOException if file is not found or an error occurs.
 	 */
 	public static LinkedHashMap<String, String> loadTaxaMap(String sourceLocation) throws IOException {
-		System.out.println("Loading taxa..");
 		try (BufferedReader bufferedReader = Files.newReader(new File(sourceLocation), StandardCharsets.UTF_8)) {
 			return bufferedReader.lines()
-					.map(String::trim)
 					.filter(s -> !Strings.isNullOrEmpty(s))
 					.map(pUseLowercase ? s -> s.toLowerCase(Locale.forLanguageTag(language)) : Function.identity())
 					.collect(Collectors.toMap(
-							s -> s.split("\t", 2)[0],
+							s -> nonTokenCharacterClass.matcher(s.split("\t", 2)[0]).replaceAll("").trim(),
 							s -> s.split("\t", 2)[1],
 							(u, v) -> v,
 							LinkedHashMap::new)
