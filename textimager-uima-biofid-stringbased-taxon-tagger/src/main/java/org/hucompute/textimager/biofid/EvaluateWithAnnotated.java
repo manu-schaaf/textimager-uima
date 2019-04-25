@@ -6,11 +6,12 @@ import com.google.common.collect.Streams;
 import com.google.common.io.Files;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Sentence;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
-import org.apache.commons.cli.*;
+import org.apache.commons.cli.HelpFormatter;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.ParseException;
 import org.apache.uima.UIMAException;
 import org.apache.uima.UIMARuntimeException;
 import org.apache.uima.analysis_engine.AnalysisEngine;
-import org.apache.uima.cas.impl.XmiCasSerializer;
 import org.apache.uima.fit.factory.AnalysisEngineFactory;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.pipeline.SimplePipeline;
@@ -20,7 +21,6 @@ import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.util.CasCopier;
 import org.apache.uima.util.CasIOUtils;
 import org.texttechnologylab.annotation.type.Taxon;
-import org.xml.sax.SAXException;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -29,8 +29,6 @@ import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
@@ -39,7 +37,6 @@ public class EvaluateWithAnnotated {
 	private static PrintWriter conllWriter = null;
 	private static Path outPath;
 	private static ExecutorService cachedThreadPool = Executors.newCachedThreadPool();
-	private static ArrayList<Future<?>> serializationTasks = new ArrayList<>();
 	
 	public static void main(String[] args) throws ResourceInitializationException, FileNotFoundException, ParseException, InterruptedException {
 		ImmutableList<String> params = ImmutableList.copyOf(args);
@@ -173,12 +170,7 @@ public class EvaluateWithAnnotated {
 					}
 					
 					if (Objects.nonNull(outPath)) {
-//						try (FileOutputStream fileOutputStream = new FileOutputStream(Paths.get(outPath.toString(), file.getName()).toFile())) {
-//							XmiCasSerializer.serialize(bJCas.getCas(), fileOutputStream);
-//						} catch (SAXException | IOException e) {
-//							e.printStackTrace();
-//						}
-						serializationTasks.add(cachedThreadPool.submit(new XmiCasSerializerRunnable(bJCas, Paths.get(outPath.toString(), file.getName()).toFile())));
+						cachedThreadPool.submit(new XmiCasSerializerRunnable(bJCas, Paths.get(outPath.toString(), file.getName()).toFile()));
 					}
 				} catch (UIMAException | UIMARuntimeException | IOException e) {
 					e.printStackTrace();
@@ -195,7 +187,7 @@ public class EvaluateWithAnnotated {
 						fileIndex + 1, files.size(), precision, recall, f1, sum, truePositivies.get(), falsePositivies.get(), trueNegatives.get(), falseNegatives.get());
 			}
 		} finally {
-			System.out.println("Waiting for serialization to finish..");
+			System.out.println("\nWaiting for serialization to finish..");
 			cachedThreadPool.shutdown();
 		}
 		System.out.println("Done.");
