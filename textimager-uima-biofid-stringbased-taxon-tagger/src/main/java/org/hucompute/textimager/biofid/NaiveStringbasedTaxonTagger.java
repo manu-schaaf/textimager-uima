@@ -114,6 +114,9 @@ public class NaiveStringbasedTaxonTagger extends SegmenterBase {
 							LinkedHashMap::new));
 			System.err.printf("Ignoring %d duplicate skip-grams!\n", duplicateKeys.get());
 			
+			// Ensure actual taxa are contained in taxonLookup
+			taxonUriMap.keySet().forEach(tax -> taxonLookup.put(tax, tax));
+			
 			// {Skip-Gram}
 			skipGramSet = taxonLookup.keySet().stream()
 					.filter(s -> !Strings.isNullOrEmpty(s))
