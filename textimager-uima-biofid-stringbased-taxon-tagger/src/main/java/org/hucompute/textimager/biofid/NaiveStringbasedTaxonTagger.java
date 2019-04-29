@@ -2,14 +2,11 @@ package org.hucompute.textimager.biofid;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.*;
-import com.google.common.io.Files;
 import de.tudarmstadt.ukp.dkpro.core.api.ner.type.NamedEntity;
 import de.tudarmstadt.ukp.dkpro.core.api.parameter.ComponentParameters;
 import de.tudarmstadt.ukp.dkpro.core.api.resources.MappingProvider;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.SegmenterBase;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
-import org.apache.commons.lang3.ArrayUtils;
-import org.apache.commons.math3.util.Combinations;
 import org.apache.commons.math3.util.Pair;
 import org.apache.uima.UimaContext;
 import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
@@ -19,17 +16,11 @@ import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.ResourceInitializationException;
 import org.texttechnologylab.annotation.type.Taxon;
 
-import java.io.BufferedReader;
-import java.io.File;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
 public class NaiveStringbasedTaxonTagger extends SegmenterBase {
 	
@@ -62,13 +53,9 @@ public class NaiveStringbasedTaxonTagger extends SegmenterBase {
 	protected static Boolean pUseLowercase;
 	
 	private MappingProvider namedEntityMappingProvider;
-	private HashSet<String> skipGramSet;
-	private LinkedHashMap<String, String> taxonUriMap;
-	private LinkedHashMap<String, String> taxonLookup;
 	
 	private final AtomicInteger atomicInteger = new AtomicInteger(0);
-	
-	private static Pattern nonTokenCharacterClass = Pattern.compile("[^\\p{Alpha}\\- ]+", Pattern.UNICODE_CHARACTER_CLASS);
+	private NaiveSkipGramModel naiveSkipGramModel;
 	
 	
 	@Override
@@ -80,50 +67,7 @@ public class NaiveStringbasedTaxonTagger extends SegmenterBase {
 		namedEntityMappingProvider.setOverride(MappingProvider.LANGUAGE, "de");
 		
 		try {
-			System.out.println("Loading taxa..");
-			long startTime = System.currentTimeMillis();
-			AtomicInteger duplicateKeys = new AtomicInteger(0);
-			
-			// Taxon -> URI
-			taxonUriMap = NaiveStringbasedTaxonTagger.loadTaxaMap(sourceLocation);
-			
-			// Taxon -> [Skip-Grams]
-			HashMap<String, List<String>> skipGramMap = taxonUriMap.keySet().stream()
-					.collect(Collectors.toMap(
-							Function.identity(),
-							NaiveStringbasedTaxonTagger::getSkipGramList,
-							(u, v) -> {
-								duplicateKeys.incrementAndGet();
-								return v;
-							},
-							HashMap::new));
-			if (duplicateKeys.get() > 0)
-				System.err.printf("Found %d duplicate taxa!\n", duplicateKeys.get());
-			duplicateKeys.set(0);
-			
-			// Skip-Gram -> Taxon
-			taxonLookup = skipGramMap.entrySet().stream()
-					.flatMap(entry -> entry.getValue().stream().map(val -> new Pair<>(entry.getKey(), val)))
-					.collect(Collectors.toMap(
-							Pair::getSecond,
-							Pair::getFirst,
-							(u, v) -> { // Drop duplicate skip-grams to ensure bijective skip-gram <-> taxon mapping.
-								duplicateKeys.incrementAndGet();
-								return null;
-							},
-							LinkedHashMap::new));
-			System.err.printf("Ignoring %d duplicate skip-grams!\n", duplicateKeys.get());
-			
-			// Ensure actual taxa are contained in taxonLookup
-			taxonUriMap.keySet().forEach(tax -> taxonLookup.put(tax, tax));
-			
-			// {Skip-Gram}
-			skipGramSet = taxonLookup.keySet().stream()
-					.filter(s -> !Strings.isNullOrEmpty(s))
-					.filter(s -> s.length() >= pMinLength)
-					.collect(Collectors.toCollection(HashSet::new));
-			
-			System.out.printf("Finished loading %d skip-grams from %d taxa in %d ms.\n", skipGramSet.size(), taxonUriMap.size(), System.currentTimeMillis() - startTime);
+			naiveSkipGramModel = new NaiveSkipGramModel(sourceLocation, pUseLowercase, language, pMinLength);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -145,7 +89,7 @@ public class NaiveStringbasedTaxonTagger extends SegmenterBase {
 				.map(pUseLowercase ? s -> s.toLowerCase(Locale.forLanguageTag(language)) : Function.identity())
 				.collect(Collectors.toCollection(ArrayList::new));
 		
-		skipGramSet.stream()
+		naiveSkipGramModel.skipGramSet.stream()
 				.parallel()
 				.forEach(skipGram -> findTaxa(aJCas, tokens, tokenStrings, skipGram));
 
@@ -176,7 +120,7 @@ public class NaiveStringbasedTaxonTagger extends SegmenterBase {
 						Token fromToken = tokens.get(currOffset + index);
 						Token toToken = tokens.get(currOffset + index + j);
 						Taxon taxon = new Taxon(aJCas, fromToken.getBegin(), toToken.getEnd());
-						taxon.setIdentifier(taxonUriMap.get(taxonLookup.get(skipGram)));
+						taxon.setIdentifier(naiveSkipGramModel.getUriFromSkipGram(skipGram));
 						aJCas.addFsToIndexes(taxon);
 						atomicInteger.incrementAndGet();
 					}
@@ -191,67 +135,6 @@ public class NaiveStringbasedTaxonTagger extends SegmenterBase {
 				}
 			}
 		} while (index > -1);
-	}
-	
-	/**
-	 * Load taxa from UTF-8 file, one taxon per line.
-	 *
-	 * @return ArrayList of taxa.
-	 * @throws IOException if file is not found or an error occurs.
-	 */
-	public static LinkedHashMap<String, String> loadTaxaMap(String sourceLocation) throws IOException {
-		try (BufferedReader bufferedReader = Files.newReader(new File(sourceLocation), StandardCharsets.UTF_8)) {
-			return bufferedReader.lines()
-					.filter(s -> !Strings.isNullOrEmpty(s))
-					.map(pUseLowercase ? s -> s.toLowerCase(Locale.forLanguageTag(language)) : Function.identity())
-					.collect(Collectors.toMap(
-							s -> nonTokenCharacterClass.matcher(s.split("\t", 2)[0]).replaceAll("").trim(),
-							s -> s.split("\t", 2)[1],
-							(u, v) -> v,
-							LinkedHashMap::new)
-					);
-		}
-	}
-	
-	public static List<String> getSkipGramList(String pString) {
-		return getSkipGrams(pString).collect(Collectors.toList());
-	}
-	
-	/**
-	 * Get a List of 1-skip-n-grams for the given string.
-	 * The string itself is always the first element of the list.
-	 * The string is split by whitespaces and all n over n-1 combinations are computed and added to the list.
-	 * If there is only a single word in the given string, a singleton list with that word is returned.
-	 *
-	 * @param pString the target String.
-	 * @return a List of Strings.
-	 */
-	public static Stream<String> getSkipGrams(String pString) {
-		ImmutableList<String> words = ImmutableList.copyOf(pString.split("[\\s\n\\-]+"));
-		if (words.size() < 3) {
-			return Stream.of(pString);
-		} else {
-			Map<Integer, String> split = IntStream.range(0, words.size())
-					.boxed()
-					.collect(Collectors.toMap(Function.identity(), words::get));
-			
-			return Streams.stream(Iterators.concat(
-					Iterators.singletonIterator(IntStream.range(0, split.size()).toArray()),    // the string itself
-					new Combinations(split.size(), split.size() - 1).iterator()))               // the combinations
-					.parallel()
-					.map(ArrayUtils::toObject)
-//					.map(arr -> {
-//						Maps.newHashMap(split).keySet().retainAll(Sets.intersection(ImmutableSet.copyOf(arr), split.keySet()));
-//						return String.join(" ", split.values());
-//					}); // FIXME: Combinations Array as List key subset function
-					.map(arr -> {
-						ArrayList<String> strings = new ArrayList<>();
-						for (int i : arr) {
-							strings.add(split.get(i));
-						}
-						return String.join(" ", strings);
-					});
-		}
 	}
 	
 }

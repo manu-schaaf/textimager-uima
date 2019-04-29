@@ -16,6 +16,7 @@ import org.apache.uima.fit.pipeline.SimplePipeline;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.jcas.tcas.Annotation;
+import org.apache.uima.util.CasIOUtils;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.texttechnologylab.annotation.type.Taxon;
@@ -56,22 +57,11 @@ public class TestNaiveStringbasedTaxonTagger {
 		
 		ExecutorService executorService = Executors.newCachedThreadPool();
 //		for (File file : new File("/home/s3676959/Documents/BioFID/data/BioFID_TXT_raw_18.02/").listFiles()) {
-		File file = new File("/home/s3676959/Documents/BioFID/data/BioFID_TXT_raw_18.02/9031034.txt");
+		File file = new File("/resources/public/ahmed/BIOfid/BioFID_XMI_TI_28.03/9031034.xmi");
 		{
 			JCas jCas = JCasFactory.createJCas();
+			CasIOUtils.load(java.nio.file.Files.newInputStream(file.toPath()), null, jCas.getCas(), true);
 			
-			String documentText;
-			try (BufferedReader bufferedReader = Files.newReader(file, StandardCharsets.UTF_8)) {
-				documentText = bufferedReader.lines().collect(Collectors.joining(" "));
-			}
-			jCas.setDocumentText(documentText);
-			
-			DocumentMetaData documentMetaData = DocumentMetaData.create(jCas);
-			documentMetaData.setDocumentId("testDocument");
-//
-//		    SimplePipeline.runPipeline(jCas, regexSegmenterEngine);
-			SimplePipeline.runPipeline(jCas, breakIteratorSegmenterEngine);
-
 //			System.out.printf("Tagging %d sentences with %d tokens..", JCasUtil.select(jCas, Sentence.class).size(), JCasUtil.select(jCas, Token.class).size());
 			SimplePipeline.runPipeline(jCas, naiveTaggerEngine);
 			XmiCasSerializer.serialize(jCas.getCas(), new FileOutputStream(new File("/home/s3676959/Documents/BioFID/temp.xmi")));
