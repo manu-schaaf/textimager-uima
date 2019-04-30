@@ -6,10 +6,12 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Streams;
 import com.google.common.io.Files;
 import org.apache.commons.cli.*;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.uima.UIMAException;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
+import java.nio.CharBuffer;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
@@ -27,7 +29,7 @@ public class CollectionsFromFileHierarchy extends AbstractOCRParser {
 	private static boolean sortAlNum = false;
 	
 	private static final Predicate<File> isLeafDir = dir -> Arrays.stream(Objects.requireNonNull(dir.listFiles())).noneMatch(File::isDirectory);
-	
+	private static final String spaces = StringUtils.repeat(' ', 20);
 	
 	public static void main(String[] args) {
 		Options options = new Options();
@@ -135,7 +137,8 @@ public class CollectionsFromFileHierarchy extends AbstractOCRParser {
 							e.getCause().toString(), e.getCause().getStackTrace()[0].toString());
 				}
 				
-				System.out.printf("\r%d/%d Parsed collection %s.\n", count.incrementAndGet(), collectionDirs.size(), documentId);
+				System.out.printf("\r%d/%d Parsed collection %s.%s\n",
+						count.incrementAndGet(), collectionDirs.size(), documentId, spaces);
 				AbstractOCRParser.printProgress(true);
 			});
 			
