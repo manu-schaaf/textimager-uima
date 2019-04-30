@@ -5,8 +5,8 @@ import org.xml.sax.Attributes;
 import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
 
-import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.regex.Pattern;
 
 import static BioFID.OCR.Annotation.Block.blockTypeEnum;
 
@@ -50,6 +50,9 @@ public class FineReaderExportHandler extends DefaultHandler {
 	
 	// Statistics
 	private int totalChars = 0;
+	
+	private static Pattern spacePattern = Pattern.compile("[\\s]+", Pattern.UNICODE_CHARACTER_CLASS);
+	private static Pattern nonWordCharacter = Pattern.compile("[^\\p{Alnum}\\-¬]+", Pattern.UNICODE_CHARACTER_CLASS);
 	
 	
 	@Override
@@ -100,7 +103,7 @@ public class FineReaderExportHandler extends DefaultHandler {
 				String wordStart = attributes.getValue("wordStart");
 				
 				if (currToken == null || (((wordStart != null && wordStart.equals("true")) || forceNewToken) && !lastTokenWasHyphen)) {
-					createToken();
+					addToken();
 				}
 				
 				currCharAttributes = attributes; // TODO: use char obj
@@ -133,7 +136,7 @@ public class FineReaderExportHandler extends DefaultHandler {
 				setEnd(currParagraph);
 				break;
 			case "line":
-				/// Add space instead of linebreak
+				// Add space instead of linebreak
 				addSpace();
 				setEnd(currLine);
 		}
@@ -145,58 +148,81 @@ public class FineReaderExportHandler extends DefaultHandler {
 			Annotation.end = totalChars;
 	}
 	
+	/**
+	 * @param ch
+	 * @param start
+	 * @param length should be one by XML schema definition, but isn't always.
+	 * @throws SAXException
+	 */
 	@Override
 	public void characters(char[] ch, int start, int length) throws SAXException {
 		if (character && characterIsAllowed) {
-			String currChar = new String(ch, start, length);
-			if (currChar.matches("\\s+")) {
+			String currChars = new String(ch, start, length);
+			if (spacePattern.matcher(currChars).matches()) {
 				addSpace();
+			} else if (nonWordCharacter.matcher(currChars).matches()) {
+				// If the current characters are non-token characters
+				// add a new token and reset last token information
+				addNonWordToken(currChars, currCharAttributes);
 			} else {
-				/// Add a new subtoken if there has been a ¬ and it was followed by a character
+				// Add a new subtoken if there has been a ¬ and it was followed by a character
 				if (lastTokenWasHyphen && !lastTokenWasSpace) {
-//                    currToken.removeLastChar();
-//                    totalChars--;
 					currToken.setContainsHyphen();
 					currToken.addSubToken();
 				}
 				lastTokenWasSpace = false;
 				
-				/// The hyphen character ¬ does not contribute to the total character count
-				if (currChar.equals("¬")) {
+				// The hyphen character ¬ does not contribute to the total character count
+				if (currChars.equals("¬")) {
 					lastTokenWasHyphen = true;
 				} else {
 					lastTokenWasHyphen = false;
-					currToken.addChar(currChar); // FIXME: random bug.
+					currToken.addChar(currChars);
 					currToken.addCharAttributes(currCharAttributes);
-					totalChars += length;
+					totalChars += currChars.length();
 				}
 			}
 			character = false;
 		}
 	}
 	
+	private void addNonWordToken(String currChars, Attributes currCharAttributes) {
+		// If the current token already contains characters, create a new token for the non-word token
+		if (currToken.length() > 0) {
+			forceNewToken = true;
+			addToken();
+		}
+		
+		lastTokenWasSpace = false;
+		lastTokenWasHyphen = false;
+		
+		currToken.addChar(currChars);
+		currToken.addCharAttributes(currCharAttributes);
+		totalChars += currChars.length();
+		
+		forceNewToken = true;
+		addToken();
+	}
+	
 	private void addSpace() {
-		/// Do not add spaces if the preceding token is a space, the ¬ hyphenation character or there has not been any token
+		// Do not add spaces if the preceding token is a space, the ¬ hyphenation character or there has not been any token
 		if (lastTokenWasSpace || lastTokenWasHyphen || currToken == null)
 			return;
 		
-		/// If the current token already contains characters, create a new token for the space
+		// If the current token already contains characters, create a new token for the space
 		if (currToken.length() > 0) {
 			forceNewToken = true;
-			createToken();
+			addToken();
 		}
 		
-		/// Add the space character and increase token count
+		// Add the space character and increase token count
 		currToken.addChar(" ");
 		totalChars++;
 		forceNewToken = true;
 		lastTokenWasSpace = true;
 	}
 	
-	/**
-	 *
-	 */
-	private void createToken() {
+	private void addToken() {
 		if (currToken == null) {
 			createNewToken();
 		} else if (forceNewToken || currToken.isSpace()) {
