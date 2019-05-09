@@ -3,15 +3,21 @@ package org.hucompute.textimager.biofid;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
+import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import com.google.common.io.Files;
+import de.tudarmstadt.ukp.dkpro.core.api.lexmorph.type.pos.N;
+import org.apache.commons.collections4.MapUtils;
+import org.apache.commons.collections4.SetUtils;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.math3.util.Combinations;
 import org.apache.commons.math3.util.Pair;
+import org.apache.uima.util.UriUtils;
 
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -25,30 +31,34 @@ public class NaiveSkipGramModel {
 	
 	private static Pattern nonTokenCharacterClass = Pattern.compile("[^\\p{Alpha}\\- ]+", Pattern.UNICODE_CHARACTER_CLASS);
 	public HashSet<String> skipGramSet;
-	private LinkedHashMap<String, String> taxonUriMap;
+	private LinkedHashMap<String, HashSet<URI>> taxonUriMap;
 	private LinkedHashMap<String, String> taxonLookup;
 	
-	public NaiveSkipGramModel(String sourceLocation, Boolean pUseLowercase, String language, double pMinLength) throws IOException {
+	public NaiveSkipGramModel(String[] sourceLocations, Boolean pUseLowercase, String language, double pMinLength) throws IOException {
 		System.out.printf("%s: Loading taxa..\n", this.getClass().getName());
 		long startTime = System.currentTimeMillis();
 		AtomicInteger duplicateKeys = new AtomicInteger(0);
 		
 		// Taxon -> URI
-		taxonUriMap = NaiveSkipGramModel.loadTaxaMap(sourceLocation, pUseLowercase, language);
+		taxonUriMap = new LinkedHashMap<>();
+		for (String sourceLocation : sourceLocations) {
+			NaiveSkipGramModel.loadTaxaMap(sourceLocation, pUseLowercase, language).forEach((key, val) ->
+					taxonUriMap.merge(key, val, (u, v) -> {
+						duplicateKeys.incrementAndGet();
+						return new HashSet<>(SetUtils.union(u, v));
+					}));
+		}
+		if (duplicateKeys.get() > 0)
+			System.err.printf("%s: Found %d duplicate taxa!\n", this.getClass().getName(), duplicateKeys.get());
+		duplicateKeys.set(0);
 		
 		// Taxon -> [Skip-Grams]
 		HashMap<String, List<String>> skipGramMap = taxonUriMap.keySet().stream()
 				.collect(Collectors.toMap(
 						Function.identity(),
 						NaiveSkipGramModel::getSkipGramList,
-						(u, v) -> {
-							duplicateKeys.incrementAndGet();
-							return v;
-						},
+						(u, v) -> v,
 						HashMap::new));
-		if (duplicateKeys.get() > 0)
-			System.err.printf("%s: Found %d duplicate taxa!\n", this.getClass().getName(), duplicateKeys.get());
-		duplicateKeys.set(0);
 		
 		// Skip-Gram -> Taxon
 		taxonLookup = skipGramMap.entrySet().stream()
@@ -74,6 +84,7 @@ public class NaiveSkipGramModel {
 		
 		System.out.printf("%s: Finished loading %d skip-grams from %d taxa in %d ms.\n",
 				this.getClass().getName(), skipGramSet.size(), taxonUriMap.size(), System.currentTimeMillis() - startTime);
+		
 	}
 	
 	/**
@@ -82,7 +93,7 @@ public class NaiveSkipGramModel {
 	 * @param skipGram the target Skip-Gram
 	 * @return taxonUriMap.get(taxonLookup.get ( skipGram))
 	 */
-	public String getUriFromSkipGram(String skipGram) {
+	public Set<URI> getUriFromSkipGram(String skipGram) {
 		return taxonUriMap.get(taxonLookup.get(skipGram));
 	}
 	
@@ -92,15 +103,15 @@ public class NaiveSkipGramModel {
 	 * @return ArrayList of taxa.
 	 * @throws IOException if file is not found or an error occurs.
 	 */
-	private static LinkedHashMap<String, String> loadTaxaMap(String sourceLocation, Boolean pUseLowercase, String language) throws IOException {
+	private static LinkedHashMap<String, HashSet<URI>> loadTaxaMap(String sourceLocation, Boolean pUseLowercase, String language) throws IOException {
 		try (BufferedReader bufferedReader = Files.newReader(new File(sourceLocation), StandardCharsets.UTF_8)) {
 			return bufferedReader.lines()
 					.filter(s -> !Strings.isNullOrEmpty(s))
 					.map(pUseLowercase ? s -> s.toLowerCase(Locale.forLanguageTag(language)) : Function.identity())
 					.collect(Collectors.toMap(
 							s -> nonTokenCharacterClass.matcher(s.split("\t", 2)[0]).replaceAll("").trim(),
-							s -> s.split("\t", 2)[1],
-							(u, v) -> v,
+							s -> Arrays.stream(s.split("\t", 2)[1].split(" ")).map(UriUtils::create).collect(Collectors.toCollection(HashSet::new)),
+							(u, v) -> new HashSet<>(SetUtils.union(u, v)),
 							LinkedHashMap::new)
 					);
 		}
@@ -128,9 +139,7 @@ public class NaiveSkipGramModel {
 					.boxed()
 					.collect(Collectors.toMap(Function.identity(), words::get));
 			
-			return Streams.stream(Iterators.concat(
-					Iterators.singletonIterator(IntStream.range(0, split.size()).toArray()),    // the string itself
-					new Combinations(split.size(), split.size() - 1).iterator()))               // the combinations
+			return Streams.stream(new Combinations(split.size(), split.size() - 1).iterator())               // the combinations
 					.parallel()
 					.map(ArrayUtils::toObject)
 //					.map(arr -> {

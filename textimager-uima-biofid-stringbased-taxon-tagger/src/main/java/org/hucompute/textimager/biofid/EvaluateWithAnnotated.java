@@ -21,7 +21,9 @@ import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.util.CasCopier;
 import org.apache.uima.util.CasIOUtils;
 import org.texttechnologylab.annotation.type.Taxon;
+import org.xml.sax.SAXException;
 
+import javax.xml.parsers.FactoryConfigurationError;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
@@ -44,7 +46,7 @@ public class EvaluateWithAnnotated {
 		Options options = new Options();
 		options.addOption("h", false, "Print this message.");
 		options.addOption("i", true, "Path to the input XMIs.");
-		options.addOption("t", true, "Path to the taxon file.");
+		options.addOption("t", true, "Path to the taxon files.");
 		options.addOption("w", true, "If given, write the resulting XMIs to this path.");
 		options.addOption("s", false, "Toggles strict IOB-evaluation. If set True, B- and I- will be included in scoring.");
 		options.addOption("p", true, "Print the results as three column conll file to the given location.");
@@ -69,9 +71,16 @@ public class EvaluateWithAnnotated {
 		}
 		
 		index = params.indexOf("-t");
-		final AnalysisEngine naiveTaggerEngine = AnalysisEngineFactory.createEngine(AnalysisEngineFactory.createEngineDescription(NaiveStringbasedTaxonTagger.class,
-				NaiveStringbasedTaxonTagger.PARAM_SOURCE_LOCATION, params.get(index + 1),
-				NaiveStringbasedTaxonTagger.PARAM_USE_LOWERCASE, true));
+		ArrayList<String> taxonFiles = Lists.newArrayList();
+		String arg = params.get(++index);
+		while (!arg.startsWith("-")) {
+			taxonFiles.add(arg);
+			arg = params.get(++index);
+		}
+		final AnalysisEngine naiveTaggerEngine = AnalysisEngineFactory.createEngine(
+				AnalysisEngineFactory.createEngineDescription(NaiveStringbasedTaxonTagger.class,
+						NaiveStringbasedTaxonTagger.PARAM_SOURCE_LOCATION, taxonFiles.toArray(new String[0]),
+						NaiveStringbasedTaxonTagger.PARAM_USE_LOWERCASE, true));
 		
 		boolean strict = params.indexOf("-s") > -1;
 		AtomicInteger truePositivies = new AtomicInteger(0);
@@ -172,7 +181,7 @@ public class EvaluateWithAnnotated {
 					if (Objects.nonNull(outPath)) {
 						cachedThreadPool.submit(new XmiCasSerializerRunnable(bJCas, Paths.get(outPath.toString(), file.getName()).toFile()));
 					}
-				} catch (UIMAException | UIMARuntimeException | IOException e) {
+				} catch (UIMAException | UIMARuntimeException | IOException | FactoryConfigurationError e) {
 					e.printStackTrace();
 				}
 				if (print && !lastLineWasEmpty)

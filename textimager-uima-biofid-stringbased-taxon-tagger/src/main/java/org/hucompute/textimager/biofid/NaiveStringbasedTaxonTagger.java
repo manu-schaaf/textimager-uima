@@ -17,6 +17,7 @@ import org.apache.uima.resource.ResourceInitializationException;
 import org.texttechnologylab.annotation.type.Taxon;
 
 import java.io.IOException;
+import java.net.URI;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
@@ -36,7 +37,7 @@ public class NaiveStringbasedTaxonTagger extends SegmenterBase {
 	 */
 	public static final String PARAM_SOURCE_LOCATION = ComponentParameters.PARAM_SOURCE_LOCATION;
 	@ConfigurationParameter(name = PARAM_SOURCE_LOCATION, mandatory = false)
-	protected String sourceLocation;
+	protected String[] sourceLocations;
 	
 	/**
 	 * Minimum skip-gram string length
@@ -67,7 +68,7 @@ public class NaiveStringbasedTaxonTagger extends SegmenterBase {
 		namedEntityMappingProvider.setOverride(MappingProvider.LANGUAGE, "de");
 		
 		try {
-			naiveSkipGramModel = new NaiveSkipGramModel(sourceLocation, pUseLowercase, language, pMinLength);
+			naiveSkipGramModel = new NaiveSkipGramModel(sourceLocations, pUseLowercase, language, pMinLength);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -120,7 +121,7 @@ public class NaiveStringbasedTaxonTagger extends SegmenterBase {
 						Token fromToken = tokens.get(currOffset + index);
 						Token toToken = tokens.get(currOffset + index + j);
 						Taxon taxon = new Taxon(aJCas, fromToken.getBegin(), toToken.getEnd());
-						taxon.setIdentifier(naiveSkipGramModel.getUriFromSkipGram(skipGram));
+						taxon.setIdentifier(naiveSkipGramModel.getUriFromSkipGram(skipGram).stream().map(URI::toString).collect(Collectors.joining(",")));
 						aJCas.addFsToIndexes(taxon);
 						atomicInteger.incrementAndGet();
 					}
