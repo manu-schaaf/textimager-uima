@@ -1,0 +1,440 @@
+Starting epoch 0...
+Score on dev: 52.16000
+Score on test: 55.98000
+New best score on dev.
+Saving model to disk...
+New best score on test.
+Epoch 0 done. Average cost: 12.971754
+Starting epoch 1...
+Score on dev: 56.36000
+Score on test: 56.84000
+New best score on dev.
+Saving model to disk...
+New best score on test.
+Epoch 1 done. Average cost: 8.030177
+Starting epoch 2...
+Score on dev: 55.60000
+Score on test: 58.68000
+New best score on test.
+Epoch 2 done. Average cost: 6.819773
+Starting epoch 3...
+Score on dev: 56.88000
+Score on test: 56.46000
+New best score on dev.
+Saving model to disk...
+Epoch 3 done. Average cost: 5.862785
+Starting epoch 4...
+Score on dev: 61.82000
+Score on test: 61.13000
+New best score on dev.
+Saving model to disk...
+New best score on test.
+Epoch 4 done. Average cost: 5.301368
+Starting epoch 5...
+Score on dev: 61.69000
+Score on test: 64.69000
+New best score on test.
+Epoch 5 done. Average cost: 5.121356
+Starting epoch 6...
+Score on dev: 62.12000
+Score on test: 62.42000
+New best score on dev.
+Saving model to disk...
+Epoch 6 done. Average cost: 4.708493
+Starting epoch 7...
+Score on dev: 63.59000
+Score on test: 66.81000
+New best score on dev.
+Saving model to disk...
+New best score on test.
+Epoch 7 done. Average cost: 4.586500
+Starting epoch 8...
+Score on dev: 64.46000
+Score on test: 63.79000
+New best score on dev.
+Saving model to disk...
+Epoch 8 done. Average cost: 4.395703
+Starting epoch 9...
+Score on dev: 65.16000
+Score on test: 64.61000
+New best score on dev.
+Saving model to disk...
+Epoch 9 done. Average cost: 4.074190
+Starting epoch 10...
+Score on dev: 65.70000
+Score on test: 69.55000
+New best score on dev.
+Saving model to disk...
+New best score on test.
+Epoch 10 done. Average cost: 3.894936
+Starting epoch 11...
+Score on dev: 65.63000
+Score on test: 66.67000
+Epoch 11 done. Average cost: 4.302709
+Starting epoch 12...
+Score on dev: 62.55000
+Score on test: 65.46000
+Epoch 12 done. Average cost: 3.860040
+Starting epoch 13...
+Score on dev: 63.99000
+Score on test: 65.28000
+Epoch 13 done. Average cost: 3.725152
+Starting epoch 14...
+Score on dev: 65.83000
+Score on test: 67.17000
+New best score on dev.
+Saving model to disk...
+Epoch 14 done. Average cost: 3.454637
+Starting epoch 15...
+Score on dev: 68.22000
+Score on test: 70.55000
+New best score on dev.
+Saving model to disk...
+New best score on test.
+Epoch 15 done. Average cost: 3.272704
+Starting epoch 16...
+Score on dev: 64.13000
+Score on test: 67.52000
+Epoch 16 done. Average cost: 3.137542
+Starting epoch 17...
+Score on dev: 67.77000
+Score on test: 67.84000
+Epoch 17 done. Average cost: 3.115400
+Starting epoch 18...
+Score on dev: 65.69000
+Score on test: 68.93000
+Epoch 18 done. Average cost: 2.961951
+Starting epoch 19...
+Score on dev: 65.60000
+Score on test: 70.56000
+New best score on test.
+Epoch 19 done. Average cost: 2.910605
+Starting epoch 20...
+Score on dev: 67.50000
+Score on test: 69.63000
+Epoch 20 done. Average cost: 2.997810
+Starting epoch 21...
+Score on dev: 67.72000
+Score on test: 71.83000
+New best score on test.
+Epoch 21 done. Average cost: 2.763975
+Starting epoch 22...
+Score on dev: 67.05000
+Score on test: 70.34000
+Epoch 22 done. Average cost: 2.641913
+Starting epoch 23...
+Score on dev: 65.76000
+Score on test: 69.43000
+Epoch 23 done. Average cost: 2.578228
+Starting epoch 24...
+Score on dev: 67.69000
+Score on test: 73.14000
+New best score on test.
+Epoch 24 done. Average cost: 2.493533
+Starting epoch 25...
+Score on dev: 65.81000
+Score on test: 69.83000
+Epoch 25 done. Average cost: 2.448048
+Starting epoch 26...
+Score on dev: 67.39000
+Score on test: 70.87000
+Epoch 26 done. Average cost: 2.414211
+Starting epoch 27...
+Score on dev: 67.50000
+Score on test: 72.62000
+Epoch 27 done. Average cost: 2.364382
+Starting epoch 28...
+Score on dev: 67.49000
+Score on test: 72.28000
+Epoch 28 done. Average cost: 2.240952
+Starting epoch 29...
+Score on dev: 68.58000
+Score on test: 72.35000
+New best score on dev.
+Saving model to disk...
+Epoch 29 done. Average cost: 2.224442
+Starting epoch 30...
+Score on dev: 67.46000
+Score on test: 71.40000
+Epoch 30 done. Average cost: 2.169199
+Starting epoch 31...
+Score on dev: 67.65000
+Score on test: 72.39000
+Epoch 31 done. Average cost: 2.130526
+Starting epoch 32...
+Score on dev: 66.32000
+Score on test: 71.80000
+Epoch 32 done. Average cost: 2.061486
+Starting epoch 33...
+Score on dev: 66.88000
+Score on test: 71.34000
+Epoch 33 done. Average cost: 2.024449
+Starting epoch 34...
+Score on dev: 66.71000
+Score on test: 72.82000
+Epoch 34 done. Average cost: 1.970809
+Starting epoch 35...
+Score on dev: 67.14000
+Score on test: 71.58000
+Epoch 35 done. Average cost: 1.915447
+Starting epoch 36...
+Score on dev: 66.67000
+Score on test: 73.16000
+New best score on test.
+Epoch 36 done. Average cost: 1.903085
+Starting epoch 37...
+Score on dev: 65.78000
+Score on test: 71.56000
+Epoch 37 done. Average cost: 1.874916
+Starting epoch 38...
+Score on dev: 66.16000
+Score on test: 72.01000
+Epoch 38 done. Average cost: 1.816470
+Starting epoch 39...
+Score on dev: 65.13000
+Score on test: 71.85000
+Epoch 39 done. Average cost: 1.765015
+Starting epoch 40...
+Score on dev: 66.53000
+Score on test: 72.35000
+Epoch 40 done. Average cost: 1.747647
+Starting epoch 41...
+Score on dev: 67.46000
+Score on test: 73.23000
+New best score on test.
+Epoch 41 done. Average cost: 1.689727
+Starting epoch 42...
+Score on dev: 65.52000
+Score on test: 71.83000
+Epoch 42 done. Average cost: 1.639836
+Starting epoch 43...
+Score on dev: 66.99000
+Score on test: 71.14000
+Epoch 43 done. Average cost: 1.679816
+Starting epoch 44...
+Score on dev: 68.05000
+Score on test: 73.20000
+Epoch 44 done. Average cost: 1.581114
+Starting epoch 45...
+Score on dev: 68.46000
+Score on test: 73.24000
+New best score on test.
+Epoch 45 done. Average cost: 1.555711
+Starting epoch 46...
+Score on dev: 67.17000
+Score on test: 72.66000
+Epoch 46 done. Average cost: 1.496865
+Starting epoch 47...
+Score on dev: 66.84000
+Score on test: 72.31000
+Epoch 47 done. Average cost: 1.472759
+Starting epoch 48...
+Score on dev: 66.23000
+Score on test: 72.42000
+Epoch 48 done. Average cost: 1.448138
+Starting epoch 49...
+Score on dev: 67.10000
+Score on test: 73.15000
+Epoch 49 done. Average cost: 1.438964
+Starting epoch 50...
+Score on dev: 67.31000
+Score on test: 72.23000
+Epoch 50 done. Average cost: 1.369908
+Starting epoch 51...
+Score on dev: 64.92000
+Score on test: 71.64000
+Epoch 51 done. Average cost: 1.407910
+Starting epoch 52...
+Score on dev: 65.83000
+Score on test: 71.23000
+Epoch 52 done. Average cost: 1.355990
+Starting epoch 53...
+Score on dev: 67.81000
+Score on test: 70.98000
+Epoch 53 done. Average cost: 1.322997
+Starting epoch 54...
+Score on dev: 65.35000
+Score on test: 72.40000
+Epoch 54 done. Average cost: 1.317911
+Starting epoch 55...
+Score on dev: 65.71000
+Score on test: 72.57000
+Epoch 55 done. Average cost: 1.269291
+Starting epoch 56...
+Score on dev: 65.93000
+Score on test: 72.36000
+Epoch 56 done. Average cost: 1.212542
+Starting epoch 57...
+Score on dev: 65.05000
+Score on test: 72.44000
+Epoch 57 done. Average cost: 1.236204
+Starting epoch 58...
+Score on dev: 65.62000
+Score on test: 71.81000
+Epoch 58 done. Average cost: 1.204558
+Starting epoch 59...
+Score on dev: 65.53000
+Score on test: 72.60000
+Epoch 59 done. Average cost: 1.219392
+Starting epoch 60...
+Score on dev: 68.22000
+Score on test: 73.43000
+New best score on test.
+Epoch 60 done. Average cost: 1.123156
+Starting epoch 61...
+Score on dev: 65.19000
+Score on test: 72.47000
+Epoch 61 done. Average cost: 1.121661
+Starting epoch 62...
+Score on dev: 68.08000
+Score on test: 72.43000
+Epoch 62 done. Average cost: 1.113061
+Starting epoch 63...
+Score on dev: 67.30000
+Score on test: 73.58000
+New best score on test.
+Epoch 63 done. Average cost: 1.067318
+Starting epoch 64...
+Score on dev: 67.71000
+Score on test: 72.10000
+Epoch 64 done. Average cost: 1.040065
+Starting epoch 65...
+Score on dev: 67.43000
+Score on test: 71.91000
+Epoch 65 done. Average cost: 1.033618
+Starting epoch 66...
+Score on dev: 65.98000
+Score on test: 71.14000
+Epoch 66 done. Average cost: 1.036023
+Starting epoch 67...
+Score on dev: 66.87000
+Score on test: 71.58000
+Epoch 67 done. Average cost: 0.999204
+Starting epoch 68...
+Score on dev: 65.21000
+Score on test: 72.57000
+Epoch 68 done. Average cost: 1.013675
+Starting epoch 69...
+Score on dev: 66.05000
+Score on test: 72.59000
+Epoch 69 done. Average cost: 0.951813
+Starting epoch 70...
+Score on dev: 65.67000
+Score on test: 73.17000
+Epoch 70 done. Average cost: 0.939362
+Starting epoch 71...
+Score on dev: 65.33000
+Score on test: 71.82000
+Epoch 71 done. Average cost: 0.925241
+Starting epoch 72...
+Score on dev: 65.28000
+Score on test: 72.40000
+Epoch 72 done. Average cost: 0.986519
+Starting epoch 73...
+Score on dev: 66.99000
+Score on test: 71.81000
+Epoch 73 done. Average cost: 0.970363
+Starting epoch 74...
+Score on dev: 65.45000
+Score on test: 71.59000
+Epoch 74 done. Average cost: 0.902863
+Starting epoch 75...
+Score on dev: 67.66000
+Score on test: 72.97000
+Epoch 75 done. Average cost: 0.897427
+Starting epoch 76...
+Score on dev: 67.04000
+Score on test: 71.89000
+Epoch 76 done. Average cost: 0.868618
+Starting epoch 77...
+Score on dev: 67.13000
+Score on test: 72.59000
+Epoch 77 done. Average cost: 0.835875
+Starting epoch 78...
+Score on dev: 65.08000
+Score on test: 72.49000
+Epoch 78 done. Average cost: 0.851538
+Starting epoch 79...
+Score on dev: 65.45000
+Score on test: 72.12000
+Epoch 79 done. Average cost: 0.807778
+Starting epoch 80...
+Score on dev: 65.24000
+Score on test: 71.85000
+Epoch 80 done. Average cost: 0.843856
+Starting epoch 81...
+Score on dev: 65.58000
+Score on test: 71.97000
+Epoch 81 done. Average cost: 0.768003
+Starting epoch 82...
+Score on dev: 64.22000
+Score on test: 70.94000
+Epoch 82 done. Average cost: 0.806057
+Starting epoch 83...
+Score on dev: 65.95000
+Score on test: 72.07000
+Epoch 83 done. Average cost: 0.768558
+Starting epoch 84...
+Score on dev: 66.20000
+Score on test: 71.48000
+Epoch 84 done. Average cost: 0.750428
+Starting epoch 85...
+Score on dev: 65.82000
+Score on test: 71.86000
+Epoch 85 done. Average cost: 0.754268
+Starting epoch 86...
+Score on dev: 65.34000
+Score on test: 71.95000
+Epoch 86 done. Average cost: 0.711439
+Starting epoch 87...
+Score on dev: 65.72000
+Score on test: 72.04000
+Epoch 87 done. Average cost: 0.720268
+Starting epoch 88...
+Score on dev: 65.10000
+Score on test: 72.21000
+Epoch 88 done. Average cost: 0.689307
+Starting epoch 89...
+Score on dev: 65.83000
+Score on test: 71.96000
+Epoch 89 done. Average cost: 0.698525
+Starting epoch 90...
+Score on dev: 66.40000
+Score on test: 72.78000
+Epoch 90 done. Average cost: 0.689337
+Starting epoch 91...
+Score on dev: 63.41000
+Score on test: 71.00000
+Epoch 91 done. Average cost: 0.697630
+Starting epoch 92...
+Score on dev: 64.53000
+Score on test: 71.84000
+Epoch 92 done. Average cost: 0.663649
+Starting epoch 93...
+Score on dev: 65.97000
+Score on test: 73.12000
+Epoch 93 done. Average cost: 0.708055
+Starting epoch 94...
+Score on dev: 64.75000
+Score on test: 72.12000
+Epoch 94 done. Average cost: 0.684479
+Starting epoch 95...
+Score on dev: 66.55000
+Score on test: 72.73000
+Epoch 95 done. Average cost: 0.656429
+Starting epoch 96...
+Score on dev: 65.71000
+Score on test: 72.96000
+Epoch 96 done. Average cost: 0.672867
+Starting epoch 97...
+Score on dev: 65.54000
+Score on test: 71.83000
+Epoch 97 done. Average cost: 0.631577
+Starting epoch 98...
+Score on dev: 65.97000
+Score on test: 73.42000
+Epoch 98 done. Average cost: 0.632061
+Starting epoch 99...
+Score on dev: 67.32000
+Score on test: 73.28000
+Epoch 99 done. Average cost: 0.601926
