@@ -6,9 +6,7 @@ import com.google.common.collect.Streams;
 import com.google.common.io.Files;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Sentence;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
-import org.apache.commons.cli.HelpFormatter;
-import org.apache.commons.cli.Options;
-import org.apache.commons.cli.ParseException;
+import org.apache.commons.cli.*;
 import org.apache.uima.UIMAException;
 import org.apache.uima.UIMARuntimeException;
 import org.apache.uima.analysis_engine.AnalysisEngine;
@@ -46,21 +44,24 @@ public class EvaluateWithAnnotated {
 		Options options = new Options();
 		options.addOption("h", false, "Print this message.");
 		options.addOption("i", true, "Path to the input XMIs.");
-		options.addOption("t", true, "Path to the taxon files.");
+
+//		options.addOption("t", true, "Path to the taxon files.");
+		Option taxaOption = new Option("t", "taxa", true, "Taxa list path.");
+		taxaOption.setArgs(Option.UNLIMITED_VALUES);
+		options.addOption(taxaOption);
+		
 		options.addOption("w", true, "If given, write the resulting XMIs to this path.");
 		options.addOption("s", false, "Toggles strict IOB-evaluation. If set True, B- and I- will be included in scoring.");
 		options.addOption("p", true, "Print the results as three column conll file to the given location.");
 		
-		// FIXME: Fix the wrong CLI version causing a NoSuchMethodError
-//		DefaultParser defaultParser = new DefaultParser();
-//		CommandLine commandLine = defaultParser.parse(options, args);
-
-//		final AnalysisEngine naiveTaggerEngine = AnalysisEngineFactory.createEngine(AnalysisEngineFactory.createEngineDescription(NaiveStringbasedTaxonTagger.class,
-//				NaiveStringbasedTaxonTagger.PARAM_SOURCE_LOCATION, commandLine.getOptionValue("t"),
-//				NaiveStringbasedTaxonTagger.PARAM_USE_LOWERCASE, true));
+		DefaultParser defaultParser = new DefaultParser();
+		CommandLine commandLine = defaultParser.parse(options, args);
 		
-		int index = params.indexOf("-h");
-		if (index > -1) {
+		final AnalysisEngine naiveTaggerEngine = AnalysisEngineFactory.createEngine(AnalysisEngineFactory.createEngineDescription(NaiveStringbasedTaxonTagger.class,
+				NaiveStringbasedTaxonTagger.PARAM_SOURCE_LOCATION, commandLine.getOptionValues("t"),
+				NaiveStringbasedTaxonTagger.PARAM_USE_LOWERCASE, true));
+		
+		if (commandLine.hasOption("h")) {
 			HelpFormatter formatter = new HelpFormatter();
 			formatter.printHelp("java -cp $CP org.hucompute.textimager.biofid.EvaluateWithAnnotated",
 					"Annotate and evaluate a set of given XMIs that already contain 'Taxon' annotations.",
@@ -70,42 +71,26 @@ public class EvaluateWithAnnotated {
 			return;
 		}
 		
-		index = params.indexOf("-t");
-		ArrayList<String> taxonFiles = Lists.newArrayList();
-		String arg = params.get(++index);
-		while (!arg.startsWith("-")) {
-			taxonFiles.add(arg);
-			arg = params.get(++index);
-		}
-		final AnalysisEngine naiveTaggerEngine = AnalysisEngineFactory.createEngine(
-				AnalysisEngineFactory.createEngineDescription(NaiveStringbasedTaxonTagger.class,
-						NaiveStringbasedTaxonTagger.PARAM_SOURCE_LOCATION, taxonFiles.toArray(new String[0]),
-						NaiveStringbasedTaxonTagger.PARAM_USE_LOWERCASE, true));
-		
 		boolean strict = params.indexOf("-s") > -1;
 		AtomicInteger truePositivies = new AtomicInteger(0);
 		AtomicInteger falsePositivies = new AtomicInteger(0);
 		AtomicInteger trueNegatives = new AtomicInteger(0);
 		AtomicInteger falseNegatives = new AtomicInteger(0);
 		
-		index = params.indexOf("-p");
-		boolean print = index > -1;
+		boolean print = commandLine.hasOption("p");
 		if (print) {
-			conllWriter = new PrintWriter(new OutputStreamWriter(new FileOutputStream(params.get(index + 1)), StandardCharsets.UTF_8));
+			conllWriter = new PrintWriter(new OutputStreamWriter(new FileOutputStream(commandLine.getOptionValue("p")), StandardCharsets.UTF_8));
 		}
 		
-		index = params.indexOf("-w");
-		boolean write = index > -1;
-//		boolean write = commandLine.hasOption("w");
+		boolean write = commandLine.hasOption("w");
 		if (write) {
-//			outPath = Paths.get(commandLine.getOptionValue("w"));
-			outPath = Paths.get(params.get(index + 1));
+			outPath = Paths.get(commandLine.getOptionValue("w"));
 		}
 		
 		try {
 			boolean lastLineWasEmpty = true;
-			index = params.indexOf("-i");
-			List<File> files = Streams.stream(Files.fileTraverser().breadthFirst(new File(params.get(index + 1)))).filter(File::isFile).collect(Collectors.toList());
+			String input = commandLine.getOptionValue("i");
+			List<File> files = Streams.stream(Files.fileTraverser().breadthFirst(new File(input))).filter(File::isFile).collect(Collectors.toList());
 			for (int fileIndex = 0; fileIndex < files.size(); fileIndex++) {
 				File file = files.get(fileIndex);
 				try {

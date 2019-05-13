@@ -35,7 +35,7 @@ public class NaiveSkipGramModel {
 	private LinkedHashMap<String, String> taxonLookup;
 	
 	public NaiveSkipGramModel(String[] sourceLocations, Boolean pUseLowercase, String language, double pMinLength) throws IOException {
-		System.out.printf("%s: Loading taxa..\n", this.getClass().getName());
+		System.out.printf("%s: Loading taxa from %d files..\n", this.getClass().getName(), sourceLocations.length);
 		long startTime = System.currentTimeMillis();
 		AtomicInteger duplicateKeys = new AtomicInteger(0);
 		

@@ -4,7 +4,9 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Streams;
 import com.google.common.io.Files;
 import org.apache.commons.cli.*;
+import org.apache.commons.io.FileUtils;
 import org.apache.uima.UIMAException;
+import org.apache.uima.UIMARuntimeException;
 import org.apache.uima.analysis_engine.AnalysisEngine;
 import org.apache.uima.cas.impl.XmiCasSerializer;
 import org.apache.uima.fit.factory.AnalysisEngineFactory;
@@ -18,8 +20,14 @@ import org.xml.sax.SAXException;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.nio.file.Paths;
+import java.io.RandomAccessFile;
+import java.nio.channels.ClosedChannelException;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
+import java.nio.channels.OverlappingFileLockException;
+import java.nio.file.*;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -82,18 +90,29 @@ public class TagTaxa {
 						Streams.stream(Files.fileTraverser().breadthFirst(new File(inputLocation)))
 								.filter(File::isFile));
 			}
-			File[] files = fileStream.toArray(File[]::new);
+			File[] files = fileStream.sorted(Comparator.comparing(FileUtils::sizeOf)).toArray(File[]::new);
 			int allCount = files.length;
 			for (File file : files) {
-				try {
-					System.out.printf("\rRunning file %0" + (int) log10(allCount) + "d/%d", count.incrementAndGet(), allCount);
+				// TODO: does not work...
+				Path outFilePath = Paths.get(outputLocation, file.getName());
+				try (FileLock fileLock = FileChannel.open(outFilePath, StandardOpenOption.WRITE, StandardOpenOption.CREATE_NEW).tryLock()) {
+					if (fileLock == null || !fileLock.isValid()) {
+						System.out.printf("\rSkipped file %0" + (int) (log10(allCount) + 1) + "d/%d", count.incrementAndGet(), allCount);
+						continue;
+					}
+					
+					System.out.printf("\rRunning file %0" + (int) (log10(allCount) + 1) + "d/%d", count.incrementAndGet(), allCount);
 					JCas jCas = JCasFactory.createJCas();
-					CasIOUtils.load(java.nio.file.Files.newInputStream(file.toPath()), null, jCas.getCas(), true);
+					CasIOUtils.load(java.nio.file.Files.newInputStream(file.toPath().toAbsolutePath()), null, jCas.getCas(), true);
 					
 					SimplePipeline.runPipeline(jCas, naiveTaggerEngine);
-					XmiCasSerializer.serialize(jCas.getCas(), new FileOutputStream(Paths.get(outputLocation, file.getName()).toFile()));
-				} catch (UIMAException | IOException | SAXException e) {
-						e.printStackTrace();
+					XmiCasSerializer.serialize(jCas.getCas(), new FileOutputStream(outFilePath.toFile()));
+				} catch (FileAlreadyExistsException | OverlappingFileLockException | ClosedChannelException e) {
+					System.out.printf("\rSkipped file %0" + (int) (log10(allCount) + 1) + "d/%d", count.incrementAndGet(), allCount);
+				} catch (UIMAException | UIMARuntimeException | SAXException | IOException | StringIndexOutOfBoundsException e) {
+					System.err.printf("\rAn error occurred while writing to '%s', deleting file..\n", outFilePath.toString());
+					outFilePath.toFile().delete();
+					e.printStackTrace();
 				}
 			}
 			System.out.println("Done.");

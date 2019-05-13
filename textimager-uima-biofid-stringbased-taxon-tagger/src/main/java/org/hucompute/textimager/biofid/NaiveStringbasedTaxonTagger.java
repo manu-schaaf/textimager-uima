@@ -37,7 +37,7 @@ public class NaiveStringbasedTaxonTagger extends SegmenterBase {
 	 */
 	public static final String PARAM_SOURCE_LOCATION = ComponentParameters.PARAM_SOURCE_LOCATION;
 	@ConfigurationParameter(name = PARAM_SOURCE_LOCATION, mandatory = false)
-	protected String[] sourceLocations;
+	protected String[] sourceLocation;
 	
 	/**
 	 * Minimum skip-gram string length
@@ -68,7 +68,7 @@ public class NaiveStringbasedTaxonTagger extends SegmenterBase {
 		namedEntityMappingProvider.setOverride(MappingProvider.LANGUAGE, "de");
 		
 		try {
-			naiveSkipGramModel = new NaiveSkipGramModel(sourceLocations, pUseLowercase, language, pMinLength);
+			naiveSkipGramModel = new NaiveSkipGramModel(sourceLocation, pUseLowercase, language, pMinLength);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -121,6 +121,8 @@ public class NaiveStringbasedTaxonTagger extends SegmenterBase {
 						Token fromToken = tokens.get(currOffset + index);
 						Token toToken = tokens.get(currOffset + index + j);
 						Taxon taxon = new Taxon(aJCas, fromToken.getBegin(), toToken.getEnd());
+						
+						// TODO: change URI location for taxa from identifier to value?
 						taxon.setIdentifier(naiveSkipGramModel.getUriFromSkipGram(skipGram).stream().map(URI::toString).collect(Collectors.joining(",")));
 						aJCas.addFsToIndexes(taxon);
 						atomicInteger.incrementAndGet();
