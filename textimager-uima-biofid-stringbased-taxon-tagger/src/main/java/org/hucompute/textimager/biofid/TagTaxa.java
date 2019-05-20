@@ -71,7 +71,7 @@ public class TagTaxa {
 			}
 			
 			ArrayList<String> inputLocations = Lists.newArrayList(cmd.getOptionValues("i"));
-			String[] taxaLocations = Lists.newArrayList(cmd.getOptionValues("t")).toArray(new String[0]);
+			String[] taxaLocations = cmd.getOptionValues("t");
 			String outputLocation = cmd.getOptionValue("o");
 			Boolean useLowerCase = cmd.hasOption("l");
 			Integer minLength = cmd.hasOption("m") ? Integer.valueOf(cmd.getOptionValue("m")) : 5;
