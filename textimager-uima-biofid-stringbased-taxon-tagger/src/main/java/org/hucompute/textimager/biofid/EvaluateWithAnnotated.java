@@ -53,13 +53,15 @@ public class EvaluateWithAnnotated {
 		options.addOption("w", true, "If given, write the resulting XMIs to this path.");
 		options.addOption("s", false, "Toggles strict IOB-evaluation. If set True, B- and I- will be included in scoring.");
 		options.addOption("p", true, "Print the results as three column conll file to the given location.");
+		options.addOption("s", "allSkips", false, "Optional, if true use lowercase.");
 		
 		DefaultParser defaultParser = new DefaultParser();
 		CommandLine commandLine = defaultParser.parse(options, args);
 		
 		final AnalysisEngine naiveTaggerEngine = AnalysisEngineFactory.createEngine(AnalysisEngineFactory.createEngineDescription(NaiveStringbasedTaxonTagger.class,
 				NaiveStringbasedTaxonTagger.PARAM_SOURCE_LOCATION, commandLine.getOptionValues("t"),
-				NaiveStringbasedTaxonTagger.PARAM_USE_LOWERCASE, true));
+				NaiveStringbasedTaxonTagger.PARAM_USE_LOWERCASE, true,
+				NaiveStringbasedTaxonTagger.PARAM_GET_ALL_SKIPS, commandLine.hasOption("s")));
 		
 		if (commandLine.hasOption("h")) {
 			HelpFormatter formatter = new HelpFormatter();

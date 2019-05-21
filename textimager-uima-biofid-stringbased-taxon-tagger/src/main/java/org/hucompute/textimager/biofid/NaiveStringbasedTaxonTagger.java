@@ -1,13 +1,11 @@
 package org.hucompute.textimager.biofid;
 
-import com.google.common.base.Strings;
 import com.google.common.collect.*;
 import de.tudarmstadt.ukp.dkpro.core.api.ner.type.NamedEntity;
 import de.tudarmstadt.ukp.dkpro.core.api.parameter.ComponentParameters;
 import de.tudarmstadt.ukp.dkpro.core.api.resources.MappingProvider;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.SegmenterBase;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
-import org.apache.commons.math3.util.Pair;
 import org.apache.uima.UimaContext;
 import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
 import org.apache.uima.fit.descriptor.ConfigurationParameter;
@@ -23,6 +21,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+/**
+ * UIMA Engine for tagging taxa from taxonomic lists or gazetteers as resource.
+ */
 public class NaiveStringbasedTaxonTagger extends SegmenterBase {
 	
 	/**
@@ -53,9 +54,23 @@ public class NaiveStringbasedTaxonTagger extends SegmenterBase {
 	@ConfigurationParameter(name = PARAM_USE_LOWERCASE, mandatory = false, defaultValue = "false")
 	protected static Boolean pUseLowercase;
 	
+	/**
+	 * Boolean, if true get all m-skip-n-grams for which n > 2 holds, not just 1-skip-(n-1)-grams.
+	 */
+	public static final String PARAM_GET_ALL_SKIPS = "pGetAllSkips";
+	@ConfigurationParameter(name = PARAM_GET_ALL_SKIPS, mandatory = false, defaultValue = "false")
+	protected static Boolean pGetAllSkips;
+	
+	/**
+	 * Boolean, if not false, split taxa on spaces and hyphens too.
+	 */
+	public static final String PARAM_SPLIT_HYPEN = "pSplitHyphen";
+	@ConfigurationParameter(name = PARAM_SPLIT_HYPEN, mandatory = false, defaultValue = "true")
+	protected static Boolean pSplitHyphen;
+	
 	private MappingProvider namedEntityMappingProvider;
 	
-	private final AtomicInteger atomicInteger = new AtomicInteger(0);
+	private final AtomicInteger atomicTaxonMatchCount = new AtomicInteger(0);
 	private NaiveSkipGramModel naiveSkipGramModel;
 	
 	
@@ -68,7 +83,7 @@ public class NaiveStringbasedTaxonTagger extends SegmenterBase {
 		namedEntityMappingProvider.setOverride(MappingProvider.LANGUAGE, "de");
 		
 		try {
-			naiveSkipGramModel = new NaiveSkipGramModel(sourceLocation, pUseLowercase, language, pMinLength);
+			naiveSkipGramModel = new NaiveSkipGramModel(sourceLocation, pUseLowercase, language, pMinLength, pGetAllSkips, pSplitHyphen);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -83,61 +98,70 @@ public class NaiveStringbasedTaxonTagger extends SegmenterBase {
 	protected void process(JCas aJCas, String text, int zoneBegin) throws AnalysisEngineProcessException {
 		namedEntityMappingProvider.configure(aJCas.getCas());
 		
-		atomicInteger.set(0);
+		atomicTaxonMatchCount.set(0);
 		ArrayList<Token> tokens = Lists.newArrayList(JCasUtil.select(aJCas, Token.class));
-		ArrayList<String> tokenStrings = tokens.stream()
+		
+		naiveSkipGramModel.stream()
+				.parallel()
+				.forEach(taxonSkipGram -> tagAllMatches(aJCas, tokens, taxonSkipGram));
+	}
+	
+	/**
+	 * Find and tag all occurrences of the given taxon skip gram in the
+	 *
+	 * @param aJCas
+	 * @param tokens
+	 * @param taxonSkipGram
+	 */
+	private void tagAllMatches(JCas aJCas, final ArrayList<Token> tokens, String taxonSkipGram) {
+		final String[] skipGramSplit = taxonSkipGram.split(" ");
+		
+		final ArrayList<String> tokenCoveredText = tokens.stream()
 				.map(Token::getCoveredText)
 				.map(pUseLowercase ? s -> s.toLowerCase(Locale.forLanguageTag(language)) : Function.identity())
 				.collect(Collectors.toCollection(ArrayList::new));
 		
-		naiveSkipGramModel.skipGramSet.stream()
-				.parallel()
-				.forEach(skipGram -> findTaxa(aJCas, tokens, tokenStrings, skipGram));
-
-//		System.out.printf("\rTagged %d taxa.", atomicInteger.intValue());
-	}
-	
-	private void findTaxa(JCas aJCas, final ArrayList<Token> tokens, final ArrayList<String> tokenStrings, String skipGram) {
-		int index;
-		String[] skipGramSplit = skipGram.split(" ");
-		List<String> subList = tokenStrings.subList(0, tokenStrings.size());
+		List<String> tokenSubList = tokenCoveredText.subList(0, tokenCoveredText.size());
+		
+		int taxonStartIndex;
 		int currOffset = 0;
 		do {
-			index = subList.indexOf(skipGramSplit[0]);
-			if (index > -1) {
-				boolean b = true;
-				int j = 0;
+			taxonStartIndex = tokenSubList.indexOf(skipGramSplit[0]);
+			if (taxonStartIndex > -1) {
 				try {
+					// This boolean stays true, if all tokens from the taxon can be matched to a sub list
+					boolean fullMatch = true;
+					int matchLength = 0;
 					if (skipGramSplit.length > 1) {
 						for (int i = 1; i < skipGramSplit.length; i++) {
-							if (index + i >= subList.size())
+							if (taxonStartIndex + i >= tokenSubList.size())
 								break;
-							b &= subList.get(index + i).equals(skipGramSplit[i]);
-							j = i;
+							fullMatch &= tokenSubList.get(taxonStartIndex + i).equals(skipGramSplit[i]);
+							matchLength = i;
 						}
 					}
 					
-					if (b) {
-						Token fromToken = tokens.get(currOffset + index);
-						Token toToken = tokens.get(currOffset + index + j);
+					if (fullMatch) {
+						Token fromToken = tokens.get(currOffset + taxonStartIndex);
+						Token toToken = tokens.get(currOffset + taxonStartIndex + matchLength);
 						Taxon taxon = new Taxon(aJCas, fromToken.getBegin(), toToken.getEnd());
 						
 						// TODO: change URI location for taxa from identifier to value?
-						taxon.setIdentifier(naiveSkipGramModel.getUriFromSkipGram(skipGram).stream().map(URI::toString).collect(Collectors.joining(",")));
+						taxon.setIdentifier(naiveSkipGramModel.getUriFromSkipGram(taxonSkipGram).stream().map(URI::toString).collect(Collectors.joining(",")));
 						aJCas.addFsToIndexes(taxon);
-						atomicInteger.incrementAndGet();
+						atomicTaxonMatchCount.incrementAndGet();
 					}
 					
-					currOffset += index + j + 1;
-					if (j >= subList.size() || currOffset >= tokenStrings.size())
+					currOffset += taxonStartIndex + matchLength + 1;
+					if (matchLength >= tokenSubList.size() || currOffset >= tokens.size())
 						break;
 					
-					subList = tokenStrings.subList(currOffset, tokenStrings.size());
+					tokenSubList = tokenCoveredText.subList(currOffset, tokens.size());
 				} catch (IndexOutOfBoundsException e) {
-					throw e;
+					throw e; // FIXME
 				}
 			}
-		} while (index > -1);
+		} while (taxonStartIndex > -1);
 	}
 	
 }

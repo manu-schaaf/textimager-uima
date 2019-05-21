@@ -60,6 +60,7 @@ public class TagTaxa {
 		options.addOption(taxaOption);
 		options.addOption(minLen);
 		options.addOption("l", "lowercase", false, "Optional, if true use lowercase.");
+		options.addOption("s", "allSkips", false, "Optional, if true use lowercase.");
 		
 		try {
 			CommandLineParser parser = new DefaultParser();
@@ -74,13 +75,15 @@ public class TagTaxa {
 			String[] taxaLocations = cmd.getOptionValues("t");
 			String outputLocation = cmd.getOptionValue("o");
 			Boolean useLowerCase = cmd.hasOption("l");
+			Boolean getAllSkips = cmd.hasOption("s");
 			Integer minLength = cmd.hasOption("m") ? Integer.valueOf(cmd.getOptionValue("m")) : 5;
 			
 			final AnalysisEngine naiveTaggerEngine = AnalysisEngineFactory.createEngine(
 					AnalysisEngineFactory.createEngineDescription(NaiveStringbasedTaxonTagger.class,
 							NaiveStringbasedTaxonTagger.PARAM_SOURCE_LOCATION, taxaLocations,
 							NaiveStringbasedTaxonTagger.PARAM_USE_LOWERCASE, useLowerCase,
-							NaiveStringbasedTaxonTagger.PARAM_MIN_LENGTH, minLength)
+							NaiveStringbasedTaxonTagger.PARAM_MIN_LENGTH, minLength,
+							NaiveStringbasedTaxonTagger.PARAM_GET_ALL_SKIPS, getAllSkips)
 			);
 			
 			AtomicInteger count = new AtomicInteger(0);
@@ -93,7 +96,7 @@ public class TagTaxa {
 			File[] files = fileStream.sorted(Comparator.comparing(FileUtils::sizeOf)).toArray(File[]::new);
 			int allCount = files.length;
 			for (File file : files) {
-				// TODO: does not work...
+				// TODO: does this work?
 				Path outFilePath = Paths.get(outputLocation, file.getName());
 				try (FileLock fileLock = FileChannel.open(outFilePath, StandardOpenOption.WRITE, StandardOpenOption.CREATE_NEW).tryLock()) {
 					if (fileLock == null || !fileLock.isValid()) {
@@ -115,7 +118,7 @@ public class TagTaxa {
 					e.printStackTrace();
 				}
 			}
-			System.out.println("Done.");
+			System.out.println("\nDone.");
 		} catch (ParseException | ResourceInitializationException e) {
 			e.printStackTrace();
 		}
