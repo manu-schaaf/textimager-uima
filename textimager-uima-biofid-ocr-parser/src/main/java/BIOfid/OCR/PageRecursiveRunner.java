@@ -1,5 +1,7 @@
-import BIOfid.OCR.PageProcessEngine;
-import com.google.common.base.Strings;
+package BIOfid.OCR;
+
+import com.google.common.collect.Streams;
+import com.google.common.io.Files;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
 import de.tudarmstadt.ukp.dkpro.core.api.syntax.type.chunk.Chunk;
 import org.apache.uima.UIMAException;
@@ -7,80 +9,64 @@ import org.apache.uima.analysis_engine.AnalysisEngineDescription;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.pipeline.SimplePipeline;
 import org.apache.uima.jcas.JCas;
-import org.junit.Test;
 
 import java.io.*;
+import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Objects;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
-import static BIOfid.Utility.Util.writeToFile;
 import static org.apache.uima.fit.factory.AnalysisEngineFactory.createEngineDescription;
 import static org.apache.uima.fit.util.JCasUtil.select;
 import static org.apache.uima.fit.util.JCasUtil.selectCovered;
 
-/**
- * Created on 21.01.2019.
- */
-public class PageProcessEngineExampleOut {
-	@Test
-	public void runAllTest() {
-		String path = "src/test/out/Biodiversity/9088917/9088369";
-		String pathname = "src/test/resources/Biodiversity/9088917/9088369";
-		run(path, pathname);
-	}
+public class PageRecursiveRunner {
+	
+	public static void main(String[] args) {
+		String basePath = "~/Documents/Biodiversität_OCR_Lieferung_1/9031458/";
+		String outPath = "~/Documents/out/9031458/";
 
-	@Test
-	public void runExternal() {
-		String path = "src/test/out/4704355";
-		String pathname = "/home/s3676959/Documents/BIOfid/Export/Botanische_Zeitschriften//4704355";
-		run(path, pathname);
-	}
-
-	private void run(String path, String pathname) {
-		try {
-			new File(path).mkdirs();
-			for (File folder : Objects.requireNonNull(new File(pathname).listFiles())) {
-				if (folder.isFile()) {
-					String content = exampleOutput(folder);
-					if (Strings.isNullOrEmpty(content))
-						continue;
-					writeToFile(Paths.get(path, folder.getName().replaceAll("\\.xml", ".txt")), content);
-				} else {
-					Paths.get(path, folder.getName()).toFile().mkdirs();
-					for (File file : Objects.requireNonNull(folder.listFiles())) {
-						String content = exampleOutput(file);
-						if (Strings.isNullOrEmpty(content))
-							continue;
-						writeToFile(Paths.get(path, folder.getName(), file.getName().replaceAll("\\.xml", ".txt")), content);
-					}
-				}
+//		boolean keepFolderStructure = true;
+		Stream<File> files = Streams.stream(Files.fileTraverser().depthFirstPostOrder(new File(basePath)));
+		System.out.printf("Traversing %d elements..\n\n\n", files.count());
+		System.out.flush();
+		files.forEachOrdered(file -> {
+			try {
+				if (file.isDirectory())
+					return;
+				Path relativePath = Paths.get(file.getAbsolutePath().substring(basePath.length()));
+				Path finalPath = Paths.get(outPath, relativePath.toString().replaceAll("\\.xml", ".txt"));
+				finalPath.getParent().toFile().mkdirs();
+				
+				String content = exampleOutput(file);
+				writeToFile(finalPath.toFile(), content);
+			} catch (UIMAException e) {
+				e.printStackTrace();
 			}
-		} catch (UIMAException e) {
-			e.printStackTrace();
-		}
+		});
 	}
-
-	private String exampleOutput(File file) throws UIMAException {
+	
+	private static String exampleOutput(File file) throws UIMAException {
 		// Input
 		String xml = "";
 		try (BufferedReader br = new BufferedReader(new FileReader(file))) {
 			xml = br.lines().collect(Collectors.joining("\n"));
-
+			
 			// Create a new Engine Description.
 			AnalysisEngineDescription pageParser = createEngineDescription(PageProcessEngine.class,
 					PageProcessEngine.INPUT_XML, xml,
 					PageProcessEngine.PARAM_MIN_TOKEN_CONFIDENCE, 90,
-					PageProcessEngine.PARAM_DICT_PATH, "src/test/resources/Leipzig40MT2010_lowered.5.vocab");
-
+					PageProcessEngine.PARAM_BLOCK_TOP_MIN, 400,
+					PageProcessEngine.PARAM_DICT_PATH, "~/Documents/BIOfid/textimager-uima/textimager-uima-biofid-ocr-parser/src/test/resources/Leipzig40MT2010_lowered.5.vocab");
+			
 			// Create a new JCas - "Holder"-Class for Annotation.
 			JCas inputCas = JCasFactory.createJCas();
-
+			
 			// Pipeline
 			SimplePipeline.runPipeline(inputCas, pageParser);
-
-			StringBuilder finalText = new StringBuilder();
-
+			
+			final StringBuilder finalText = new StringBuilder();
+			
 			final int[] tokenCount = {0};
 			for (Chunk block : select(inputCas, Chunk.class)) {
 				if (block.getChunkValue().equals("true")) {
@@ -98,5 +84,13 @@ public class PageProcessEngineExampleOut {
 			e.printStackTrace();
 		}
 		return "";
+	}
+	
+	static private void writeToFile(File targetFile, String content) {
+		try (BufferedWriter bw = new BufferedWriter(new FileWriter(targetFile))) {
+			bw.write(content);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 	}
 }

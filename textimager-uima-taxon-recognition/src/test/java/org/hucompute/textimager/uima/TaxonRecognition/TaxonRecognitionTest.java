@@ -37,7 +37,7 @@ public class TaxonRecognitionTest {
     public TaxonRecognitionTest() throws ResourceInitializationException {
         taxonRecognitionEngineDescription = createEngineDescription(TaxonRecognition.class,
                 TaxonRecognition.PARAM_DOCKER_IMAGE, "textimager-taxon-recognition",
-                TaxonRecognition.PARAM_MODEL_NAME, "BioFID",
+                TaxonRecognition.PARAM_MODEL_NAME, "BIOfid",
 //				TaxonRecognition.PARAM_REST_ENDPOINT, "http://sirao.hucompute.org:5001"
                 TaxonRecognition.PARAM_REST_ENDPOINT, "http://localhost:5001"
         );

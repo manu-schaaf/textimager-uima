@@ -1,4 +1,4 @@
-import BioFID.OCR.CollectionProcessEngine;
+import BIOfid.OCR.CollectionProcessEngine;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;
 import org.apache.uima.UIMAException;
@@ -43,7 +43,7 @@ class CollectionProcessEngineTest {
 		System.out.println("Getting JCas...");
 		
 		HashMap<String, String> fileAtlas = new HashMap<>();
-		try (BufferedReader bufferedReader = Files.newReader(new File("/home/s3676959/Documents/BioFID/Export/file_atlas.txt"), StandardCharsets.UTF_8)) {
+		try (BufferedReader bufferedReader = Files.newReader(new File("/home/s3676959/Documents/BIOfid/Export/file_atlas.txt"), StandardCharsets.UTF_8)) {
 			bufferedReader.lines().map(l -> l.split("\\s")).forEach(arr -> fileAtlas.put(arr[0], arr[1]));
 		}
 		

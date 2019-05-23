@@ -1,4 +1,4 @@
-import BioFID.OCR.PageProcessEngine;
+import BIOfid.OCR.PageProcessEngine;
 import de.tudarmstadt.ukp.dkpro.core.api.anomaly.type.Anomaly;
 import de.tudarmstadt.ukp.dkpro.core.api.anomaly.type.SpellingAnomaly;
 import de.tudarmstadt.ukp.dkpro.core.api.ner.type.NamedEntity;

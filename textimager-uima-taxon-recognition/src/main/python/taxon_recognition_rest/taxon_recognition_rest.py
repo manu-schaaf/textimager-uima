@@ -34,8 +34,8 @@ app = Flask(__name__)
 
 # The four models obtained by S. Ahmed.
 model_names = {
-    'BioFID': 'BioFID.current',
-    'BioFID_NE_stripped.train_2019-01-25_16-30-22-871398': 'BioFID.current'
+    'BIOfid': 'BIOfid.current',
+    'BioFID_NE_stripped.train_2019-01-25_16-30-22-871398': 'BIOfid.current'
 }
 
 
@@ -95,7 +95,7 @@ def ner():
     })
 
 
-def load_model(model_name='BioFID'):
+def load_model(model_name='BIOfid'):
     global model, parameters, word_to_id, char_to_id, tag_to_id, f_eval
     ## Model loading
     print "Loading model " + model_names[model_name] + ".."

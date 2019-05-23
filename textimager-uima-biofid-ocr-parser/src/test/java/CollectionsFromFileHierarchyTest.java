@@ -1,9 +1,6 @@
-import BioFID.OCR.CollectionsFromFileHierarchy;
+import BIOfid.OCR.CollectionsFromFileHierarchy;
 import org.junit.Test;
 import org.junit.jupiter.api.DisplayName;
-
-import java.io.File;
-import java.util.Arrays;
 
 /**
  * Created on 20.02.2019.
