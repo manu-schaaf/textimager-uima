@@ -15,7 +15,8 @@ import org.apache.uima.fit.util.CasIOUtil;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.jetbrains.annotations.NotNull;
-import org.junit.Test;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.IOException;
@@ -27,7 +28,7 @@ public class ConllBIO2003WriterTest {
 		try {
 			JCas jCas = getjCas();
 			
-			HierachialBioEncoder encoder = new HierachialBioEncoder(jCas);
+			HierachialBioEncoder encoder = new HierachialBioEncoder(jCas, false);
 			
 			for (Token token : JCasUtil.select(jCas, Token.class)) {
 				System.out.printf("%s %s\n", token.getCoveredText(), encoder.getTags(token, 0));
@@ -59,7 +60,8 @@ public class ConllBIO2003WriterTest {
 			final AnalysisEngine conllEngine = AnalysisEngineFactory.createEngine(
 					Conll2003Writer.class,
 					Conll2003Writer.PARAM_TARGET_LOCATION, "src/test/out/",
-					Conll2003Writer.PARAM_OVERWRITE, true);
+					Conll2003Writer.PARAM_OVERWRITE, true,
+					ConllBIO2003Writer.PARAM_FILTER_FINGERPRINTED, false);
 			
 			conllEngine.process(jCas);
 		} catch (UIMAException e) {
@@ -68,6 +70,7 @@ public class ConllBIO2003WriterTest {
 	}
 	
 	@Test
+	@DisplayName("Single Column Test")
 	public void singleColumn() {
 		try {
 			JCas jCas = getjCas();
@@ -80,7 +83,8 @@ public class ConllBIO2003WriterTest {
 			final AnalysisEngine conllEngine = AnalysisEngineFactory.createEngine(
 					ConllBIO2003Writer.class,
 					ConllBIO2003Writer.PARAM_TARGET_LOCATION, "src/test/out/",
-					ConllBIO2003Writer.PARAM_OVERWRITE, true);
+					ConllBIO2003Writer.PARAM_OVERWRITE, true,
+					ConllBIO2003Writer.PARAM_FILTER_FINGERPRINTED, false);
 			
 			conllEngine.process(jCas);
 		} catch (UIMAException e) {
@@ -116,6 +120,7 @@ public class ConllBIO2003WriterTest {
 	}
 	
 	@Test
+	@DisplayName("Double Column Test")
 	public void doubleColumn() {
 		try {
 			JCas jCas = getjCas();
@@ -129,7 +134,8 @@ public class ConllBIO2003WriterTest {
 					ConllBIO2003Writer.class,
 					ConllBIO2003Writer.PARAM_TARGET_LOCATION, "src/test/out/",
 					ConllBIO2003Writer.PARAM_OVERWRITE, true,
-					ConllBIO2003Writer.PARAM_NAMED_ENTITY_COLUMNS, 2);
+					ConllBIO2003Writer.PARAM_NAMED_ENTITY_COLUMNS, 2,
+					ConllBIO2003Writer.PARAM_FILTER_FINGERPRINTED, false);
 			
 			conllEngine.process(jCas);
 		} catch (UIMAException e) {
@@ -138,6 +144,7 @@ public class ConllBIO2003WriterTest {
 	}
 	
 	@Test
+	@DisplayName("Triple Column Test")
 	public void tripleColumn() {
 		try {
 			JCas jCas = getjCas();
@@ -152,7 +159,8 @@ public class ConllBIO2003WriterTest {
 					ConllBIO2003Writer.PARAM_TARGET_LOCATION, "src/test/out/",
 					ConllBIO2003Writer.PARAM_OVERWRITE, true,
 					ConllBIO2003Writer.PARAM_NAMED_ENTITY_COLUMNS, 3,
-					ConllBIO2003Writer.PARAM_STRATEGY_INDEX, 1);
+					ConllBIO2003Writer.PARAM_STRATEGY_INDEX, 1,
+					ConllBIO2003Writer.PARAM_FILTER_FINGERPRINTED, false);
 			
 			conllEngine.process(jCas);
 		} catch (UIMAException e) {

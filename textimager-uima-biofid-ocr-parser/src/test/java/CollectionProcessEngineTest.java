@@ -7,14 +7,15 @@ import org.apache.uima.cas.impl.XmiCasSerializer;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.pipeline.SimplePipeline;
 import org.apache.uima.jcas.JCas;
+import org.apache.uima.jcas.tcas.Annotation;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.texttechnologylab.annotation.ocr.OCRBlock;
 import org.texttechnologylab.annotation.ocr.OCRLine;
-import org.texttechnologylab.annotation.ocr.OCRToken;
 import org.texttechnologylab.annotation.ocr.OCRPage;
+import org.texttechnologylab.annotation.ocr.OCRToken;
 import org.xml.sax.SAXException;
 
 import java.io.BufferedReader;
@@ -26,6 +27,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static org.apache.uima.fit.factory.AnalysisEngineFactory.createEngineDescription;
 import static org.apache.uima.fit.util.JCasUtil.*;
@@ -43,7 +45,7 @@ class CollectionProcessEngineTest {
 		System.out.println("Getting JCas...");
 		
 		HashMap<String, String> fileAtlas = new HashMap<>();
-		try (BufferedReader bufferedReader = Files.newReader(new File("/home/s3676959/Documents/BIOfid/Export/file_atlas.txt"), StandardCharsets.UTF_8)) {
+		try (BufferedReader bufferedReader = Files.newReader(new File("/home/s3676959/Documents/BioFID/Export/file_atlas.txt"), StandardCharsets.UTF_8)) {
 			bufferedReader.lines().map(l -> l.split("\\s")).forEach(arr -> fileAtlas.put(arr[0], arr[1]));
 		}
 		
@@ -91,59 +93,43 @@ class CollectionProcessEngineTest {
 		@Test
 		@DisplayName("Test Pages")
 		void testPages() {
-			Map<OCRPage, Collection<OCRToken>> pageCovered = indexCovered(jCas, OCRPage.class, OCRToken.class);
-			
-			for (OCRPage ocrPage : select(jCas, OCRPage.class)) {
-				System.out.printf("<OCRPage number:%d, id:%s, begin:%d, end:%d>\n", ocrPage.getPageNumber(), ocrPage.getPageId(), ocrPage.getBegin(), ocrPage.getEnd());
-				for (OCRToken ocrToken : pageCovered.get(ocrPage)) {
-					System.out.print(ocrToken.getCoveredText());
-				}
-				System.out.println("\n</OCRPage>");
-			}
+			OCRPage ocrPage = select(jCas, OCRPage.class).stream().findAny().get();
+			String tokens = selectCovered(jCas, OCRToken.class, ocrPage).stream().map(OCRToken::getCoveredText).collect(Collectors.joining(" "));
+			System.out.printf("<OCRPage number:%d, id:%s, begin:%d, end:%d>%s</OCRPage>\n",
+					ocrPage.getPageNumber(), ocrPage.getPageId(), ocrPage.getBegin(), ocrPage.getEnd(), tokens);
 		}
 		
 		@Test
 		@DisplayName("Test Blocks")
 		void testBlocks() {
 			Map<OCRBlock, Collection<OCRToken>> blockCovered = indexCovered(jCas, OCRBlock.class, OCRToken.class);
-			
-			for (OCRBlock ocrBlock : select(jCas, OCRBlock.class)) {
-				System.out.printf("<OCRBlock valid:%b, begin:%d, end:%d>\n", ocrBlock.getValid(), ocrBlock.getBegin(), ocrBlock.getEnd());
-				for (OCRToken ocrToken : blockCovered.get(ocrBlock)) {
-					System.out.print(ocrToken.getCoveredText());
-				}
-				System.out.println("\n</OCRBlock>");
-			}
+			blockCovered.entrySet().stream().limit(5).forEachOrdered(entry -> {
+				OCRBlock ocrBlock = entry.getKey();
+				String tokens = entry.getValue().stream().map(Annotation::getCoveredText).collect(Collectors.joining(" "));
+				System.out.printf("<OCRBlock valid:%b, begin:%d, end:%d>%s</OCRBlock>\n",
+						ocrBlock.getValid(), ocrBlock.getBegin(), ocrBlock.getEnd(), tokens);
+			});
 		}
 		
 		@Test
 		@DisplayName("Test Covered")
 		void testCovered() {
-			Map<OCRToken, Collection<OCRToken>> tokenCovering = indexCovering(jCas, OCRToken.class, OCRToken.class);
-			
-			for (OCRToken OCRToken : select(jCas, OCRToken.class)) {
-				if (tokenCovering.keySet().contains(OCRToken)) {
-					System.out.print("<covered>");
-				}
-				System.out.print(OCRToken.getCoveredText());
-				if (tokenCovering.keySet().contains(OCRToken)) {
-					System.out.print("</covered>");
-				}
-				System.out.println();
-			}
+			Map<OCRToken, Collection<OCRToken>> tokenCovering = indexCovered(jCas, OCRToken.class, OCRToken.class);
+			tokenCovering.entrySet().stream().filter(entry -> entry.getValue().size() > 1).limit(5).forEachOrdered(entry ->
+					System.out.printf("<OCRToken>%s<Subtoken:['%s']/></OCRToken>\n",
+							entry.getKey().getCoveredText(),
+							entry.getValue().stream()
+									.filter(o -> !entry.getKey().equals(o))
+									.map(Annotation::getCoveredText)
+									.collect(Collectors.joining("','"))));
 		}
 		
 		@Test
 		@DisplayName("Test Lines")
 		void testLines() {
 			Map<OCRLine, Collection<OCRToken>> linesCovered = indexCovered(jCas, OCRLine.class, OCRToken.class);
-			
-			for (OCRLine ocrLine : select(jCas, OCRLine.class)) {
-				for (OCRToken ocrToken : linesCovered.get(ocrLine)) {
-					System.out.print(ocrToken.getCoveredText());
-				}
-				System.out.println();
-			}
+			select(jCas, OCRLine.class).stream().limit(5).forEachOrdered(line -> System.out.printf("<OCRLine left:%d, top:%d>%s</OCRLine>\n",
+					line.getLeft(), line.getTop(), linesCovered.get(line).stream().map(Annotation::getCoveredText).collect(Collectors.joining(" "))));
 		}
 	}
 }
