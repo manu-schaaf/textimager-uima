@@ -18,7 +18,7 @@ import java.util.stream.IntStream;
 
 import static org.apache.uima.fit.util.JCasUtil.*;
 
-public class HierachialBioEncoder {
+public class HierarchicalBioEncoder {
 	private final HashMap<Token, ArrayList<String>> hierachialTokenNamedEntityMap;
 	private final CountMap<NamedEntity> namedEntityHierachy;
 	private final boolean filterFingerprinted;
@@ -41,23 +41,23 @@ public class HierachialBioEncoder {
 	private ArrayList<Integer> maxCoverageOrder;
 	
 	/**
-	 * HierachialBioEncoder that filters for fingerprinted annotations and includes all {@link Taxon} annotations by default
-	 * <p>See {@link HierachialBioEncoder#HierachialBioEncoder(JCas, boolean, ArrayList)}.
+	 * HierarchicalBioEncoder that filters for fingerprinted annotations and includes all {@link Taxon} annotations by default
+	 * <p>See {@link HierarchicalBioEncoder#HierarchicalBioEncoder(JCas, boolean, ArrayList)}.
 	 *
 	 * @param jCas The JCas to process.
 	 */
-	public HierachialBioEncoder(JCas jCas) {
+	public HierarchicalBioEncoder(JCas jCas) {
 		this(jCas, true, Lists.newArrayList(Taxon.class));
 	}
 	
 	/**
-	 * HierachialBioEncoder that includes all {@link Taxon} annotations by default
-	 * <p>See {@link HierachialBioEncoder#HierachialBioEncoder(JCas, boolean, ArrayList)}.
+	 * HierarchicalBioEncoder that includes all {@link Taxon} annotations by default
+	 * <p>See {@link HierarchicalBioEncoder#HierarchicalBioEncoder(JCas, boolean, ArrayList)}.
 	 *
 	 * @param jCas                 The JCas to process.
 	 * @param pFilterFingerprinted If true, only fingerprinted {@link NamedEntity NamedEntities} are processed.
 	 */
-	public HierachialBioEncoder(JCas jCas, boolean pFilterFingerprinted) {
+	public HierarchicalBioEncoder(JCas jCas, boolean pFilterFingerprinted) {
 		this(jCas, pFilterFingerprinted, Lists.newArrayList(Taxon.class));
 	}
 	
@@ -68,7 +68,7 @@ public class HierachialBioEncoder {
 	 * @param pFilterFingerprinted If true, only fingerprinted {@link NamedEntity NamedEntities} are processed.
 	 * @param forceAnnotations     Include all annotations of these classes.
 	 */
-	public HierachialBioEncoder(JCas jCas, boolean pFilterFingerprinted, ArrayList<Class<? extends NamedEntity>> forceAnnotations) {
+	public HierarchicalBioEncoder(JCas jCas, boolean pFilterFingerprinted, ArrayList<Class<? extends NamedEntity>> forceAnnotations) {
 		this.jCas = jCas;
 		this.hierachialTokenNamedEntityMap = new HashMap<>();
 		this.namedEntityHierachy = new CountMap<>();
@@ -159,7 +159,7 @@ public class HierachialBioEncoder {
 	 * {@link JCasUtil#select(JCas, Class)}.
 	 * </p><p>
 	 * For each rank, get all token covered by a NE and add the BIO code to the tokens hierarchy in the
-	 * {@link HierachialBioEncoder#hierachialTokenNamedEntityMap}. At the end of each iteration over a rank, add an "O"
+	 * {@link HierarchicalBioEncoder#hierachialTokenNamedEntityMap}. At the end of each iteration over a rank, add an "O"
 	 * to all not covered tokens.
 	 * </p><p>
 	 * This approach will <b>not</b> "fill" holes created by three or more annotations overlapping, ie. given:
@@ -176,7 +176,7 @@ public class HierachialBioEncoder {
 	 *
 	 * @param jCas   The JCas containing the annotations.
 	 * @param tokens A list of token to be considered.
-	 * @see HierachialBioEncoder#breadthFirstSearch(JCas, ArrayList) breadthFirstSearch(JCas, ArrayList)
+	 * @see HierarchicalBioEncoder#breadthFirstSearch(JCas, ArrayList) breadthFirstSearch(JCas, ArrayList)
 	 */
 	private void naiveStackingApproach(JCas jCas, ArrayList<Token> tokens) {
 		Map<NamedEntity, Collection<Token>> tokenNeIndex = indexCovered(jCas, NamedEntity.class, Token.class);
@@ -215,7 +215,7 @@ public class HierachialBioEncoder {
 	 * {@link JCasUtil#select(JCas, Class)}.
 	 * </p><p>
 	 * For each rank, get all token covered by a NE and add the BIO code to the tokens hierarchy in the
-	 * {@link HierachialBioEncoder#hierachialTokenNamedEntityMap}. After each iteration, check all <i>higher</i> ranks
+	 * {@link HierarchicalBioEncoder#hierachialTokenNamedEntityMap}. After each iteration, check all <i>higher</i> ranks
 	 * for annotations, that cover annotations which are still unvisited in at this rank.
 	 * At the end of each iteration over a rank, add an "O" to all not covered tokens.
 	 * </p><p>
@@ -238,7 +238,7 @@ public class HierachialBioEncoder {
 	 *
 	 * @param jCas   The JCas containing the annotations.
 	 * @param tokens A list of token to be considered.
-	 * @see HierachialBioEncoder#naiveStackingApproach(JCas, ArrayList) naiveStackingApproach(JCas, ArrayList)
+	 * @see HierarchicalBioEncoder#naiveStackingApproach(JCas, ArrayList) naiveStackingApproach(JCas, ArrayList)
 	 */
 	private void breadthFirstSearch(JCas jCas, ArrayList<Token> tokens) {
 		Map<NamedEntity, Collection<Token>> tokenNeIndex = indexCovered(jCas, NamedEntity.class, Token.class);
