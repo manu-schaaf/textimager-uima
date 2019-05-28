@@ -42,6 +42,10 @@ public class ConllBIO2003WriterTest {
 				System.out.printf("%s %s\n", token.getCoveredText(), encoder.getTags(token, 2));
 			}
 			System.out.println();
+			for (Token token : JCasUtil.select(jCas, Token.class)) {
+				System.out.printf("%s %s\n", token.getCoveredText(), encoder.getTags(token, 3));
+			}
+			System.out.println();
 		} catch (UIMAException e) {
 			e.printStackTrace();
 		}

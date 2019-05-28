@@ -107,11 +107,6 @@ public class ConllBIO2003Writer extends Conll2003Writer {
 
 	@Override
 	public void process(JCas aJCas) throws AnalysisEngineProcessException {
-		convert(aJCas);
-	}
-
-	private void convert(JCas aJCas) {
-
 		if (!pExportRawOnly) {
 			try (PrintWriter conllWriter = new PrintWriter(new OutputStreamWriter(getOutputStream(aJCas, filenameSuffix), targetEncoding))) {
 				HierachialBioEncoder hierachialBioEncoder = new HierachialBioEncoder(aJCas, pFilterFingerprinted);
@@ -180,7 +175,7 @@ public class ConllBIO2003Writer extends Conll2003Writer {
 			}
 		}
 	}
-
+	
 	private static final class Row {
 		Token token;
 		String chunk;
