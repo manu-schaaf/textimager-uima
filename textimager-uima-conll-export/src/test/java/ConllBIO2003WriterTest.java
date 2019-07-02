@@ -1,5 +1,5 @@
 import BIOfid.Extraction.ConllBIO2003Writer;
-import BIOfid.Extraction.HierarchicalBioEncoder;
+import BIOfid.Extraction.DKProHierarchicalBioEncoder;
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import de.tudarmstadt.ukp.dkpro.core.api.ner.type.Location;
 import de.tudarmstadt.ukp.dkpro.core.api.ner.type.Organization;
@@ -28,7 +28,7 @@ public class ConllBIO2003WriterTest {
 		try {
 			JCas jCas = getjCas();
 			
-			HierarchicalBioEncoder encoder = new HierarchicalBioEncoder(jCas, false);
+			DKProHierarchicalBioEncoder encoder = new DKProHierarchicalBioEncoder(jCas, false);
 			
 			for (Token token : JCasUtil.select(jCas, Token.class)) {
 				System.out.printf("%s %s\n", token.getCoveredText(), encoder.getTags(token, 0));

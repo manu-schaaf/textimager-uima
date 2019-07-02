@@ -1,7 +1,6 @@
 package BIOfid.Extraction;
 
 import BIOfid.AbstractRunner;
-import BIOfid.OCR.Annotation.Document;
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import org.apache.commons.cli.MissingArgumentException;
 import org.apache.commons.io.FileUtils;
@@ -11,13 +10,13 @@ import org.apache.uima.analysis_engine.AnalysisEngine;
 import org.apache.uima.cas.impl.XmiCasSerializer;
 import org.apache.uima.fit.factory.AnalysisEngineFactory;
 import org.apache.uima.fit.factory.JCasFactory;
-import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
-import org.apache.uima.util.CasCopier;
 import org.apache.uima.util.CasIOUtils;
 import org.hucompute.utilities.helper.RESTUtils;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.texttechnologielab.annotation.type.Fingerprint;
+import org.texttechnologylab.annotation.type.QuickTreeNode;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -28,13 +27,16 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 
 import static BIOfid.Utility.Util.writeToFile;
+import static org.apache.uima.fit.util.JCasUtil.select;
 
 public class TextAnnotatorFetch extends AbstractRunner {
 	
-	private static final String textannotator = "http://141.2.108.253:50555/";
+	private static final String textannotator = "http://141.2.108.253:8080/";
+	//	private static final String textannotator = "http://141.2.108.253:50555/";
 	private static final String mongoDB = "https://resources.hucompute.org/mongo/";
 	
 	private static String sRepository = "14393";
@@ -99,7 +101,7 @@ public class TextAnnotatorFetch extends AbstractRunner {
 				try {
 					final ForkJoinPool remotePool = new ForkJoinPool(pThreads);
 					
-					System.out.printf("Running TextAnnotatorFetch in parallel with %d threads for %d files\n", remotePool.getParallelism(), rArray.length());
+					System.out.printf("Running TextAnnotatorFetch in parallel with %d threads for %d files from repository '%s'\n", remotePool.getParallelism(), rArray.length(), sRepository);
 					
 					final AnalysisEngine conllEngine = AnalysisEngineFactory.createEngine(
 							ConllBIO2003Writer.class,
@@ -108,9 +110,10 @@ public class TextAnnotatorFetch extends AbstractRunner {
 							ConllBIO2003Writer.PARAM_OVERWRITE, true,
 							ConllBIO2003Writer.PARAM_FILTER_FINGERPRINTED, true);
 					
-					int[] count = {0};
+					AtomicInteger count = new AtomicInteger(0);
 					remotePool.submit(() -> IntStream.range(0, rArray.length()).parallel().forEach(a -> {
 						try {
+							count.incrementAndGet();
 							String documentURI = mongoDB + rArray.get(a).toString();
 							JSONObject documentJSON = RESTUtils.getObjectFromRest(documentURI, sSession);
 							
@@ -145,23 +148,26 @@ public class TextAnnotatorFetch extends AbstractRunner {
 									CasIOUtils.load(casURL, jCas.getCas());
 								}
 								
-								if (JCasUtil.select(jCas, DocumentMetaData.class).size() == 0) {
+								if (select(jCas, DocumentMetaData.class).size() == 0) {
 									DocumentMetaData documentMetaData = DocumentMetaData.create(jCas);
 									documentMetaData.setDocumentId(cleanDocumentName);
 									documentMetaData.setDocumentUri(documentURI);
 									documentMetaData.setDocumentTitle(documentName);
 								}
 								
-								try {
-									JCas lCas = JCasFactory.createJCas();
-									CasCopier.copyCas(jCas.getCas(), lCas.getCas(), true);
-									
-									DocumentMetaData.copy(jCas, lCas);
-									
-									conllEngine.process(lCas);
-								} catch (UIMAException e) {
-									e.printStackTrace();
+								AtomicInteger fingerprints = new AtomicInteger(0);
+								AtomicInteger qtn = new AtomicInteger(0);
+								jCas.getViewIterator().forEachRemaining(lCas -> {
+									fingerprints.getAndAdd(select(lCas, Fingerprint.class).size());
+									qtn.getAndAdd(select(lCas, QuickTreeNode.class).size());
+								});
+								if (fingerprints.get() > 0 || qtn.get() > 0) {
+									System.out.printf(" File %s has %d fingerprinted annotations and %d QuickTreeNodes.\n", documentName, fingerprints.get(), qtn.get());
+									conllEngine.process(jCas);
 								}
+//								else {
+//									System.err.printf(" File %s has %d fingerprinted annotations and %d QuickTreeNodes!\n", documentName, fingerprints.get(), qtn.get());
+//								}
 								
 								// Reserialize the UTF-8 forced JCas
 								if (!forceUTF8 || reserialize) {
@@ -188,7 +194,7 @@ public class TextAnnotatorFetch extends AbstractRunner {
 							e.printStackTrace();
 						}
 						System.out.printf("\rFile %d/%d (running remote threads: %d, remote pool size: %d)",
-								count[0]++, rArray.length(), remotePool.getRunningThreadCount(), remotePool.getPoolSize());
+								count.get(), rArray.length(), remotePool.getRunningThreadCount(), remotePool.getPoolSize());
 					})).get();
 					
 					remotePool.shutdown();

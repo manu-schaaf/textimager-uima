@@ -129,7 +129,7 @@ public class PageProcessEngineTest {
 		List<Anomaly> anomalies = selectCovered(inputCas, Anomaly.class, token);
 		List<SpellingAnomaly> spellingAnomalies = selectCovered(inputCas, SpellingAnomaly.class, token);
 		
-		System.out.printf("%s", token.getText());
+		System.out.printf("%s", token.getCoveredText());
 		
 		if (!anomalies.isEmpty()) {
 			System.out.printf("\tAnomaly<%s>", anomalies.stream().map(Anomaly::getDescription).collect(Collectors.joining(";")));

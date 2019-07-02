@@ -5,6 +5,7 @@ import com.google.common.collect.Lists;
 import de.tudarmstadt.ukp.dkpro.core.api.ner.type.NamedEntity;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
 import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.uima.cas.CASException;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.jcas.cas.TOP;
@@ -18,19 +19,23 @@ import java.util.stream.IntStream;
 
 import static org.apache.uima.fit.util.JCasUtil.*;
 
-public class HierarchicalBioEncoder {
-	private final HashMap<Token, ArrayList<String>> hierachialTokenNamedEntityMap;
-	private final CountMap<NamedEntity> namedEntityHierachy;
-	private final boolean filterFingerprinted;
-	private final JCas jCas;
-	private final ArrayList<Class<? extends NamedEntity>> forceAnnotations;
-	public boolean useIOB2; // FIXME
+public abstract class GenericBioEncoder<T extends Annotation> {
+	final HashMap<Token, ArrayList<String>> hierachialTokenNamedEntityMap;
+	final CountMap<T> namedEntityHierachy;
+	final boolean filterFingerprinted;
+	final JCas jCas;
+	final ArrayList<Class<? extends Annotation>> forceAnnotations;
+	
+	Class<T> type;
 	/**
 	 * Set false to use IOB-1 format.
 	 */
-	private TreeMap<Integer, TreeSet<NamedEntity>> namedEntityByRank;
-	private Comparator<Annotation> beginComparator = Comparator.comparingInt(Annotation::getBegin);
-	private Comparator<Annotation> hierachialComparator = new Comparator<Annotation>() {
+	public boolean useIOB2; // FIXME
+	TreeMap<Integer, TreeSet<T>> namedEntityByRank;
+	ArrayList<Integer> maxCoverageOrder;
+	
+	Comparator<Annotation> beginComparator = Comparator.comparingInt(Annotation::getBegin);
+	Comparator<Annotation> hierachialComparator = new Comparator<Annotation>() {
 		@Override
 		public int compare(Annotation o1, Annotation o2) {
 			int cmp = Integer.compare(namedEntityHierachy.get(o1), namedEntityHierachy.get(o2));
@@ -38,37 +43,12 @@ public class HierarchicalBioEncoder {
 			return cmp;
 		}
 	};
-	private ArrayList<Integer> maxCoverageOrder;
 	
-	/**
-	 * HierarchicalBioEncoder that filters for fingerprinted annotations and includes all {@link Taxon} annotations by default
-	 * <p>See {@link HierarchicalBioEncoder#HierarchicalBioEncoder(JCas, boolean, ArrayList)}.
-	 *
-	 * @param jCas The JCas to process.
-	 */
-	public HierarchicalBioEncoder(JCas jCas) {
-		this(jCas, true, Lists.newArrayList(Taxon.class));
+	protected GenericBioEncoder(JCas jCas, boolean pFilterFingerprinted) {
+		this(jCas, false, new ArrayList<>());
 	}
 	
-	/**
-	 * HierarchicalBioEncoder that includes all {@link Taxon} annotations by default
-	 * <p>See {@link HierarchicalBioEncoder#HierarchicalBioEncoder(JCas, boolean, ArrayList)}.
-	 *
-	 * @param jCas                 The JCas to process.
-	 * @param pFilterFingerprinted If true, only fingerprinted {@link NamedEntity NamedEntities} are processed.
-	 */
-	public HierarchicalBioEncoder(JCas jCas, boolean pFilterFingerprinted) {
-		this(jCas, pFilterFingerprinted, Lists.newArrayList(Taxon.class));
-	}
-	
-	/**
-	 * An encoder for the BIO-/IOB2-format that can handle an arbitrary number of stacked annotations.
-	 *
-	 * @param jCas                 The JCas to process.
-	 * @param pFilterFingerprinted If true, only fingerprinted {@link NamedEntity NamedEntities} are processed.
-	 * @param forceAnnotations     Include all annotations of these classes.
-	 */
-	public HierarchicalBioEncoder(JCas jCas, boolean pFilterFingerprinted, ArrayList<Class<? extends NamedEntity>> forceAnnotations) {
+	GenericBioEncoder(JCas jCas, boolean pFilterFingerprinted, ArrayList<Class<? extends Annotation>> forceAnnotations) {
 		this.jCas = jCas;
 		this.hierachialTokenNamedEntityMap = new HashMap<>();
 		this.namedEntityHierachy = new CountMap<>();
@@ -76,64 +56,81 @@ public class HierarchicalBioEncoder {
 		this.useIOB2 = true;
 		this.filterFingerprinted = pFilterFingerprinted;
 		this.forceAnnotations = forceAnnotations;
-		this.build();
 	}
+	
 	
 	/**
 	 * Builds the encoders indexes. Called by constructor.
 	 */
-	private void build() {
-		final LinkedHashSet<NamedEntity> namedEntities = new LinkedHashSet<>();
-		if (filterFingerprinted) {
-			// Get all fingerprinted TOPs
-			HashSet<TOP> fingerprinted = select(jCas, Fingerprint.class).stream()
-					.map(Fingerprint::getReference)
-					.collect(Collectors.toCollection(HashSet::new));
-			// Filter all NEs for fingerprinted ones
-			// and the ones that are forced by forceAnnotations
-			select(jCas, NamedEntity.class).stream()
-					.filter((NamedEntity o) -> fingerprinted.contains(o) || forceAnnotations.contains(o.getClass()))
-					.forEach(namedEntities::add);
-		} else {
-			namedEntities.addAll(select(jCas, NamedEntity.class));
+	public void build() {
+		final LinkedHashSet<T> namedEntities = new LinkedHashSet<>();
+		try {
+			jCas.getViewIterator().forEachRemaining(viewCas -> {
+				if (filterFingerprinted) {
+					// Get all fingerprinted TOPs
+					HashSet<TOP> fingerprinted = select(viewCas, Fingerprint.class).stream()
+							.map(Fingerprint::getReference)
+							.collect(Collectors.toCollection(HashSet::new));
+					// Filter all NEs for fingerprinted ones
+					// and the ones that are forced by forceAnnotations
+					select(viewCas, this.type).stream()
+							.filter((T o) -> fingerprinted.contains(o) || forceAnnotations.contains(o.getClass()))
+							.forEach(namedEntities::add);
+				} else {
+					namedEntities.addAll(select(viewCas, this.type));
+				}
+				
+				// Initialize the hierarchy
+				namedEntities.forEach(key -> namedEntityHierachy.put(key, 0));
+				
+				// Iterate over all NEs that are being covered by another NE
+				// and set their hierarchy level to their parents level + 1
+				for (T parentNamedEntity : namedEntities) {
+					JCasUtil.subiterate(viewCas, type, parentNamedEntity, true, false)
+							.forEach(childNamedEntity -> {
+								if (namedEntities.contains(childNamedEntity))
+									namedEntityHierachy.put(childNamedEntity, namedEntityHierachy.get(parentNamedEntity) + 1);
+							});
+				}
+//				boolean strict = false; // FIXME
+//				for (org.texttechnologylab.annotation.NamedEntity parentNamedEntity : quickTreeNodes) {
+////					JCasUtil.subiterate(viewCas, QuickTreeNode.class, parentNamedEntity, true, strict)
+//					viewQuickTreeNodes.stream()
+//							.filter(quickTreeNode -> quickTreeNode.getBegin() >= parentNamedEntity.getBegin()
+//									&& (!strict || quickTreeNode.getEnd() <= parentNamedEntity.getEnd()))
+//							.forEach(childNode -> {
+//								if (quickTreeNodes.contains(childNode))
+//									nodeHierachy.put(childNode, nodeHierachy.get(parentNamedEntity) + 1);
+//							});
+//				}
+				
+				// Put all NEs into a Map<Integer, TreeSet> by their rank, with all sets ordered by the begin of the entities
+				namedEntityHierachy.forEach((ne, rank) -> {
+					TreeSet<T> orderedTreeSetOfRank = namedEntityByRank.getOrDefault(rank, new TreeSet<>(beginComparator));
+					orderedTreeSetOfRank.add(ne);
+					namedEntityByRank.put(rank, orderedTreeSetOfRank);
+				});
+			});
+			
+			// Create an empty list for all layers of NEs for each Token
+			ArrayList<Token> tokens = new ArrayList<>(select(jCas, Token.class));
+			for (Token token : tokens) {
+				hierachialTokenNamedEntityMap.put(token, new ArrayList<>());
+			}
+			
+			//		naiveStackingApproach(jCas, tokens); // TODO: parametrize the approach selection
+			breadthFirstSearch(jCas, tokens);
+			
+			createMaxCoverageLookup();
+		} catch (CASException e) {
+			e.printStackTrace();
 		}
-		
-		// Initialize the hierarchy
-		namedEntities.forEach(key -> namedEntityHierachy.put(key, 0));
-		
-		// Iterate over all NEs that are being covered by another NE
-		// and set their hierarchy level to their parents level + 1
-		for (NamedEntity parentNamedEntity : namedEntities) {
-			JCasUtil.subiterate(jCas, NamedEntity.class, parentNamedEntity, true, false)
-					.forEach(childNamedEntity -> {
-						if (namedEntities.contains(childNamedEntity))
-							namedEntityHierachy.put(childNamedEntity, namedEntityHierachy.get(parentNamedEntity) + 1);
-					});
-		}
-		
-		// Put all NEs into a Map<Integer, TreeSet> by their rank, with all sets ordered by the begin of the entities
-		namedEntityHierachy.forEach((ne, rank) -> {
-			TreeSet<NamedEntity> orderedTreeSetOfRank = namedEntityByRank.getOrDefault(rank, new TreeSet<>(beginComparator));
-			orderedTreeSetOfRank.add(ne);
-			namedEntityByRank.put(rank, orderedTreeSetOfRank);
-		});
-		
-		// Create an empty list for all layers of NEs for each Token
-		ArrayList<Token> tokens = new ArrayList<>(select(jCas, Token.class));
-		for (Token token : tokens) {
-			hierachialTokenNamedEntityMap.put(token, new ArrayList<>());
-		}
-
-//		naiveStackingApproach(jCas, tokens); // TODO: parametrize the approach selection
-		breadthFirstSearch(jCas, tokens);
-		
-		createMaxCoverageLookup();
 	}
 	
 	/**
 	 * Compute the coverage for each hierarchy level and list the level indices sorted by their respective coverage.
 	 */
-	private void createMaxCoverageLookup() {
+	public void createMaxCoverageLookup() {
 		Optional<ArrayList<String>> optionalArrayList = hierachialTokenNamedEntityMap.values().stream().findAny();
 		if (optionalArrayList.isPresent()) {
 			int size = optionalArrayList.get().size();
@@ -159,7 +156,7 @@ public class HierarchicalBioEncoder {
 	 * {@link JCasUtil#select(JCas, Class)}.
 	 * </p><p>
 	 * For each rank, get all token covered by a NE and add the BIO code to the tokens hierarchy in the
-	 * {@link HierarchicalBioEncoder#hierachialTokenNamedEntityMap}. At the end of each iteration over a rank, add an "O"
+	 * {@link DKProHierarchicalBioEncoder#hierachialTokenNamedEntityMap}. At the end of each iteration over a rank, add an "O"
 	 * to all not covered tokens.
 	 * </p><p>
 	 * This approach will <b>not</b> "fill" holes created by three or more annotations overlapping, ie. given:
@@ -176,15 +173,15 @@ public class HierarchicalBioEncoder {
 	 *
 	 * @param jCas   The JCas containing the annotations.
 	 * @param tokens A list of token to be considered.
-	 * @see HierarchicalBioEncoder#breadthFirstSearch(JCas, ArrayList) breadthFirstSearch(JCas, ArrayList)
+	 * @see DKProHierarchicalBioEncoder#breadthFirstSearch(JCas, ArrayList) breadthFirstSearch(JCas, ArrayList)
 	 */
-	private void naiveStackingApproach(JCas jCas, ArrayList<Token> tokens) {
+	public void naiveStackingApproach(JCas jCas, ArrayList<Token> tokens) {
 		Map<NamedEntity, Collection<Token>> tokenNeIndex = indexCovered(jCas, NamedEntity.class, Token.class);
-		for (TreeSet<NamedEntity> rankSet : namedEntityByRank.values()) {
+		for (TreeSet<T> rankSet : namedEntityByRank.values()) {
 			// A set to collect all tokens, that have been covered by an annotation
 			HashSet<Token> rankCoveredTokens = new HashSet<>();
 			
-			for (NamedEntity namedEntity : rankSet) {
+			for (T namedEntity : rankSet) {
 				// Get all tokens covered by this NE
 				Collection<Token> coveredTokens = tokenNeIndex.get(namedEntity);
 				// Add this Named Entity to the tokens NE hierarchy
@@ -215,7 +212,7 @@ public class HierarchicalBioEncoder {
 	 * {@link JCasUtil#select(JCas, Class)}.
 	 * </p><p>
 	 * For each rank, get all token covered by a NE and add the BIO code to the tokens hierarchy in the
-	 * {@link HierarchicalBioEncoder#hierachialTokenNamedEntityMap}. After each iteration, check all <i>higher</i> ranks
+	 * {@link DKProHierarchicalBioEncoder#hierachialTokenNamedEntityMap}. After each iteration, check all <i>higher</i> ranks
 	 * for annotations, that cover annotations which are still unvisited in at this rank.
 	 * At the end of each iteration over a rank, add an "O" to all not covered tokens.
 	 * </p><p>
@@ -238,20 +235,20 @@ public class HierarchicalBioEncoder {
 	 *
 	 * @param jCas   The JCas containing the annotations.
 	 * @param tokens A list of token to be considered.
-	 * @see HierarchicalBioEncoder#naiveStackingApproach(JCas, ArrayList) naiveStackingApproach(JCas, ArrayList)
+	 * @see DKProHierarchicalBioEncoder#naiveStackingApproach(JCas, ArrayList) naiveStackingApproach(JCas, ArrayList)
 	 */
-	private void breadthFirstSearch(JCas jCas, ArrayList<Token> tokens) {
-		Map<NamedEntity, Collection<Token>> tokenNeIndex = indexCovered(jCas, NamedEntity.class, Token.class);
-		LinkedHashSet<NamedEntity> visitedEntities = new LinkedHashSet<>();
-		ArrayList<TreeSet<NamedEntity>> rankSets = Lists.newArrayList(namedEntityByRank.values());
+	public void breadthFirstSearch(JCas jCas, ArrayList<Token> tokens) {
+		Map<T, Collection<Token>> tokenNeIndex = indexCovered(jCas, type, Token.class);
+		LinkedHashSet<T> visitedEntities = new LinkedHashSet<>();
+		ArrayList<TreeSet<T>> rankSets = Lists.newArrayList(namedEntityByRank.values());
 		for (int i = 0; i < rankSets.size(); i++) {
-			TreeSet<NamedEntity> rankSet = rankSets.get(i);
+			TreeSet<T> rankSet = rankSets.get(i);
 			rankSet.removeAll(visitedEntities);
 			
 			// A set to collect all tokens, that have been covered by an annotation
 			HashSet<Token> visitedTokens = new HashSet<>();
 			
-			for (NamedEntity namedEntity : rankSet) {
+			for (T namedEntity : rankSet) {
 				// Get all tokens covered by this NE
 				Collection<Token> coveredTokens = tokenNeIndex.get(namedEntity);
 				// If its not already covered, add this Named Entity to the tokens NE hierarchy
@@ -265,9 +262,9 @@ public class HierarchicalBioEncoder {
 			
 			// Run breadth-first search over all higher ranks for all remaining token
 			for (int j = i + 1; j < rankSets.size(); j++) {
-				TreeSet<NamedEntity> rankSetBDSearch = rankSets.get(j);
+				TreeSet<T> rankSetBDSearch = rankSets.get(j);
 				rankSet.removeAll(visitedEntities);
-				for (NamedEntity namedEntity : rankSetBDSearch) {
+				for (T namedEntity : rankSetBDSearch) {
 					// Get all tokens covered by this NE
 					ArrayList<Token> coveredTokens = new ArrayList<>(tokenNeIndex.get(namedEntity));
 					// Check if any covered token is already covered by another NE annotation
@@ -294,30 +291,29 @@ public class HierarchicalBioEncoder {
 		}
 		
 		int lastIndex = rankSets.size() - 1;
-		if (hierachialTokenNamedEntityMap.values().stream().allMatch(l -> l.get(lastIndex).equals("O")))
+		if (lastIndex >= 0 && hierachialTokenNamedEntityMap.values().stream().allMatch(l -> l.get(lastIndex).equals("O")))
 			hierachialTokenNamedEntityMap.values().forEach(l -> l.remove(lastIndex));
-		
 	}
 	
 	@Deprecated
-	private void tokenInConflictApproach(JCas jCas, ArrayList<Token> tokens) {
-		HashMap<Token, TreeSet<NamedEntity>> tokenNeMap = new HashMap<>();
+	public void tokenInConflictApproach(JCas jCas, ArrayList<Token> tokens) {
+		HashMap<Token, TreeSet<T>> tokenNeMap = new HashMap<>();
 		tokens.forEach(token -> tokenNeMap.put(token, new TreeSet<>(hierachialComparator)));
 		
-		Map<NamedEntity, Collection<Token>> tokenNeIndex = indexCovered(jCas, NamedEntity.class, Token.class);
+		Map<T, Collection<Token>> tokenNeIndex = indexCovered(jCas, type, Token.class);
 		tokenNeIndex.forEach((ne, tks) -> tks.forEach(tk -> tokenNeMap.get(tk).add(ne)));
 		
-		HashSet<NamedEntity> usedEntities = new HashSet<>();
+		HashSet<T> usedEntities = new HashSet<>();
 		
 		Token curr_token = tokens.get(0);
 		while (true) {
-			TreeSet<NamedEntity> treeSet = tokenNeMap.get(curr_token);
+			TreeSet<T> treeSet = tokenNeMap.get(curr_token);
 			treeSet.removeAll(usedEntities);
 			if (treeSet.isEmpty()) {
 				ArrayList<String> namedEntityStringTreeMap = hierachialTokenNamedEntityMap.get(curr_token);
 				namedEntityStringTreeMap.add("O");
 			} else {
-				for (NamedEntity namedEntity : treeSet) {
+				for (T namedEntity : treeSet) {
 					if (usedEntities.contains(namedEntity)) continue;
 					else usedEntities.add(namedEntity);
 					for (Token coveredToken : tokenNeIndex.get(namedEntity)) { // FIXME: greift zurück, soll aber einen Konflikt finden!
@@ -334,12 +330,25 @@ public class HierarchicalBioEncoder {
 		}
 	}
 	
-	private String getBioCode(NamedEntity namedEntity, Token token) {
+	/**
+	 * Return the BIO-code of the given annotation over the given as a string.
+	 *
+	 * @param namedEntity
+	 * @param token
+	 * @return BIO-code of the annotation over the token as string.
+	 */
+	public String getBioCode(T namedEntity, Token token) {
 		String value;
 		if (namedEntity instanceof Taxon) {
 			value = "TAX";
+		} else if (namedEntity instanceof org.texttechnologylab.annotation.NamedEntity) {
+			value = ((org.texttechnologylab.annotation.NamedEntity) namedEntity).getValue();
+		} else if (namedEntity instanceof de.tudarmstadt.ukp.dkpro.core.api.ner.type.NamedEntity) {
+			value = ((de.tudarmstadt.ukp.dkpro.core.api.ner.type.NamedEntity) namedEntity).getValue();
+		} else if (namedEntity instanceof org.texttechnologielab.annotation.type.TexttechnologyNamedEntity) {
+			value = ((org.texttechnologielab.annotation.type.TexttechnologyNamedEntity) namedEntity).getValue();
 		} else {
-			value = namedEntity.getValue();
+			value = "UNK";
 		}
 		if (namedEntity.getBegin() == token.getBegin() == useIOB2) {
 			return "B-" + value.replaceAll("[IB\\-]*", ""); // FIXME
@@ -386,7 +395,7 @@ public class HierarchicalBioEncoder {
 		return retList;
 	}
 	
-	private enum Strategy {
+	enum Strategy {
 		TopFirstBottomUp(0), TopDown(1), BottomUp(2), MaxCoverage(3);
 		
 		final int index;

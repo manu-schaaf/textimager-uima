@@ -84,7 +84,7 @@ public class PageProcessEngineExampleOut {
 			final int[] tokenCount = {0};
 			for (Chunk block : select(inputCas, Chunk.class)) {
 				if (block.getChunkValue().equals("true")) {
-					selectCovered(inputCas, Token.class, block).stream().map(Token::getText).forEachOrdered(str ->
+					selectCovered(inputCas, Token.class, block).stream().map(Token::getCoveredText).forEachOrdered(str ->
 					{
 						finalText.append(str);
 						if (!str.equals(" ")) tokenCount[0]++;
