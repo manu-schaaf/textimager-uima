@@ -2,22 +2,23 @@ package BIOfid.Extraction;
 
 import com.google.common.base.Strings;
 import de.tudarmstadt.ukp.dkpro.core.api.lexmorph.type.pos.POS;
+import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import de.tudarmstadt.ukp.dkpro.core.api.parameter.ComponentParameters;
-import de.tudarmstadt.ukp.dkpro.core.api.resources.CompressionUtils;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Lemma;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Sentence;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
-import de.tudarmstadt.ukp.dkpro.core.io.conll.Conll2003Writer;
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.output.CloseShieldOutputStream;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
+import org.apache.uima.fit.component.JCasAnnotator_ImplBase;
 import org.apache.uima.fit.descriptor.ConfigurationParameter;
 import org.apache.uima.jcas.JCas;
-import org.texttechnologylab.annotation.NamedEntity;
+import org.jetbrains.annotations.NotNull;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.io.PrintWriter;
+import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -26,7 +27,7 @@ import java.util.List;
 import static org.apache.uima.fit.util.JCasUtil.select;
 import static org.apache.uima.fit.util.JCasUtil.selectCovered;
 
-public class ConllBIO2003Writer extends Conll2003Writer {
+public class ConllBIO2003Writer extends JCasAnnotator_ImplBase {
 	
 	// Start of AnalysisComponent parameters
 	
@@ -34,9 +35,17 @@ public class ConllBIO2003Writer extends Conll2003Writer {
 	 * Character encoding of the output data.
 	 */
 	private static final String UNUSED = "_";
+	public static final String PARAM_TARGET_LOCATION = ComponentParameters.PARAM_TARGET_LOCATION;
+	@ConfigurationParameter(name = PARAM_TARGET_LOCATION, mandatory = true, defaultValue = ComponentParameters.PARAM_TARGET_LOCATION)
+	private String targetLocation;
+	
 	public static final String PARAM_TARGET_ENCODING = ComponentParameters.PARAM_TARGET_ENCODING;
 	@ConfigurationParameter(name = PARAM_TARGET_ENCODING, mandatory = true, defaultValue = ComponentParameters.DEFAULT_ENCODING)
 	private String targetEncoding;
+	
+	public static final String PARAM_OVERWRITE = "targetOverwrite";
+	@ConfigurationParameter(name = PARAM_OVERWRITE, mandatory = true, defaultValue = "true")
+	private Boolean targetOverwrite;
 	
 	public static final String PARAM_FILENAME_EXTENSION = ComponentParameters.PARAM_FILENAME_EXTENSION;
 	@ConfigurationParameter(name = PARAM_FILENAME_EXTENSION, mandatory = true, defaultValue = ".conll")
@@ -109,7 +118,8 @@ public class ConllBIO2003Writer extends Conll2003Writer {
 	@Override
 	public void process(JCas aJCas) throws AnalysisEngineProcessException {
 		if (!pExportRawOnly) {
-			try (PrintWriter conllWriter = new PrintWriter(new OutputStreamWriter(getOutputStream(aJCas, filenameSuffix), targetEncoding))) {
+			
+			try (PrintWriter conllWriter = getPrintWriter(aJCas, filenameSuffix)) {
 				GenericBioEncoder hierarchicalBioEncoder;
 				if (pUseTTLabTypesystem) {
 					hierarchicalBioEncoder = new TTLabHierarchicalBioEncoder(aJCas, pFilterFingerprinted);
@@ -174,7 +184,7 @@ public class ConllBIO2003Writer extends Conll2003Writer {
 			}
 		}
 		if (pExportRaw || pExportRawOnly) {
-			try (PrintWriter rawWriter = new PrintWriter(new OutputStreamWriter(getRawOutputStream(aJCas, pRawFilenameSuffix), targetEncoding))) {
+			try (PrintWriter rawWriter = getRawPrintWriter(aJCas, pRawFilenameSuffix)) {
 				rawWriter.print(aJCas.getDocumentText());
 			} catch (IOException e) {
 				e.printStackTrace();
@@ -182,24 +192,41 @@ public class ConllBIO2003Writer extends Conll2003Writer {
 		}
 	}
 	
-	protected NamedOutputStream getRawOutputStream(JCas aJCas, String aExtension) throws IOException {
+	@NotNull
+	private PrintWriter getPrintWriter(JCas aJCas, String aExtension) throws IOException {
+		String relativePath = getFileName(aJCas);
+		Files.createDirectories(Paths.get(targetLocation));
+		File file = new File(targetLocation, relativePath + aExtension);
+		if (!targetOverwrite && file.exists()) {
+			throw new IOException(String.format("File '%s' already exists!\n", file.getAbsolutePath()));
+		}
+		return new PrintWriter(new OutputStreamWriter(FileUtils.openOutputStream(file), targetEncoding));
+	}
+	
+	private String getFileName(JCas aJCas) {
+		DocumentMetaData meta = DocumentMetaData.get(aJCas);
+		String path = meta.getDocumentId() == null || meta.getDocumentId().isEmpty() ? StringUtils.substringAfterLast(meta.getDocumentUri(), "/") : meta.getDocumentId();
+		return path.replaceAll("\\.xmi", "");
+	}
+	
+	@NotNull
+	private PrintWriter getRawPrintWriter(JCas aJCas, String aExtension) throws IOException {
 		if (pRawTargetLocation == null) {
-			return new NamedOutputStream(null, new CloseShieldOutputStream(System.out));
+			return new PrintWriter(new CloseShieldOutputStream(System.out));
 		} else {
-			return getRawOutputStream(getRelativePath(aJCas), aExtension);
+			Files.createDirectories(Paths.get(pRawTargetLocation));
+			return new PrintWriter(getRawOutputStream(getFileName(aJCas), aExtension));
 		}
 	}
 	
-	protected NamedOutputStream getRawOutputStream(String aRelativePath, String aExtension) throws IOException {
+	private OutputStream getRawOutputStream(String aRelativePath, String aExtension) throws IOException {
 		File outputFile = new File(pRawTargetLocation, aRelativePath + aExtension);
-
-//		if (!overwrite && outputFile.exists()) {
-//			throw new IOException("Target file [" + outputFile
-//					+ "] already exists and overwriting not enabled.");
-//		}
 		
-		return new NamedOutputStream(outputFile.getAbsolutePath(),
-				CompressionUtils.getOutputStream(outputFile));
+		File file = new File(outputFile.getAbsolutePath());
+		if (!targetOverwrite && file.exists()) {
+			throw new IOException(String.format("File '%s' already exists!\n", file.getAbsolutePath()));
+		}
+		return FileUtils.openOutputStream(file);
 	}
 	
 	private static final class Row {

@@ -6,7 +6,6 @@ import de.tudarmstadt.ukp.dkpro.core.api.ner.type.Organization;
 import de.tudarmstadt.ukp.dkpro.core.api.ner.type.Person;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Sentence;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
-import de.tudarmstadt.ukp.dkpro.core.io.conll.Conll2003Writer;
 import org.apache.uima.UIMAException;
 import org.apache.uima.analysis_engine.AnalysisEngine;
 import org.apache.uima.fit.factory.AnalysisEngineFactory;
@@ -62,9 +61,9 @@ public class ConllBIO2003WriterTest {
 			documentMetaData.setDocumentUri("basicGUF");
 			
 			final AnalysisEngine conllEngine = AnalysisEngineFactory.createEngine(
-					Conll2003Writer.class,
-					Conll2003Writer.PARAM_TARGET_LOCATION, "src/test/out/",
-					Conll2003Writer.PARAM_OVERWRITE, true,
+					ConllBIO2003Writer.class,
+					ConllBIO2003Writer.PARAM_TARGET_LOCATION, "src/test/out/",
+					ConllBIO2003Writer.PARAM_OVERWRITE, true,
 					ConllBIO2003Writer.PARAM_FILTER_FINGERPRINTED, false);
 			
 			conllEngine.process(jCas);
