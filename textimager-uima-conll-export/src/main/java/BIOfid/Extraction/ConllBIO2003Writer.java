@@ -1,5 +1,6 @@
 package BIOfid.Extraction;
 
+import BIOfid.ConllFeature.ConllFeatures;
 import com.google.common.base.Strings;
 import de.tudarmstadt.ukp.dkpro.core.api.lexmorph.type.pos.POS;
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
@@ -139,7 +140,7 @@ public class ConllBIO2003Writer extends JCasAnnotator_ImplBase {
 						Row row = new Row();
 						row.token = token;
 						row.chunk = (lemma != null && !Strings.isNullOrEmpty(lemma.getValue())) ? lemma.getValue() : "--";
-						row.ne = hierarchicalBioEncoder.getTags(token, pEncoderStrategyIndex);
+						row.ne = hierarchicalBioEncoder.getFeatures(token, pEncoderStrategyIndex);
 						ctokens.put(row.token, row);
 					}
 					
@@ -156,26 +157,21 @@ public class ConllBIO2003Writer extends JCasAnnotator_ImplBase {
 							chunk = row.chunk;
 						}
 						
-						String namedEntities = UNUSED;
+						String namedEntityFeatures = UNUSED;
 						if (writeNamedEntity && (row.ne != null)) {
 							StringBuilder neBuilder = new StringBuilder();
-							if (!row.ne.isEmpty()) {
-								neBuilder.append(row.ne.get(0));
-							} else {
-								neBuilder.append("O");
-							}
-							for (int i = 1; i < pNamedEntityColumns; i++) {
-								neBuilder.append(pConllSeparator);
-								if (row.ne.size() > i) {
-									neBuilder.append(row.ne.get(i));
-								} else {
-									neBuilder.append("O");
+							ArrayList<String> ne = row.ne; /// Fixme
+							for (int i = 0; i < ne.size(); ) {
+								String entry = ne.get(i);
+								neBuilder.append(entry);
+								if (++i < ne.size()) {
+									neBuilder.append(pConllSeparator);
 								}
 							}
-							namedEntities = neBuilder.toString();
+							namedEntityFeatures = neBuilder.toString();
 						}
 						
-						conllWriter.printf("%s%s%s%s%s%s%s\n", row.token.getCoveredText(), pConllSeparator, pos, pConllSeparator, chunk, pConllSeparator, namedEntities);
+						conllWriter.printf("%s%s%s%s%s%s%s\n", row.token.getCoveredText(), pConllSeparator, pos, pConllSeparator, chunk, pConllSeparator, namedEntityFeatures);
 					}
 					conllWriter.println();
 				}
@@ -232,7 +228,7 @@ public class ConllBIO2003Writer extends JCasAnnotator_ImplBase {
 	private static final class Row {
 		Token token;
 		String chunk;
-		ArrayList ne;
+		ArrayList<String> ne;
 	}
 	
 	

@@ -16,6 +16,7 @@ import org.hucompute.utilities.helper.RESTUtils;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.texttechnologielab.annotation.type.Fingerprint;
+import org.texttechnologylab.annotation.NamedEntity;
 import org.texttechnologylab.annotation.type.QuickTreeNode;
 
 import java.io.File;
@@ -85,7 +86,7 @@ public class TextAnnotatorFetch extends AbstractRunner {
 			final boolean reserialize = forceUTF8 & params.indexOf("--reserialize") > -1;
 			
 			index = params.indexOf("--strategyIndex");
-			final int strategyIndex = (index > -1) ? Integer.parseInt(params.get(index)) : 0;
+			final int strategyIndex = (index > -1) ? Integer.parseInt(params.get(index)) : 3;
 			
 			index = params.indexOf("--repository");
 			if (index > -1) {
@@ -108,7 +109,8 @@ public class TextAnnotatorFetch extends AbstractRunner {
 							ConllBIO2003Writer.PARAM_TARGET_LOCATION, conllLocation,
 							ConllBIO2003Writer.PARAM_STRATEGY_INDEX, strategyIndex,
 							ConllBIO2003Writer.PARAM_OVERWRITE, true,
-							ConllBIO2003Writer.PARAM_FILTER_FINGERPRINTED, true);
+							ConllBIO2003Writer.PARAM_FILTER_FINGERPRINTED, false,
+							ConllBIO2003Writer.PARAM_USE_TTLAB_TYPESYSTEM, true);
 					
 					AtomicInteger count = new AtomicInteger(0);
 					remotePool.submit(() -> IntStream.range(0, rArray.length()).parallel().forEach(a -> {
@@ -157,12 +159,14 @@ public class TextAnnotatorFetch extends AbstractRunner {
 								
 								AtomicInteger fingerprints = new AtomicInteger(0);
 								AtomicInteger qtn = new AtomicInteger(0);
+								AtomicInteger nes = new AtomicInteger(0);
 								jCas.getViewIterator().forEachRemaining(lCas -> {
 									fingerprints.getAndAdd(select(lCas, Fingerprint.class).size());
 									qtn.getAndAdd(select(lCas, QuickTreeNode.class).size());
+									nes.getAndAdd(select(lCas, NamedEntity.class).size());
 								});
-								if (fingerprints.get() > 0 || qtn.get() > 0) {
-									System.out.printf(" File %s has %d fingerprinted annotations and %d QuickTreeNodes.\n", documentName, fingerprints.get(), qtn.get());
+								if (fingerprints.get() > 0 || qtn.get() > 0 || nes.get() > 0) {
+									System.out.printf(" File %s has %d fingerprinted annotations, %d QuickTreeNodes and %d NamedEntities.", documentName, fingerprints.get(), qtn.get(), nes.get());
 									conllEngine.process(jCas);
 								}
 //								else {
@@ -184,6 +188,7 @@ public class TextAnnotatorFetch extends AbstractRunner {
 									return;
 								
 								String content = jCas.getDocumentText();
+								
 								writeToFile(Paths.get(textLocation, cleanDocumentName + ".txt"), content);
 							} else {
 								throw new HttpResponseException(400, String.format("Request to '%s' failed! Response: %s", documentURI, documentJSON.toString()));

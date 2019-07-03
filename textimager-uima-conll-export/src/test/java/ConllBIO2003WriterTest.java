@@ -30,19 +30,19 @@ public class ConllBIO2003WriterTest {
 			DKProHierarchicalBioEncoder encoder = new DKProHierarchicalBioEncoder(jCas, false);
 			
 			for (Token token : JCasUtil.select(jCas, Token.class)) {
-				System.out.printf("%s %s\n", token.getCoveredText(), encoder.getTags(token, 0));
+				System.out.printf("%s %s\n", token.getCoveredText(), encoder.getFeatures(token, 0));
 			}
 			System.out.println();
 			for (Token token : JCasUtil.select(jCas, Token.class)) {
-				System.out.printf("%s %s\n", token.getCoveredText(), encoder.getTags(token, 1));
+				System.out.printf("%s %s\n", token.getCoveredText(), encoder.getFeatures(token, 1));
 			}
 			System.out.println();
 			for (Token token : JCasUtil.select(jCas, Token.class)) {
-				System.out.printf("%s %s\n", token.getCoveredText(), encoder.getTags(token, 2));
+				System.out.printf("%s %s\n", token.getCoveredText(), encoder.getFeatures(token, 2));
 			}
 			System.out.println();
 			for (Token token : JCasUtil.select(jCas, Token.class)) {
-				System.out.printf("%s %s\n", token.getCoveredText(), encoder.getTags(token, 3));
+				System.out.printf("%s %s\n", token.getCoveredText(), encoder.getFeatures(token, 3));
 			}
 			System.out.println();
 		} catch (UIMAException e) {

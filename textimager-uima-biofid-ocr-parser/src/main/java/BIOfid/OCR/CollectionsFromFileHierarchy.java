@@ -1,6 +1,5 @@
 package BIOfid.OCR;
 
-import BIOfid.Utility.Util;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Streams;
@@ -11,6 +10,8 @@ import org.apache.uima.UIMAException;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
@@ -94,7 +95,7 @@ public class CollectionsFromFileHierarchy extends AbstractOCRParser {
 					.map(root -> Streams.stream(Files.fileTraverser().depthFirstPreOrder(new File(root)))
 							.filter(File::isDirectory)
 							.collect(Collectors.toMap(File::getAbsoluteFile,
-									file -> Util.getRelativeDepth(root, file))))
+									file -> getRelativeDepth(root, file))))
 					.flatMap(m -> m.entrySet().stream())
 					.collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 			
@@ -178,5 +179,24 @@ public class CollectionsFromFileHierarchy extends AbstractOCRParser {
 				options,
 				"",
 				true);
+	}
+	
+	public static int getRelativeDepth(File root, File file) {
+		return getRelativeDepth(root.toPath(), file.toPath());
+	}
+	
+	public static int getRelativeDepth(String root, File file) {
+		return getRelativeDepth(Paths.get(root), file.toPath());
+	}
+	
+	/**
+	 * Convinience method to compute the length of the path between two paths.
+	 *
+	 * @param stem the stem path.
+	 * @param leaf the leaf path.
+	 * @return the length of the path stem->leaf.
+	 */
+	public static int getRelativeDepth(Path stem, Path leaf) {
+		return leaf.relativize(stem).getNameCount();
 	}
 }

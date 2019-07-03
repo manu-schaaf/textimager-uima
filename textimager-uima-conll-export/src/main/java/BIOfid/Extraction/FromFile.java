@@ -6,18 +6,17 @@ import org.apache.uima.UIMAException;
 import org.apache.uima.analysis_engine.AnalysisEngine;
 import org.apache.uima.fit.factory.AnalysisEngineFactory;
 import org.apache.uima.fit.factory.JCasFactory;
-import org.apache.uima.fit.factory.TypeSystemDescriptionFactory;
 import org.apache.uima.jcas.JCas;
-import org.apache.uima.resource.metadata.TypeDescription;
-import org.apache.uima.resource.metadata.TypeSystemDescription;
 import org.apache.uima.util.CasIOUtils;
+import org.texttechnologielab.annotation.type.Fingerprint;
+import org.texttechnologylab.annotation.NamedEntity;
+import org.texttechnologylab.annotation.type.QuickTreeNode;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
 
 import static org.apache.uima.fit.util.JCasUtil.select;
 
@@ -48,7 +47,7 @@ public class FromFile {
 					return;
 				File[] files = Objects.requireNonNull(dir.listFiles());
 				System.out.printf("Found %d files!\n", files.length);
-				Arrays.stream(files).parallel().forEach(file -> {
+				Arrays.stream(files).sequential().forEach(file -> {
 					JCas jCas;
 					try {
 						jCas = JCasFactory.createJCas();
@@ -63,8 +62,20 @@ public class FromFile {
 							documentMetaData.setDocumentTitle(documentId);
 						}
 						
-						System.out.printf("\rProcessing file %d/%d", a.incrementAndGet(), files.length);
-						conllEngine.process(jCas);
+						AtomicInteger fingerprints = new AtomicInteger(0);
+						AtomicInteger qtn = new AtomicInteger(0);
+						AtomicInteger nes = new AtomicInteger(0);
+						jCas.getViewIterator().forEachRemaining(lCas -> {
+							fingerprints.getAndAdd(select(lCas, Fingerprint.class).size());
+							qtn.getAndAdd(select(lCas, QuickTreeNode.class).size());
+							nes.getAndAdd(select(lCas, NamedEntity.class).size());
+						});
+						if (fingerprints.get() > 0 || nes.get() > 0) {
+//							System.out.printf(" File %s has %d fingerprinted annotations, %d QuickTreeNodes and %d NamedEntities.\n", documentName, fingerprints.get(), qtn.get(), nes.get());
+//						System.out.printf("\rProcessing file %d/%d", a.incrementAndGet(), files.length);
+							conllEngine.process(jCas);
+						}
+						
 					} catch (UIMAException | IOException e) {
 						e.printStackTrace();
 					}

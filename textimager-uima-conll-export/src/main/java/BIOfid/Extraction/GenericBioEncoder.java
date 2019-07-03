@@ -1,41 +1,52 @@
 package BIOfid.Extraction;
 
+import BIOfid.ConllFeature.ConllFeatures;
 import BIOfid.Utility.CountMap;
+import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
-import de.tudarmstadt.ukp.dkpro.core.api.ner.type.NamedEntity;
+import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
-import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.uima.UIMAException;
 import org.apache.uima.cas.CASException;
+import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.jcas.cas.TOP;
 import org.apache.uima.jcas.tcas.Annotation;
+import org.apache.uima.util.CasCopier;
+import org.dkpro.statistics.agreement.unitizing.KrippendorffAlphaUnitizingAgreement;
+import org.dkpro.statistics.agreement.unitizing.UnitizingAnnotationStudy;
 import org.texttechnologielab.annotation.type.Fingerprint;
-import org.texttechnologylab.annotation.type.Taxon;
+import org.texttechnologylab.annotation.AbstractNamedEntity;
+import org.texttechnologylab.annotation.NamedEntity;
+import org.texttechnologylab.annotation.type.Other;
 
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static org.apache.uima.fit.util.JCasUtil.*;
 
 public abstract class GenericBioEncoder<T extends Annotation> {
-	final HashMap<Token, ArrayList<String>> hierachialTokenNamedEntityMap;
-	final CountMap<T> namedEntityHierachy;
-	final boolean filterFingerprinted;
-	final JCas jCas;
-	final ArrayList<Class<? extends Annotation>> forceAnnotations;
+	private final HashMap<Token, ArrayList<ConllFeatures>> hierachialTokenNamedEntityMap;
+	private final CountMap<T> namedEntityHierachy;
+	private final boolean filterFingerprinted;
+	private final JCas jCas;
+	private final ArrayList<Class<? extends Annotation>> forceAnnotations;
 	
 	Class<T> type;
 	/**
 	 * Set false to use IOB-1 format.
 	 */
-	public boolean useIOB2; // FIXME
-	TreeMap<Integer, TreeSet<T>> namedEntityByRank;
-	ArrayList<Integer> maxCoverageOrder;
+	private boolean useIOB2; // FIXME
+	private TreeMap<Integer, TreeSet<T>> namedEntityByRank;
+	private ArrayList<Integer> maxCoverageOrder;
+	public LinkedHashMap<Integer, Long> coverageCount;
 	
-	Comparator<Annotation> beginComparator = Comparator.comparingInt(Annotation::getBegin);
-	Comparator<Annotation> hierachialComparator = new Comparator<Annotation>() {
+	private Comparator<Annotation> beginComparator = Comparator.comparingInt(Annotation::getBegin);
+	private Comparator<Annotation> hierachialComparator = new Comparator<Annotation>() {
 		@Override
 		public int compare(Annotation o1, Annotation o2) {
 			int cmp = Integer.compare(namedEntityHierachy.get(o1), namedEntityHierachy.get(o2));
@@ -63,9 +74,18 @@ public abstract class GenericBioEncoder<T extends Annotation> {
 	 * Builds the encoders indexes. Called by constructor.
 	 */
 	public void build() {
+		if (jCas.getDocumentText() == null)
+			return;
+		
 		final LinkedHashSet<T> namedEntities = new LinkedHashSet<>();
 		try {
+			UnitizingAnnotationStudy annotationStudy = new UnitizingAnnotationStudy(Iterators.size(jCas.getViewIterator()), jCas.getDocumentText().length());
+			AtomicInteger annotatorCount = new AtomicInteger(0);
+			final TreeSet<String> categories = new TreeSet<>();
+			
 			jCas.getViewIterator().forEachRemaining(viewCas -> {
+				annotatorCount.incrementAndGet();
+				
 				if (filterFingerprinted) {
 					// Get all fingerprinted TOPs
 					HashSet<TOP> fingerprinted = select(viewCas, Fingerprint.class).stream()
@@ -75,9 +95,17 @@ public abstract class GenericBioEncoder<T extends Annotation> {
 					// and the ones that are forced by forceAnnotations
 					select(viewCas, this.type).stream()
 							.filter((T o) -> fingerprinted.contains(o) || forceAnnotations.contains(o.getClass()))
-							.forEach(namedEntities::add);
+							.forEach(namedEntity -> {
+								namedEntities.add(namedEntity);
+								annotationStudy.addUnit(namedEntity.getBegin(), namedEntity.getEnd() - namedEntity.getBegin(), annotatorCount.get(), namedEntity.getType().getShortName());
+								categories.add(namedEntity.getType().getShortName());
+							});
 				} else {
 					namedEntities.addAll(select(viewCas, this.type));
+					for (T namedEntity : select(viewCas, type)) {
+						annotationStudy.addUnit(namedEntity.getBegin(), namedEntity.getEnd() - namedEntity.getBegin(), annotatorCount.get(), namedEntity.getType().getShortName());
+						categories.add(namedEntity.getType().getShortName());
+					}
 				}
 				
 				// Initialize the hierarchy
@@ -112,94 +140,34 @@ public abstract class GenericBioEncoder<T extends Annotation> {
 				});
 			});
 			
+			if (annotatorCount.get() > 1) {
+				KrippendorffAlphaUnitizingAgreement agreement = new KrippendorffAlphaUnitizingAgreement(annotationStudy);
+				System.out.printf("\n%s inter-annotator agreement:\n\tOverall agreement for %d units: %f", DocumentMetaData.get(jCas).getDocumentId(), annotationStudy.getUnitCount(), agreement.calculateAgreement());
+				for (String category : categories) {
+					System.out.printf("\n\t%s: %f", category, agreement.calculateCategoryAgreement(category));
+				}
+				System.out.println();
+			}
+			
 			// Create an empty list for all layers of NEs for each Token
 			ArrayList<Token> tokens = new ArrayList<>(select(jCas, Token.class));
 			for (Token token : tokens) {
 				hierachialTokenNamedEntityMap.put(token, new ArrayList<>());
 			}
 			
-			//		naiveStackingApproach(jCas, tokens); // TODO: parametrize the approach selection
-			breadthFirstSearch(jCas, tokens);
+			if (namedEntityByRank.values().size() == 0) {
+				for (Token token : tokens) {
+					ArrayList<ConllFeatures> namedEntityStringTreeMap = hierachialTokenNamedEntityMap.get(token);
+					namedEntityStringTreeMap.add(new ConllFeatures());
+				}
+			} else {
+				// TODO: parametrize the approach selection
+				breadthFirstSearch(jCas, tokens);
+			}
 			
 			createMaxCoverageLookup();
 		} catch (CASException e) {
 			e.printStackTrace();
-		}
-	}
-	
-	/**
-	 * Compute the coverage for each hierarchy level and list the level indices sorted by their respective coverage.
-	 */
-	public void createMaxCoverageLookup() {
-		Optional<ArrayList<String>> optionalArrayList = hierachialTokenNamedEntityMap.values().stream().findAny();
-		if (optionalArrayList.isPresent()) {
-			int size = optionalArrayList.get().size();
-			maxCoverageOrder = IntStream.range(0, size).boxed()
-					.map(i -> ImmutablePair.of(i,
-							hierachialTokenNamedEntityMap.values().stream()
-									.map(l -> !l.get(i).equals("O") ? 1 : 0)
-									.reduce(0, Integer::sum)))
-					.sorted(Comparator.comparingInt(ImmutablePair::getRight))
-					.mapToInt(ImmutablePair::getLeft).boxed()
-					.collect(Collectors.toCollection(ArrayList::new));
-			Collections.reverse(maxCoverageOrder);
-		} else {
-			maxCoverageOrder = new ArrayList<>();
-		}
-	}
-	
-	/**
-	 * Create a naive NE hierarchy by stacking NE annotations over tokens on top of each other.
-	 * <p>
-	 * Given a list of tokens and the rank of each Named Entity, iterate over all NEs by rank, sorted by their begin.
-	 * This sorts top level annotations first, as longer annotations precede others in the iteration order returned by
-	 * {@link JCasUtil#select(JCas, Class)}.
-	 * </p><p>
-	 * For each rank, get all token covered by a NE and add the BIO code to the tokens hierarchy in the
-	 * {@link DKProHierarchicalBioEncoder#hierachialTokenNamedEntityMap}. At the end of each iteration over a rank, add an "O"
-	 * to all not covered tokens.
-	 * </p><p>
-	 * This approach will <b>not</b> "fill" holes created by three or more annotations overlapping, ie. given:
-	 * <pre>
-	 * Token:       t1  t2  t3
-	 * Entities:    A   AB  BC</pre>
-	 * The corresponding ranks and the resulting hierarchy will be:
-	 * <pre>
-	 * Token:       t1  t2  t3
-	 * Rank/Lvl 1:  A   A   O
-	 * Rank/Lvl 2:  O   B   B
-	 * Rank/Lvl 3:  O   O   C</pre>
-	 * </p>
-	 *
-	 * @param jCas   The JCas containing the annotations.
-	 * @param tokens A list of token to be considered.
-	 * @see DKProHierarchicalBioEncoder#breadthFirstSearch(JCas, ArrayList) breadthFirstSearch(JCas, ArrayList)
-	 */
-	public void naiveStackingApproach(JCas jCas, ArrayList<Token> tokens) {
-		Map<NamedEntity, Collection<Token>> tokenNeIndex = indexCovered(jCas, NamedEntity.class, Token.class);
-		for (TreeSet<T> rankSet : namedEntityByRank.values()) {
-			// A set to collect all tokens, that have been covered by an annotation
-			HashSet<Token> rankCoveredTokens = new HashSet<>();
-			
-			for (T namedEntity : rankSet) {
-				// Get all tokens covered by this NE
-				Collection<Token> coveredTokens = tokenNeIndex.get(namedEntity);
-				// Add this Named Entity to the tokens NE hierarchy
-				for (Token coveredToken : coveredTokens) {
-					ArrayList<String> namedEntityStringTreeMap = hierachialTokenNamedEntityMap.get(coveredToken);
-					namedEntityStringTreeMap.add(getBioCode(namedEntity, coveredToken));
-				}
-				rankCoveredTokens.addAll(coveredTokens);
-			}
-			
-			// Iterate over all tokens, that have not been covered in this iteration
-			// and fill their hierarchy with an "O". This levels all
-			ArrayList<Token> notCoveredTokens = new ArrayList<>(tokens);
-			notCoveredTokens.removeAll(rankCoveredTokens);
-			for (Token notCoveredToken : notCoveredTokens) {
-				ArrayList<String> namedEntityStringTreeMap = hierachialTokenNamedEntityMap.get(notCoveredToken);
-				namedEntityStringTreeMap.add("O");
-			}
 		}
 	}
 	
@@ -253,8 +221,8 @@ public abstract class GenericBioEncoder<T extends Annotation> {
 				Collection<Token> coveredTokens = tokenNeIndex.get(namedEntity);
 				// If its not already covered, add this Named Entity to the tokens NE hierarchy
 				for (Token coveredToken : coveredTokens) {
-					ArrayList<String> namedEntityStringTreeMap = hierachialTokenNamedEntityMap.get(coveredToken);
-					namedEntityStringTreeMap.add(getBioCode(namedEntity, coveredToken));
+					ArrayList<ConllFeatures> namedEntityStringTreeMap = hierachialTokenNamedEntityMap.get(coveredToken);
+					namedEntityStringTreeMap.add(getFeatures(namedEntity, coveredToken));
 				}
 				visitedTokens.addAll(coveredTokens);
 				visitedEntities.add(namedEntity);
@@ -272,8 +240,8 @@ public abstract class GenericBioEncoder<T extends Annotation> {
 						continue;
 					// If its not already covered, add this Named Entity to the tokens NE hierarchy
 					for (Token coveredToken : coveredTokens) {
-						ArrayList<String> namedEntityStringTreeMap = hierachialTokenNamedEntityMap.get(coveredToken);
-						namedEntityStringTreeMap.add(getBioCode(namedEntity, coveredToken));
+						ArrayList<ConllFeatures> namedEntityStringTreeMap = hierachialTokenNamedEntityMap.get(coveredToken);
+						namedEntityStringTreeMap.add(getFeatures(namedEntity, coveredToken));
 					}
 					visitedTokens.addAll(coveredTokens);
 					visitedEntities.add(namedEntity);
@@ -285,14 +253,96 @@ public abstract class GenericBioEncoder<T extends Annotation> {
 			ArrayList<Token> notCoveredTokens = new ArrayList<>(tokens);
 			notCoveredTokens.removeAll(visitedTokens);
 			for (Token notCoveredToken : notCoveredTokens) {
-				ArrayList<String> namedEntityStringTreeMap = hierachialTokenNamedEntityMap.get(notCoveredToken);
-				namedEntityStringTreeMap.add("O");
+				ArrayList<ConllFeatures> namedEntityStringTreeMap = hierachialTokenNamedEntityMap.get(notCoveredToken);
+				namedEntityStringTreeMap.add(new ConllFeatures());
 			}
 		}
 		
 		int lastIndex = rankSets.size() - 1;
 		if (lastIndex >= 0 && hierachialTokenNamedEntityMap.values().stream().allMatch(l -> l.get(lastIndex).equals("O")))
 			hierachialTokenNamedEntityMap.values().forEach(l -> l.remove(lastIndex));
+	}
+	
+	/**
+	 * Compute the coverage for each hierarchy level and list the level indices sorted by their respective coverage.
+	 */
+	public void createMaxCoverageLookup() {
+		Optional<ArrayList<ConllFeatures>> optionalArrayList = hierachialTokenNamedEntityMap.values().stream().findAny();
+		maxCoverageOrder = new ArrayList<>();
+		if (optionalArrayList.isPresent()) {
+			int size = optionalArrayList.get().size();
+			coverageCount = IntStream.range(0, size).boxed()
+					.collect(Collectors.toMap(
+							Function.identity(),
+							i -> hierachialTokenNamedEntityMap.values().stream()
+									.filter(l -> l.get(i).isOut())
+									.count(),
+							(u, v) -> u,
+							LinkedHashMap::new));
+			maxCoverageOrder.addAll(
+					coverageCount.entrySet().stream().sequential()
+							.sorted(Comparator.comparingLong(Map.Entry::getValue))
+							.mapToInt(Map.Entry::getKey).boxed()
+							.collect(Collectors.toList()));
+			Collections.reverse(maxCoverageOrder);
+		} else {
+			maxCoverageOrder.add(0);
+		}
+	}
+	
+	/**
+	 * Create a naive NE hierarchy by stacking NE annotations over tokens on top of each other.
+	 * <p>
+	 * Given a list of tokens and the rank of each Named Entity, iterate over all NEs by rank, sorted by their begin.
+	 * This sorts top level annotations first, as longer annotations precede others in the iteration order returned by
+	 * {@link JCasUtil#select(JCas, Class)}.
+	 * </p><p>
+	 * For each rank, get all token covered by a NE and add the BIO code to the tokens hierarchy in the
+	 * {@link DKProHierarchicalBioEncoder#hierachialTokenNamedEntityMap}. At the end of each iteration over a rank, add an "O"
+	 * to all not covered tokens.
+	 * </p><p>
+	 * This approach will <b>not</b> "fill" holes created by three or more annotations overlapping, ie. given:
+	 * <pre>
+	 * Token:       t1  t2  t3
+	 * Entities:    A   AB  BC</pre>
+	 * The corresponding ranks and the resulting hierarchy will be:
+	 * <pre>
+	 * Token:       t1  t2  t3
+	 * Rank/Lvl 1:  A   A   O
+	 * Rank/Lvl 2:  O   B   B
+	 * Rank/Lvl 3:  O   O   C</pre>
+	 * </p>
+	 *
+	 * @param jCas   The JCas containing the annotations.
+	 * @param tokens A list of token to be considered.
+	 * @see DKProHierarchicalBioEncoder#breadthFirstSearch(JCas, ArrayList) breadthFirstSearch(JCas, ArrayList)
+	 */
+	public void naiveStackingApproach(JCas jCas, ArrayList<Token> tokens) {
+		Map<T, Collection<Token>> tokenNeIndex = indexCovered(jCas, this.type, Token.class);
+		for (TreeSet<T> rankSet : namedEntityByRank.values()) {
+			// A set to collect all tokens, that have been covered by an annotation
+			HashSet<Token> rankCoveredTokens = new HashSet<>();
+			
+			for (T namedEntity : rankSet) {
+				// Get all tokens covered by this NE
+				Collection<Token> coveredTokens = tokenNeIndex.get(namedEntity);
+				// Add this Named Entity to the tokens NE hierarchy
+				for (Token coveredToken : coveredTokens) {
+					ArrayList<ConllFeatures> namedEntityStringTreeMap = hierachialTokenNamedEntityMap.get(coveredToken);
+					namedEntityStringTreeMap.add(getFeatures(namedEntity, coveredToken));
+				}
+				rankCoveredTokens.addAll(coveredTokens);
+			}
+			
+			// Iterate over all tokens, that have not been covered in this iteration
+			// and fill their hierarchy with an "O". This levels all
+			ArrayList<Token> notCoveredTokens = new ArrayList<>(tokens);
+			notCoveredTokens.removeAll(rankCoveredTokens);
+			for (Token notCoveredToken : notCoveredTokens) {
+				ArrayList<ConllFeatures> namedEntityStringTreeMap = hierachialTokenNamedEntityMap.get(notCoveredToken);
+				namedEntityStringTreeMap.add(new ConllFeatures());
+			}
+		}
 	}
 	
 	@Deprecated
@@ -310,16 +360,16 @@ public abstract class GenericBioEncoder<T extends Annotation> {
 			TreeSet<T> treeSet = tokenNeMap.get(curr_token);
 			treeSet.removeAll(usedEntities);
 			if (treeSet.isEmpty()) {
-				ArrayList<String> namedEntityStringTreeMap = hierachialTokenNamedEntityMap.get(curr_token);
-				namedEntityStringTreeMap.add("O");
+				ArrayList<ConllFeatures> namedEntityStringTreeMap = hierachialTokenNamedEntityMap.get(curr_token);
+				namedEntityStringTreeMap.add(new ConllFeatures());
 			} else {
 				for (T namedEntity : treeSet) {
 					if (usedEntities.contains(namedEntity)) continue;
 					else usedEntities.add(namedEntity);
 					for (Token coveredToken : tokenNeIndex.get(namedEntity)) { // FIXME: greift zurück, soll aber einen Konflikt finden!
 						curr_token = coveredToken;
-						ArrayList<String> namedEntityStringTreeMap = hierachialTokenNamedEntityMap.get(curr_token);
-						namedEntityStringTreeMap.add(getBioCode(namedEntity, curr_token));
+						ArrayList<ConllFeatures> namedEntityStringTreeMap = hierachialTokenNamedEntityMap.get(curr_token);
+						namedEntityStringTreeMap.add(getFeatures(namedEntity, curr_token));
 					}
 					
 					break;
@@ -337,59 +387,73 @@ public abstract class GenericBioEncoder<T extends Annotation> {
 	 * @param token
 	 * @return BIO-code of the annotation over the token as string.
 	 */
-	public String getBioCode(T namedEntity, Token token) {
-		String value;
-		if (namedEntity instanceof Taxon) {
-			value = "TAX";
+	public ConllFeatures getFeatures(T namedEntity, Token token) {
+		ConllFeatures features = new ConllFeatures();
+		if (namedEntity instanceof org.texttechnologylab.annotation.AbstractNamedEntity) {
+			features.name(namedEntity.getType().getShortName());
+			
+			AbstractNamedEntity ne = (AbstractNamedEntity) namedEntity;
+			features.isAbstract(true);
+			features.isMetaphor(ne.getMetaphor());
+		} else if (namedEntity instanceof org.texttechnologylab.annotation.type.Other) {
+			features.name(namedEntity.getType().getShortName());
+			
+			Other ne = (Other) namedEntity;
+			features.isAbstract(ne.getValue() != null && !ne.getValue().isEmpty());
+			features.isMetaphor(ne.getMetaphor());
 		} else if (namedEntity instanceof org.texttechnologylab.annotation.NamedEntity) {
-			value = ((org.texttechnologylab.annotation.NamedEntity) namedEntity).getValue();
+			features.name(namedEntity.getType().getShortName());
+			
+			NamedEntity ne = (NamedEntity) namedEntity;
+			features.isAbstract(false);
+			features.isMetaphor(ne.getMetaphor());
 		} else if (namedEntity instanceof de.tudarmstadt.ukp.dkpro.core.api.ner.type.NamedEntity) {
-			value = ((de.tudarmstadt.ukp.dkpro.core.api.ner.type.NamedEntity) namedEntity).getValue();
+			features.name(((de.tudarmstadt.ukp.dkpro.core.api.ner.type.NamedEntity) namedEntity).getValue());
 		} else if (namedEntity instanceof org.texttechnologielab.annotation.type.TexttechnologyNamedEntity) {
-			value = ((org.texttechnologielab.annotation.type.TexttechnologyNamedEntity) namedEntity).getValue();
+			features.name(((org.texttechnologielab.annotation.type.TexttechnologyNamedEntity) namedEntity).getValue());
 		} else {
-			value = "UNK";
+			features.name("<UNK>");
 		}
+		if (features.isNameInvalid())
+			return new ConllFeatures("O");
 		if (namedEntity.getBegin() == token.getBegin() == useIOB2) {
-			return "B-" + value.replaceAll("[IB\\-]*", ""); // FIXME
+			features.prependTag("B-");
 		} else {
-			return "I-" + value.replaceAll("[IB\\-]*", ""); // FIXME
+			features.prependTag("I-");
 		}
+		return features;
 	}
 	
-	public ArrayList<String> getTags(Token token) {
-		return getTags(token, Strategy.byIndex(1));
+	public ArrayList<String> getFeatures(Token token) {
+		return getFeatures(token, Strategy.byIndex(1));
 	}
 	
-	public ArrayList<String> getTags(Token token, int strategyIndex) {
-		return getTags(token, Strategy.byIndex(strategyIndex));
+	public ArrayList<String> getFeatures(Token token, int strategyIndex) {
+		return getFeatures(token, Strategy.byIndex(strategyIndex));
 	}
 	
-	public ArrayList<String> getTags(Token token, Strategy strategy) {
+	public ArrayList<String> getFeatures(Token token, Strategy strategy) {
 		ArrayList<String> retList = new ArrayList<>();
 		
-		ArrayList<String> neList;
+		ArrayList<ConllFeatures> neList;
 		switch (strategy) {
 			default:
-			case TopFirstBottomUp:
+			case TopFirstBottomUp: /// FIXME
+			case TopDown:
 				neList = new ArrayList<>(hierachialTokenNamedEntityMap.get(token));
 				if (neList.isEmpty())
 					break;
-				retList.add(neList.get(0));
-				neList.remove(0);
-				retList.addAll(Lists.reverse(neList));
+				retList.addAll(neList.get(0).build());
 				break;
-			case TopDown:
-				retList = new ArrayList<>(hierachialTokenNamedEntityMap.get(token));
-				break;
+//			case TopDown:
+//				retList = new ArrayList<>(hierachialTokenNamedEntityMap.get(token));
+//				break;
 			case BottomUp:
-				retList = new ArrayList<>(Lists.reverse(hierachialTokenNamedEntityMap.get(token)));
+				retList = Lists.reverse(hierachialTokenNamedEntityMap.get(token)).get(0).build();
 				break;
 			case MaxCoverage:
-				retList = new ArrayList<>();
-				for (Integer index : maxCoverageOrder) {
-					retList.add(hierachialTokenNamedEntityMap.get(token).get(index));
-				}
+				Integer index = maxCoverageOrder.get(0);
+				retList = hierachialTokenNamedEntityMap.get(token).get(index).build();
 		}
 		
 		return retList;
