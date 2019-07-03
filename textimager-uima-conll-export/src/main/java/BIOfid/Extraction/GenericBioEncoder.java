@@ -30,22 +30,23 @@ import java.util.stream.IntStream;
 import static org.apache.uima.fit.util.JCasUtil.*;
 
 public abstract class GenericBioEncoder<T extends Annotation> {
-	private final HashMap<Token, ArrayList<ConllFeatures>> hierachialTokenNamedEntityMap;
-	private final CountMap<T> namedEntityHierachy;
-	private final boolean filterFingerprinted;
-	private final JCas jCas;
-	private final ArrayList<Class<? extends Annotation>> forceAnnotations;
+	final HashMap<Token, ArrayList<ConllFeatures>> hierachialTokenNamedEntityMap;
+	final CountMap<T> namedEntityHierachy;
+	final boolean filterFingerprinted;
+	final JCas jCas;
+	final ArrayList<Class<? extends Annotation>> forceAnnotations;
+	final TreeMap<Integer, Token> tokenIndexMap;
 	
 	Class<T> type;
 	/**
 	 * Set false to use IOB-1 format.
 	 */
-	private boolean useIOB2; // FIXME
-	private TreeMap<Integer, TreeSet<T>> namedEntityByRank;
-	private ArrayList<Integer> maxCoverageOrder;
+	boolean useIOB2; // FIXME
+	TreeMap<Integer, TreeSet<T>> namedEntityByRank;
+	ArrayList<Integer> maxCoverageOrder;
 	public LinkedHashMap<Integer, Long> coverageCount;
 	
-	private Comparator<Annotation> beginComparator = Comparator.comparingInt(Annotation::getBegin);
+	Comparator<Annotation> beginComparator = Comparator.comparingInt(Annotation::getBegin);
 	private Comparator<Annotation> hierachialComparator = new Comparator<Annotation>() {
 		@Override
 		public int compare(Annotation o1, Annotation o2) {
@@ -67,6 +68,7 @@ public abstract class GenericBioEncoder<T extends Annotation> {
 		this.useIOB2 = true;
 		this.filterFingerprinted = pFilterFingerprinted;
 		this.forceAnnotations = forceAnnotations;
+		this.tokenIndexMap = new TreeMap<>();
 	}
 	
 	
@@ -74,100 +76,98 @@ public abstract class GenericBioEncoder<T extends Annotation> {
 	 * Builds the encoders indexes. Called by constructor.
 	 */
 	public void build() {
-		if (jCas.getDocumentText() == null)
-			return;
-		
-		final LinkedHashSet<T> namedEntities = new LinkedHashSet<>();
 		try {
-			UnitizingAnnotationStudy annotationStudy = new UnitizingAnnotationStudy(Iterators.size(jCas.getViewIterator()), jCas.getDocumentText().length());
-			AtomicInteger annotatorCount = new AtomicInteger(0);
-			final TreeSet<String> categories = new TreeSet<>();
+			if (jCas.getDocumentText() == null)
+				return;
 			
-			jCas.getViewIterator().forEachRemaining(viewCas -> {
-				annotatorCount.incrementAndGet();
-				
-				if (filterFingerprinted) {
-					// Get all fingerprinted TOPs
-					HashSet<TOP> fingerprinted = select(viewCas, Fingerprint.class).stream()
-							.map(Fingerprint::getReference)
-							.collect(Collectors.toCollection(HashSet::new));
-					// Filter all NEs for fingerprinted ones
-					// and the ones that are forced by forceAnnotations
-					select(viewCas, this.type).stream()
-							.filter((T o) -> fingerprinted.contains(o) || forceAnnotations.contains(o.getClass()))
-							.forEach(namedEntity -> {
-								namedEntities.add(namedEntity);
-								annotationStudy.addUnit(namedEntity.getBegin(), namedEntity.getEnd() - namedEntity.getBegin(), annotatorCount.get(), namedEntity.getType().getShortName());
-								categories.add(namedEntity.getType().getShortName());
-							});
-				} else {
-					namedEntities.addAll(select(viewCas, this.type));
-					for (T namedEntity : select(viewCas, type)) {
-						annotationStudy.addUnit(namedEntity.getBegin(), namedEntity.getEnd() - namedEntity.getBegin(), annotatorCount.get(), namedEntity.getType().getShortName());
-						categories.add(namedEntity.getType().getShortName());
-					}
-				}
-				
-				// Initialize the hierarchy
-				namedEntities.forEach(key -> namedEntityHierachy.put(key, 0));
-				
-				// Iterate over all NEs that are being covered by another NE
-				// and set their hierarchy level to their parents level + 1
-				for (T parentNamedEntity : namedEntities) {
-					JCasUtil.subiterate(viewCas, type, parentNamedEntity, true, false)
-							.forEach(childNamedEntity -> {
-								if (namedEntities.contains(childNamedEntity))
-									namedEntityHierachy.put(childNamedEntity, namedEntityHierachy.get(parentNamedEntity) + 1);
-							});
-				}
-//				boolean strict = false; // FIXME
-//				for (org.texttechnologylab.annotation.NamedEntity parentNamedEntity : quickTreeNodes) {
-////					JCasUtil.subiterate(viewCas, QuickTreeNode.class, parentNamedEntity, true, strict)
-//					viewQuickTreeNodes.stream()
-//							.filter(quickTreeNode -> quickTreeNode.getBegin() >= parentNamedEntity.getBegin()
-//									&& (!strict || quickTreeNode.getEnd() <= parentNamedEntity.getEnd()))
-//							.forEach(childNode -> {
-//								if (quickTreeNodes.contains(childNode))
-//									nodeHierachy.put(childNode, nodeHierachy.get(parentNamedEntity) + 1);
-//							});
-//				}
-				
-				// Put all NEs into a Map<Integer, TreeSet> by their rank, with all sets ordered by the begin of the entities
-				namedEntityHierachy.forEach((ne, rank) -> {
-					TreeSet<T> orderedTreeSetOfRank = namedEntityByRank.getOrDefault(rank, new TreeSet<>(beginComparator));
-					orderedTreeSetOfRank.add(ne);
-					namedEntityByRank.put(rank, orderedTreeSetOfRank);
-				});
-			});
+			final JCas mergedCas = JCasFactory.createJCas();
+			mergeViews(mergedCas);
 			
-			if (annotatorCount.get() > 1) {
-				KrippendorffAlphaUnitizingAgreement agreement = new KrippendorffAlphaUnitizingAgreement(annotationStudy);
-				System.out.printf("\n%s inter-annotator agreement:\n\tOverall agreement for %d units: %f", DocumentMetaData.get(jCas).getDocumentId(), annotationStudy.getUnitCount(), agreement.calculateAgreement());
-				for (String category : categories) {
-					System.out.printf("\n\t%s: %f", category, agreement.calculateCategoryAgreement(category));
-				}
-				System.out.println();
+			final LinkedHashSet<T> namedEntities = new LinkedHashSet<>();
+			if (filterFingerprinted) {
+				// Get all fingerprinted TOPs
+				HashSet<TOP> fingerprinted = select(mergedCas, Fingerprint.class).stream()
+						.map(Fingerprint::getReference)
+						.collect(Collectors.toCollection(HashSet::new));
+				// Filter all NEs for fingerprinted ones
+				// and the ones that are forced by forceAnnotations
+				select(mergedCas, this.type).stream()
+						.filter((TOP o) -> fingerprinted.contains(o) || forceAnnotations.contains(o.getClass()))
+						.forEach(namedEntities::add);
+			} else {
+				namedEntities.addAll(select(mergedCas, this.type));
 			}
 			
+			// Initialize the hierarchy
+			namedEntities.forEach(key -> namedEntityHierachy.put(key, 0));
+			
+			// Iterate over all NEs that are being covered by another NE
+			// and set their hierarchy level to their parents level + 1
+			for (T parentNamedEntity : namedEntities) {
+				JCasUtil.subiterate(mergedCas, type, parentNamedEntity, true, false)
+						.forEach(childNamedEntity -> {
+							if (namedEntities.contains(childNamedEntity))
+								namedEntityHierachy.put(childNamedEntity, namedEntityHierachy.get(parentNamedEntity) + 1);
+						});
+			}
+			
+			// Put all NEs into a Map<Integer, TreeSet> by their rank, with all sets ordered by the begin of the entities
+			namedEntityHierachy.forEach((ne, rank) -> {
+				TreeSet<T> orderedTreeSetOfRank = namedEntityByRank.getOrDefault(rank, new TreeSet<>(beginComparator));
+				orderedTreeSetOfRank.add(ne);
+				namedEntityByRank.put(rank, orderedTreeSetOfRank);
+			});
+			
 			// Create an empty list for all layers of NEs for each Token
-			ArrayList<Token> tokens = new ArrayList<>(select(jCas, Token.class));
-			for (Token token : tokens) {
+			ArrayList<Token> tokens = new ArrayList<>(select(mergedCas, Token.class));
+			for (int i = 0; i < tokens.size(); i++) {
+				Token token = tokens.get(i);
+				tokenIndexMap.put(i, token);
 				hierachialTokenNamedEntityMap.put(token, new ArrayList<>());
 			}
 			
-			if (namedEntityByRank.values().size() == 0) {
+			if (namedEntityByRank.values().size() != 0) {
+				// TODO: parametrize the approach selection
+				breadthFirstSearch(mergedCas, tokens);
+			} else {
 				for (Token token : tokens) {
 					ArrayList<ConllFeatures> namedEntityStringTreeMap = hierachialTokenNamedEntityMap.get(token);
 					namedEntityStringTreeMap.add(new ConllFeatures());
 				}
-			} else {
-				// TODO: parametrize the approach selection
-				breadthFirstSearch(jCas, tokens);
 			}
 			
 			createMaxCoverageLookup();
 		} catch (CASException e) {
 			e.printStackTrace();
+		} catch (UIMAException e) {
+			e.printStackTrace();
+		}
+	}
+	
+	void mergeViews(JCas mergedCas) throws CASException {
+		UnitizingAnnotationStudy annotationStudy = new UnitizingAnnotationStudy(Iterators.size(jCas.getViewIterator()), jCas.getDocumentText().length());
+		CasCopier.copyCas(jCas.getCas(), mergedCas.getCas(), true, true);
+		
+		final TreeSet<String> categories = new TreeSet<>();
+		AtomicInteger annotatorCount = new AtomicInteger(0);
+		jCas.getViewIterator().forEachRemaining(viewCas -> {
+			annotatorCount.incrementAndGet();
+			for (T namedEntity : select(viewCas, type)) {
+				Annotation nean = (Annotation) mergedCas.getCas().createAnnotation(namedEntity.getType(), namedEntity.getBegin(), namedEntity.getEnd());
+				nean.addToIndexes();
+				
+				annotationStudy.addUnit(namedEntity.getBegin(), namedEntity.getEnd() - namedEntity.getBegin(), annotatorCount.get(), namedEntity.getType().getShortName());
+				categories.add(namedEntity.getType().getShortName());
+			}
+		});
+		
+		if (annotatorCount.get() > 1) {
+			KrippendorffAlphaUnitizingAgreement agreement = new KrippendorffAlphaUnitizingAgreement(annotationStudy);
+			System.out.printf("\n%s inter-annotator agreement:\n\tOverall agreement for %d units: %f", DocumentMetaData.get(jCas).getDocumentId(), annotationStudy.getUnitCount(), agreement.calculateAgreement());
+			for (String category : categories) {
+				System.out.printf("\n\t%s: %f", category, agreement.calculateCategoryAgreement(category));
+			}
+			System.out.println();
 		}
 	}
 	
@@ -428,6 +428,10 @@ public abstract class GenericBioEncoder<T extends Annotation> {
 		return getFeatures(token, Strategy.byIndex(1));
 	}
 	
+	public ArrayList<String> getFeatures(int index, int strategyIndex) {
+		return getFeatures(tokenIndexMap.get(index), Strategy.byIndex(strategyIndex));
+	}
+	
 	public ArrayList<String> getFeatures(Token token, int strategyIndex) {
 		return getFeatures(token, Strategy.byIndex(strategyIndex));
 	}
@@ -453,7 +457,11 @@ public abstract class GenericBioEncoder<T extends Annotation> {
 				break;
 			case MaxCoverage:
 				Integer index = maxCoverageOrder.get(0);
-				retList = hierachialTokenNamedEntityMap.get(token).get(index).build();
+				try {
+					retList = hierachialTokenNamedEntityMap.get(token).get(index).build();
+				} catch (NullPointerException e) {
+					e.printStackTrace();
+				}
 		}
 		
 		return retList;

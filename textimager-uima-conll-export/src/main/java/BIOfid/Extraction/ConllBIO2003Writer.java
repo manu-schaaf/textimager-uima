@@ -1,6 +1,5 @@
 package BIOfid.Extraction;
 
-import BIOfid.ConllFeature.ConllFeatures;
 import com.google.common.base.Strings;
 import de.tudarmstadt.ukp.dkpro.core.api.lexmorph.type.pos.POS;
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
@@ -110,6 +109,7 @@ public class ConllBIO2003Writer extends JCasAnnotator_ImplBase {
 	public static final String PARAM_RAW_FILENAME_SUFFIX = "pRawFilenameSuffix";
 	@ConfigurationParameter(name = PARAM_RAW_FILENAME_SUFFIX, mandatory = false, defaultValue = ".txt")
 	private String pRawFilenameSuffix;
+	
 	public static final String PARAM_USE_TTLAB_TYPESYSTEM = "pUseTTLabTypesystem";
 	@ConfigurationParameter(name = PARAM_USE_TTLAB_TYPESYSTEM, mandatory = false, defaultValue = "false")
 	private Boolean pUseTTLabTypesystem;
@@ -119,7 +119,6 @@ public class ConllBIO2003Writer extends JCasAnnotator_ImplBase {
 	@Override
 	public void process(JCas aJCas) throws AnalysisEngineProcessException {
 		if (!pExportRawOnly) {
-			
 			try (PrintWriter conllWriter = getPrintWriter(aJCas, filenameSuffix)) {
 				GenericBioEncoder hierarchicalBioEncoder;
 				if (pUseTTLabTypesystem) {
@@ -134,13 +133,13 @@ public class ConllBIO2003Writer extends JCasAnnotator_ImplBase {
 					// Tokens
 					List<Token> tokens = selectCovered(Token.class, sentence);
 					
-					
-					for (Token token : tokens) {
+					for (int i = 0; i < tokens.size(); i++) {
+						Token token = tokens.get(i);
 						Lemma lemma = token.getLemma();
 						Row row = new Row();
 						row.token = token;
 						row.chunk = (lemma != null && !Strings.isNullOrEmpty(lemma.getValue())) ? lemma.getValue() : "--";
-						row.ne = hierarchicalBioEncoder.getFeatures(token, pEncoderStrategyIndex);
+						row.ne = hierarchicalBioEncoder.getFeatures(i, pEncoderStrategyIndex);
 						ctokens.put(row.token, row);
 					}
 					
