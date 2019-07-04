@@ -1,10 +1,10 @@
-package BIOfid.Extraction;
+package BIOfid.Engine;
 
 import BIOfid.ConllFeature.ConllFeatures;
-import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
+import org.apache.commons.collections4.bidimap.DualLinkedHashBidiMap;
 import org.apache.uima.UIMAException;
 import org.apache.uima.cas.CASException;
 import org.apache.uima.fit.factory.JCasFactory;
@@ -13,9 +13,6 @@ import org.apache.uima.jcas.JCas;
 import org.apache.uima.jcas.cas.TOP;
 import org.apache.uima.jcas.tcas.Annotation;
 import org.apache.uima.util.CasCopier;
-import org.dkpro.statistics.agreement.unitizing.IUnitizingAnnotationUnit;
-import org.dkpro.statistics.agreement.unitizing.KrippendorffAlphaUnitizingAgreement;
-import org.dkpro.statistics.agreement.unitizing.UnitizingAnnotationStudy;
 import org.texttechnologielab.annotation.type.Fingerprint;
 import org.texttechnologylab.annotation.AbstractNamedEntity;
 import org.texttechnologylab.annotation.NamedEntity;
@@ -23,7 +20,6 @@ import org.texttechnologylab.annotation.type.Other;
 import org.texttechnologylab.annotation.type.Taxon;
 
 import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -31,8 +27,6 @@ import static org.apache.uima.fit.util.JCasUtil.indexCovered;
 import static org.apache.uima.fit.util.JCasUtil.select;
 
 public class TTLabHierarchicalBioEncoder extends GenericBioEncoder<Annotation> {
-	
-	public UnitizingAnnotationStudy annotationStudy;
 	
 	/**
 	 * DKProHierarchicalBioEncoder that filters for fingerprinted annotations and includes all {@link Taxon} annotations by default
@@ -87,15 +81,18 @@ public class TTLabHierarchicalBioEncoder extends GenericBioEncoder<Annotation> {
 						.collect(Collectors.toCollection(HashSet::new));
 				// Filter all NEs for fingerprinted ones
 				// and the ones that are forced by forceAnnotations
-				select(mergedCas, Annotation.class).stream()
+				select(mergedCas, NamedEntity.class).stream()
+						.filter((Predicate<TOP>) fingerprinted::contains)
+						.forEach(namedEntities::add);
+				select(mergedCas, AbstractNamedEntity.class).stream()
 						.filter((Predicate<TOP>) fingerprinted::contains)
 						.forEach(namedEntities::add);
 			} else {
 				namedEntities.addAll(select(mergedCas, NamedEntity.class));
 				namedEntities.addAll(select(mergedCas, AbstractNamedEntity.class));
 			}
-			
-			// Flatten the new view by removing identical duplicates
+
+//			// Flatten the new view by removing identical duplicates
 			final LinkedHashSet<Annotation> flattenedNamedEntities = new LinkedHashSet<>(namedEntities);
 			for (Annotation parentNamedEntity : namedEntities) {
 				JCasUtil.subiterate(mergedCas, type, parentNamedEntity, false, true)
@@ -114,7 +111,12 @@ public class TTLabHierarchicalBioEncoder extends GenericBioEncoder<Annotation> {
 			// Iterate over all NEs that are being covered by another NE
 			// and set their hierarchy level to their parents level + 1
 			for (Annotation parentNamedEntity : flattenedNamedEntities) {
-				JCasUtil.subiterate(mergedCas, type, parentNamedEntity, true, false)
+				JCasUtil.subiterate(mergedCas, NamedEntity.class, parentNamedEntity, true, false)
+						.forEach(childNamedEntity -> {
+							if (flattenedNamedEntities.contains(childNamedEntity))
+								namedEntityHierachy.put(childNamedEntity, namedEntityHierachy.get(parentNamedEntity) + 1);
+						});
+				JCasUtil.subiterate(mergedCas, AbstractNamedEntity.class, parentNamedEntity, true, false)
 						.forEach(childNamedEntity -> {
 							if (flattenedNamedEntities.contains(childNamedEntity))
 								namedEntityHierachy.put(childNamedEntity, namedEntityHierachy.get(parentNamedEntity) + 1);
@@ -154,41 +156,36 @@ public class TTLabHierarchicalBioEncoder extends GenericBioEncoder<Annotation> {
 	
 	@Override
 	void mergeViews(JCas mergedCas) throws CASException {
-		annotationStudy = new UnitizingAnnotationStudy(Iterators.size(jCas.getViewIterator()), jCas.getDocumentText().length());
 		CasCopier.copyCas(jCas.getCas(), mergedCas.getCas(), true, true);
 		
-		final TreeSet<String> categories = new TreeSet<>();
-		AtomicInteger annotatorCount = new AtomicInteger(0);
 		jCas.getViewIterator().forEachRemaining(viewCas -> {
-			annotatorCount.incrementAndGet();
-			for (NamedEntity namedEntity : select(viewCas, NamedEntity.class)) {
-				Annotation nean = (Annotation) mergedCas.getCas().createAnnotation(namedEntity.getType(), namedEntity.getBegin(), namedEntity.getEnd());
-				((NamedEntity) nean).setValue(namedEntity.getValue());
-				((NamedEntity) nean).setMetaphor(namedEntity.getMetaphor());
-				nean.addToIndexes();
+			DualLinkedHashBidiMap<TOP, TOP> addressMap = new DualLinkedHashBidiMap<>();
+			for (NamedEntity oNamedEntity : select(viewCas, NamedEntity.class)) {
+				Annotation nNamedEntity = (Annotation) mergedCas.getCas().createAnnotation(oNamedEntity.getType(), oNamedEntity.getBegin(), oNamedEntity.getEnd());
+				((NamedEntity) nNamedEntity).setValue(oNamedEntity.getValue());
+				((NamedEntity) nNamedEntity).setMetaphor(oNamedEntity.getMetaphor());
 				
-				annotationStudy.addUnit(namedEntity.getBegin(), namedEntity.getEnd() - namedEntity.getBegin(), annotatorCount.get(), namedEntity.getType().getShortName());
-				categories.add(namedEntity.getType().getShortName());
+				nNamedEntity.addToIndexes();
+				addressMap.put(oNamedEntity, nNamedEntity);
 			}
 			
-			for (AbstractNamedEntity namedEntity : select(viewCas, AbstractNamedEntity.class)) {
-				Annotation nean = (Annotation) mergedCas.getCas().createAnnotation(namedEntity.getType(), namedEntity.getBegin(), namedEntity.getEnd());
-				((AbstractNamedEntity) nean).setMetaphor(namedEntity.getMetaphor());
-				nean.addToIndexes();
+			for (AbstractNamedEntity oNamedEntity : select(viewCas, AbstractNamedEntity.class)) {
+				Annotation nNamedEntity = (Annotation) mergedCas.getCas().createAnnotation(oNamedEntity.getType(), oNamedEntity.getBegin(), oNamedEntity.getEnd());
+				((AbstractNamedEntity) nNamedEntity).setMetaphor(oNamedEntity.getMetaphor());
 				
-				annotationStudy.addUnit(namedEntity.getBegin(), namedEntity.getEnd() - namedEntity.getBegin(), annotatorCount.get(), namedEntity.getType().getShortName());
-				categories.add(namedEntity.getType().getShortName());
+				nNamedEntity.addToIndexes();
+				addressMap.put(oNamedEntity, nNamedEntity);
+			}
+			
+			for (Fingerprint oFingerprint : select(viewCas, Fingerprint.class)) {
+				Fingerprint nFingerprint = new Fingerprint(mergedCas);
+				nFingerprint.setReference(addressMap.get(oFingerprint.getReference()));
+				nFingerprint.setCreate(oFingerprint.getCreate());
+				nFingerprint.setUser(oFingerprint.getUser());
+				
+				nFingerprint.addToIndexes();
 			}
 		});
-		
-		if (annotatorCount.get() > 1) {
-			KrippendorffAlphaUnitizingAgreement agreement = new KrippendorffAlphaUnitizingAgreement(annotationStudy);
-			System.out.printf("\n%s inter-annotator agreement:\n\tOverall agreement for %d units: %f", DocumentMetaData.get(jCas).getDocumentId(), annotationStudy.getUnitCount(), agreement.calculateAgreement());
-			for (String category : categories) {
-				System.out.printf("\n\t%s: %f", category, agreement.calculateCategoryAgreement(category));
-			}
-			System.out.println();
-		}
 	}
 	
 	

@@ -5,7 +5,7 @@ import org.junit.jupiter.api.DisplayName;
 /**
  * Created on 20.02.2019.
  */
-public class CollectionsFromFileHierarchyTest {
+public class CollectionsExtractConllFromFileHierarchyTest {
 	
 	@Test
 	@DisplayName("Biodiversity Excerpt Test")

@@ -1,4 +1,4 @@
-package BIOfid.Extraction;
+package BIOfid.Engine;
 
 import BIOfid.ConllFeature.ConllFeatures;
 import BIOfid.Utility.CountMap;
@@ -145,30 +145,14 @@ public abstract class GenericBioEncoder<T extends Annotation> {
 	}
 	
 	void mergeViews(JCas mergedCas) throws CASException {
-		UnitizingAnnotationStudy annotationStudy = new UnitizingAnnotationStudy(Iterators.size(jCas.getViewIterator()), jCas.getDocumentText().length());
 		CasCopier.copyCas(jCas.getCas(), mergedCas.getCas(), true, true);
 		
-		final TreeSet<String> categories = new TreeSet<>();
-		AtomicInteger annotatorCount = new AtomicInteger(0);
 		jCas.getViewIterator().forEachRemaining(viewCas -> {
-			annotatorCount.incrementAndGet();
 			for (T namedEntity : select(viewCas, type)) {
 				Annotation nean = (Annotation) mergedCas.getCas().createAnnotation(namedEntity.getType(), namedEntity.getBegin(), namedEntity.getEnd());
 				nean.addToIndexes();
-				
-				annotationStudy.addUnit(namedEntity.getBegin(), namedEntity.getEnd() - namedEntity.getBegin(), annotatorCount.get(), namedEntity.getType().getShortName());
-				categories.add(namedEntity.getType().getShortName());
 			}
 		});
-		
-		if (annotatorCount.get() > 1) {
-			KrippendorffAlphaUnitizingAgreement agreement = new KrippendorffAlphaUnitizingAgreement(annotationStudy);
-			System.out.printf("\n%s inter-annotator agreement:\n\tOverall agreement for %d units: %f", DocumentMetaData.get(jCas).getDocumentId(), annotationStudy.getUnitCount(), agreement.calculateAgreement());
-			for (String category : categories) {
-				System.out.printf("\n\t%s: %f", category, agreement.calculateCategoryAgreement(category));
-			}
-			System.out.println();
-		}
 	}
 	
 	

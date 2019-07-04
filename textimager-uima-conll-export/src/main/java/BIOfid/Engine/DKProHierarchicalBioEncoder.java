@@ -1,4 +1,4 @@
-package BIOfid.Extraction;
+package BIOfid.Engine;
 
 import com.google.common.collect.Lists;
 import de.tudarmstadt.ukp.dkpro.core.api.ner.type.NamedEntity;

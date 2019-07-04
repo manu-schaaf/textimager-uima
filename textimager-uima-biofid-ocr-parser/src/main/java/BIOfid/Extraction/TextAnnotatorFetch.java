@@ -1,6 +1,7 @@
 package BIOfid.Extraction;
 
 import BIOfid.AbstractRunner;
+import BIOfid.Engine.ConllBIO2003Writer;
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import org.apache.commons.cli.MissingArgumentException;
 import org.apache.commons.io.FileUtils;

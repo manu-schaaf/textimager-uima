@@ -1,4 +1,4 @@
-package BIOfid.Extraction;
+package BIOfid.Engine;
 
 import com.google.common.base.Strings;
 import de.tudarmstadt.ukp.dkpro.core.api.lexmorph.type.pos.POS;

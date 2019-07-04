@@ -17,7 +17,7 @@ public class ConllFeatures extends ArrayList<String> {
 	}
 	
 	public void name(String name) {
-		this.set(0, name.replaceAll("[IB\\-]*", ""));
+		this.set(0, name.replaceAll("([IB]-)*", ""));
 	}
 	
 	public String name() {
