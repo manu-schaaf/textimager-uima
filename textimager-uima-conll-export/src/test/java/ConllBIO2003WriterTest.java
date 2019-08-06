@@ -56,7 +56,7 @@ public class ConllBIO2003WriterTest {
 			JCas jCas = getjCas();
 			
 			// Metadata
-			DocumentMetaData documentMetaData = DocumentMetaData.create(jCas);
+			DocumentMetaData documentMetaData = new DocumentMetaData(jCas);
 			documentMetaData.setDocumentId("basic");
 			documentMetaData.setDocumentUri("basicGUF");
 			
@@ -79,7 +79,7 @@ public class ConllBIO2003WriterTest {
 			JCas jCas = getjCas();
 			
 			// Metadata
-			DocumentMetaData documentMetaData = DocumentMetaData.create(jCas);
+			DocumentMetaData documentMetaData = new DocumentMetaData(jCas);
 			documentMetaData.setDocumentId("singleColumn");
 			documentMetaData.setDocumentUri("singleColumnGUF");
 			
@@ -110,7 +110,7 @@ public class ConllBIO2003WriterTest {
 			CasIOUtil.readXmi(jCas, new File("src/test/resources/de_9032686_1925_Marx, Arno.xmi"));
 			
 			// Metadata
-			DocumentMetaData documentMetaData = DocumentMetaData.create(jCas);
+			DocumentMetaData documentMetaData = new DocumentMetaData(jCas);
 			documentMetaData.setDocumentId("de_9032686_1925");
 			documentMetaData.setDocumentUri("de_9032686_1925");
 			
@@ -129,7 +129,7 @@ public class ConllBIO2003WriterTest {
 			JCas jCas = getjCas();
 			
 			// Metadata
-			DocumentMetaData documentMetaData = DocumentMetaData.create(jCas);
+			DocumentMetaData documentMetaData = new DocumentMetaData(jCas);
 			documentMetaData.setDocumentId("doubleColumn");
 			documentMetaData.setDocumentUri("doubleColumnGUF");
 			
@@ -153,7 +153,7 @@ public class ConllBIO2003WriterTest {
 			JCas jCas = getjCas();
 			
 			// Metadata
-			DocumentMetaData documentMetaData = DocumentMetaData.create(jCas);
+			DocumentMetaData documentMetaData = new DocumentMetaData(jCas);
 			documentMetaData.setDocumentId("tripleColumn");
 			documentMetaData.setDocumentUri("tripleColumnGUF");
 			

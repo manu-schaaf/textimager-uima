@@ -52,23 +52,24 @@ public class ColumnPrinterEngine extends JCasAnnotator_ImplBase {
 	@Override
 	public void process(JCas jCas) throws AnalysisEngineProcessException {
 		try {
-			LinkedHashSet<String> names = Streams.stream(jCas.getViewIterator())
+			LinkedHashSet<String> viewNames = Streams.stream(jCas.getViewIterator())
 					.map(JCas::getViewName)
 					.collect(Collectors.toCollection(LinkedHashSet::new));
 			
-			if (names.size() >= 2) {
+			if (viewNames.size() >= 2) {
 				HashMap<String, HashMap<Integer, ArrayList<String>>> viewHierarchyMap = new HashMap<>();
 				
-				for (String name : names) {
-					JCas viewCas = jCas.getView(name);
+				for (String viewName : viewNames) {
+					JCas viewCas = jCas.getView(viewName);
 					HashMap<Integer, ArrayList<String>> neMap = new HashMap<>();
 					IndexingMap<Token> tokenIndexingMap = new IndexingMap<>();
 					ArrayList<Token> vTokens = new ArrayList<>(JCasUtil.select(viewCas, Token.class));
 					vTokens.forEach(tokenIndexingMap::add);
 					
-					HashSet<TOP> fingerprinted = new HashSet<>(select(viewCas, Fingerprint.class).stream()
+					HashSet<TOP> fingerprinted = select(viewCas, Fingerprint.class).stream()
+							.distinct()
 							.map(Fingerprint::getReference)
-							.collect(Collectors.toCollection(HashSet::new)));
+							.collect(Collectors.toCollection(HashSet::new));
 					
 					for (Class<? extends Annotation> type : Lists.newArrayList(NamedEntity.class, AbstractNamedEntity.class)) {
 						Map<Annotation, Collection<Token>> neIndex = indexCovered(viewCas, type, Token.class);
@@ -89,11 +90,15 @@ public class ColumnPrinterEngine extends JCasAnnotator_ImplBase {
 							neMap.put(i, Lists.newArrayList("O"));
 						}
 					}
-					viewHierarchyMap.put(name, neMap);
+					viewHierarchyMap.put(viewName, neMap);
 				}
-				
-				printWriter.printf("#%s", DocumentMetaData.get(jCas).getDocumentId());
-				for (String name : names) {
+
+//				if (select(jCas, DocumentMetaData.class).size() > 0) {
+				printWriter.printf("#%s", new DocumentMetaData(jCas).getDocumentId());
+//				} else {
+//					printWriter.printf("#??????");
+//				}
+				for (String name : viewNames) {
 					String strippedName = StringUtils.substringAfterLast(name.trim(), "/");
 					printWriter.printf("\t%s", !strippedName.equals("") ? strippedName : name);
 				}
@@ -103,7 +108,7 @@ public class ColumnPrinterEngine extends JCasAnnotator_ImplBase {
 				for (int i = 0; i < tokens.size(); i++) {
 					Token tToken = tokens.get(i);
 					printWriter.printf("%s", tToken.getCoveredText());
-					for (String name : names) {
+					for (String name : viewNames) {
 						HashMap<Integer, ArrayList<String>> tokenArrayListHashMap = viewHierarchyMap.get(name);
 						printWriter.printf("\t%s", tokenArrayListHashMap.get(i));
 					}

@@ -1,55 +1,22 @@
 package BIOfid.Extraction;
 
 import BIOfid.AbstractRunner;
-import BIOfid.Engine.ConllBIO2003Writer;
-import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import org.apache.commons.cli.MissingArgumentException;
-import org.apache.commons.io.FileUtils;
-import org.apache.http.client.HttpResponseException;
-import org.apache.uima.UIMAException;
-import org.apache.uima.analysis_engine.AnalysisEngine;
-import org.apache.uima.cas.impl.XmiCasSerializer;
-import org.apache.uima.fit.factory.AnalysisEngineFactory;
-import org.apache.uima.fit.factory.JCasFactory;
-import org.apache.uima.jcas.JCas;
-import org.apache.uima.util.CasIOUtils;
-import org.hucompute.utilities.helper.RESTUtils;
-import org.json.JSONArray;
-import org.json.JSONObject;
-import org.texttechnologielab.annotation.type.Fingerprint;
-import org.texttechnologylab.annotation.NamedEntity;
-import org.texttechnologylab.annotation.type.QuickTreeNode;
-
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.net.URL;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.IntStream;
-
-import static BIOfid.Utility.Util.writeToFile;
-import static org.apache.uima.fit.util.JCasUtil.select;
 
 public class TextAnnotatorFetch extends AbstractRunner {
 	
-	private static final String textannotator = "http://141.2.108.253:8080/";
-	//	private static final String textannotator = "http://141.2.108.253:50555/";
-	private static final String mongoDB = "https://resources.hucompute.org/mongo/";
-	
-	private static String sRepository = "14393";
-	private static String sSession;
-	private static String conllLocation;
-	private static String XMILocation;
-	private static String textLocation;
-	
-	public static void main(String[] args) {
+	public static void main(String[] args) throws InterruptedException {
 		try {
 			getParams(args);
+			
+			String textannotator = "http://141.2.108.253:8080/";
+			//	String textannotator = "http://141.2.108.253:50555/";
+			String mongoDB = "https://resources.hucompute.org/mongo/";
+			
+			String sRepository = "14393";
+			String sSession;
+			String XMILocation;
+			String textLocation;
 			
 			int index;
 			index = Integer.max(params.indexOf("-s"), params.indexOf("--session"));
@@ -66,13 +33,6 @@ public class TextAnnotatorFetch extends AbstractRunner {
 				throw new MissingArgumentException("Missing --xmi!\n");
 			}
 			
-			index = params.indexOf("--conll");
-			if (index > -1) {
-				conllLocation = params.get(index + 1);
-			} else {
-				throw new MissingArgumentException("Missing --conll!\n");
-			}
-			
 			index = params.indexOf("--text");
 			if (index > -1) {
 				textLocation = params.get(index + 1);
@@ -86,134 +46,12 @@ public class TextAnnotatorFetch extends AbstractRunner {
 			final boolean forceUTF8 = params.indexOf("--forceUTF8") > -1;
 			final boolean reserialize = forceUTF8 & params.indexOf("--reserialize") > -1;
 			
-			index = params.indexOf("--strategyIndex");
-			final int strategyIndex = (index > -1) ? Integer.parseInt(params.get(index)) : 3;
-			
 			index = params.indexOf("--repository");
 			if (index > -1) {
 				sRepository = params.get(index + 1);
 			}
 			
-			String requestURL = textannotator + "documents/" + sRepository;
-			final JSONObject remoteFiles = RESTUtils.getObjectFromRest(requestURL, sSession);
-			
-			if (remoteFiles.getBoolean("success")) {
-				final JSONArray rArray = remoteFiles.getJSONArray("result");
-				
-				try {
-					final ForkJoinPool remotePool = new ForkJoinPool(pThreads);
-					
-					System.out.printf("Running TextAnnotatorFetch in parallel with %d threads for %d files from repository '%s'\n", remotePool.getParallelism(), rArray.length(), sRepository);
-					
-					final AnalysisEngine conllEngine = AnalysisEngineFactory.createEngine(
-							ConllBIO2003Writer.class,
-							ConllBIO2003Writer.PARAM_TARGET_LOCATION, conllLocation,
-							ConllBIO2003Writer.PARAM_STRATEGY_INDEX, strategyIndex,
-							ConllBIO2003Writer.PARAM_OVERWRITE, true,
-							ConllBIO2003Writer.PARAM_FILTER_FINGERPRINTED, false,
-							ConllBIO2003Writer.PARAM_USE_TTLAB_TYPESYSTEM, true);
-					
-					AtomicInteger count = new AtomicInteger(0);
-					remotePool.submit(() -> IntStream.range(0, rArray.length()).parallel().forEach(a -> {
-						try {
-							count.incrementAndGet();
-							String documentURI = mongoDB + rArray.get(a).toString();
-							JSONObject documentJSON = RESTUtils.getObjectFromRest(documentURI, sSession);
-							
-							if (documentJSON.getBoolean("success")) {
-								String documentName = documentJSON.getJSONObject("result").getString("name");
-								String cleanDocumentName = documentName
-										.replaceFirst("[^_]*_(\\d+)_.*", "$1")
-										.replaceAll("\\.[^.]+$", "");
-								
-								// Download XMI
-								URL casURL = new URL(textannotator + "cas/" + rArray.get(a).toString() + "?session=" + sSession);
-								
-								// Process XMI & write conll
-								JCas jCas = JCasFactory.createJCas();
-								
-								Path utf8Path = Paths.get(XMILocation, cleanDocumentName + ".xmi");
-								File utf8File = utf8Path.toFile();
-								if (forceUTF8) {
-									try {
-										FileUtils.copyInputStreamToFile(casURL.openStream(), utf8File);
-									} catch (IOException ioE) {
-										System.err.println("Could not write UTF-8 file!");
-										ioE.printStackTrace();
-									}
-									try (FileInputStream inputStream = FileUtils.openInputStream(utf8File)) {
-										CasIOUtils.load(inputStream, null, jCas.getCas(), true);
-									} catch (IOException ioE) {
-										System.err.println("Could not read UTF-8 file!");
-										ioE.printStackTrace();
-									}
-								} else {
-									CasIOUtils.load(casURL, jCas.getCas());
-								}
-								
-								if (select(jCas, DocumentMetaData.class).size() == 0) {
-									DocumentMetaData documentMetaData = DocumentMetaData.create(jCas);
-									documentMetaData.setDocumentId(cleanDocumentName);
-									documentMetaData.setDocumentUri(documentURI);
-									documentMetaData.setDocumentTitle(documentName);
-								}
-								
-								AtomicInteger fingerprints = new AtomicInteger(0);
-								AtomicInteger qtn = new AtomicInteger(0);
-								AtomicInteger nes = new AtomicInteger(0);
-								jCas.getViewIterator().forEachRemaining(lCas -> {
-									fingerprints.getAndAdd(select(lCas, Fingerprint.class).size());
-									qtn.getAndAdd(select(lCas, QuickTreeNode.class).size());
-									nes.getAndAdd(select(lCas, NamedEntity.class).size());
-								});
-								if (fingerprints.get() > 0 || qtn.get() > 0 || nes.get() > 0) {
-									System.out.printf(" File %s has %d fingerprinted annotations, %d QuickTreeNodes and %d NamedEntities.", documentName, fingerprints.get(), qtn.get(), nes.get());
-									conllEngine.process(jCas);
-								}
-//								else {
-//									System.err.printf(" File %s has %d fingerprinted annotations and %d QuickTreeNodes!\n", documentName, fingerprints.get(), qtn.get());
-//								}
-								
-								// Reserialize the UTF-8 forced JCas
-								if (!forceUTF8 || reserialize) {
-									try (FileOutputStream fs = new FileOutputStream(utf8File)) {
-										XmiCasSerializer.serialize(jCas.getCas(), fs);
-									} catch (IOException ioE) {
-										System.err.println("Could not write UTF-8 file!");
-										ioE.printStackTrace();
-									}
-								}
-								
-								// Write raw text
-								if (jCas.getDocumentText() == null || jCas.getDocumentText().isEmpty())
-									return;
-								
-								String content = jCas.getDocumentText();
-								
-								writeToFile(Paths.get(textLocation, cleanDocumentName + ".txt"), content);
-							} else {
-								throw new HttpResponseException(400, String.format("Request to '%s' failed! Response: %s", documentURI, documentJSON.toString()));
-							}
-						} catch (HttpResponseException httpE) {
-							System.err.println(httpE.getMessage());
-						} catch (Exception e) {
-							e.printStackTrace();
-						}
-						System.out.printf("\rFile %d/%d (running remote threads: %d, remote pool size: %d)",
-								count.get(), rArray.length(), remotePool.getRunningThreadCount(), remotePool.getPoolSize());
-					})).get();
-					
-					remotePool.shutdown();
-				} catch (UIMAException e) {
-					e.printStackTrace();
-				} catch (InterruptedException e) {
-					e.printStackTrace();
-				} catch (ExecutionException e) {
-					e.printStackTrace();
-				}
-			} else {
-				System.err.println(remoteFiles);
-			}
+			// TODO
 		} catch (MissingArgumentException e) {
 			System.err.println(e.getMessage());
 			printUsage();

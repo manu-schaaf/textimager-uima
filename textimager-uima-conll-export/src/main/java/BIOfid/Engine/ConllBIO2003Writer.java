@@ -199,7 +199,7 @@ public class ConllBIO2003Writer extends JCasAnnotator_ImplBase {
 	}
 	
 	private String getFileName(JCas aJCas) {
-		DocumentMetaData meta = DocumentMetaData.get(aJCas);
+		DocumentMetaData meta = new DocumentMetaData(aJCas);
 		String path = meta.getDocumentId() == null || meta.getDocumentId().isEmpty() ? StringUtils.substringAfterLast(meta.getDocumentUri(), "/") : meta.getDocumentId();
 		return path.replaceAll("\\.xmi", "");
 	}

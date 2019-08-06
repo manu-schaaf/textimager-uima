@@ -34,6 +34,8 @@ public class ExtractConllFromFile {
 			
 			String inPath = "/home/stud_homes/s3676959/Documents/BioFID/textimager-uima/textimager-uima-biofid-ocr-parser/src/test/out/TAF/xmi/";
 			try {
+				
+				
 				CollectionReader collection = CollectionReaderFactory.createReader(
 						XmiReader.class,
 						XmiReader.PARAM_SOURCE_LOCATION, inPath,
@@ -47,46 +49,12 @@ public class ExtractConllFromFile {
 				ab.add(AnalysisEngineFactory.createEngineDescription(
 						InterAnnotatorAgreementEngine.class,
 						InterAnnotatorAgreementEngine.PARAM_ANNOTATION_CLASSES, new String[]{NamedEntity.class.getName(), AbstractNamedEntity.class.getName()},
-						InterAnnotatorAgreementEngine.PARAM_EXCLUDE_ANNOTATORS, new String[]{"302902"},
+//						InterAnnotatorAgreementEngine.PARAM_EXCLUDE_ANNOTATORS, new String[]{"302902"},
 						InterAnnotatorAgreementEngine.PARAM_DISCARD_SINGLE_VIEW, false
 //						InterAnnotatorAgreementEngine.PARAM_TARGET_LOCATION, "test",
 //						InterAnnotatorAgreementEngine.PARAM_OVERWRITE, true)
 				));
 				SimplePipeline.runPipeline(collection, ab.createAggregate());
-
-//				Arrays.stream(files).sequential().forEach(file -> {
-//					JCas jCas;
-//					try {
-//						jCas = JCasFactory.createJCas();
-//						CasIOUtils.load(FileUtils.openInputStream(file), null, jCas.getCas(), true);
-//						String documentName = file.getName();
-//						String documentId = documentName.replaceAll(".xmi", "");
-//
-//						if (select(jCas, DocumentMetaData.class).size() == 0) {
-//							DocumentMetaData documentMetaData = DocumentMetaData.create(jCas);
-//							documentMetaData.setDocumentId(documentId);
-//							documentMetaData.setDocumentUri(documentName);
-//							documentMetaData.setDocumentTitle(documentId);
-//						}
-//
-//						AtomicInteger fingerprints = new AtomicInteger(0);
-//						AtomicInteger qtn = new AtomicInteger(0);
-//						AtomicInteger nes = new AtomicInteger(0);
-//						jCas.getViewIterator().forEachRemaining(lCas -> {
-//							fingerprints.getAndAdd(select(lCas, Fingerprint.class).size());
-//							qtn.getAndAdd(select(lCas, QuickTreeNode.class).size());
-//							nes.getAndAdd(select(lCas, NamedEntity.class).size());
-//						});
-//						if (fingerprints.get() > 0 || nes.get() > 0) {
-////							System.out.printf(" File %s has %d fingerprinted annotations, %d QuickTreeNodes and %d NamedEntities.\n", documentName, fingerprints.get(), qtn.get(), nes.get());
-////						System.out.printf("\rProcessing file %d/%d", a.incrementAndGet(), files.length);
-//							conllEngineDescription.process(jCas);
-//						}
-//
-//					} catch (UIMAException | IOException e) {
-//						e.printStackTrace();
-//					}
-//				});
 			} catch (Exception e) {
 				e.printStackTrace();
 			}
