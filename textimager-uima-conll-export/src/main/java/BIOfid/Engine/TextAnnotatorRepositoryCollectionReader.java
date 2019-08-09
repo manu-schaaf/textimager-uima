@@ -15,6 +15,7 @@ import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.util.CasIOUtils;
 import org.apache.uima.util.Progress;
+import org.apache.uima.util.ProgressImpl;
 import org.hucompute.utilities.helper.RESTUtils;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -108,6 +109,8 @@ public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader
 	private static ForkJoinTask<?> forkJoinTask;
 	private static final ConcurrentLinkedDeque<Path> currentResources = new ConcurrentLinkedDeque<>();
 	private ForkJoinPool remotePool;
+	private AtomicInteger currentDocumentCount = new AtomicInteger(0);
+	private int totalDocumentCount = 0;
 	
 	@Override
 	public void initialize(UimaContext aContext) throws ResourceInitializationException {
@@ -119,13 +122,12 @@ public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader
 		
 		if (remoteFiles.getBoolean("success")) {
 			final JSONArray rArray = remoteFiles.getJSONArray("result");
-			System.out.printf("Running TextAnnotatorFetch in parallel with %d threads for %d files from repository '%s'\n", remotePool.getParallelism(), rArray.length(), pRepository);
+			totalDocumentCount = rArray.length();
+			System.out.printf("Running TextAnnotatorFetch in parallel with %d threads for %d files from repository '%s'\n", remotePool.getParallelism(), totalDocumentCount, pRepository);
 			
-			AtomicInteger count = new AtomicInteger(0);
 			// Download and pre-process all remote files in parallel
-			forkJoinTask = remotePool.submit(() -> IntStream.range(0, rArray.length()).parallel().forEach(a -> {
+			forkJoinTask = remotePool.submit(() -> IntStream.range(0, totalDocumentCount).parallel().forEach(a -> {
 				try {
-					count.incrementAndGet();
 					String documentURI = pMongoDb + rArray.get(a).toString();
 					JSONObject documentJSON = RESTUtils.getObjectFromRest(documentURI, pSessionId);
 					
@@ -204,9 +206,11 @@ public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader
 					logger.error(httpE.getMessage());
 				} catch (Exception e) {
 					e.printStackTrace();
+				} finally {
+					currentDocumentCount.incrementAndGet();
 				}
 				logger.info(String.format("\rFile %d/%d (running remote threads: %d, remote pool size: %d)",
-						count.get(), rArray.length(), remotePool.getRunningThreadCount(), remotePool.getPoolSize()));
+						currentDocumentCount.get(), totalDocumentCount, remotePool.getRunningThreadCount(), remotePool.getPoolSize()));
 			})).fork();
 		} else {
 			logger.error("Repository URIs could not be fetched!");
@@ -259,6 +263,8 @@ public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader
 	
 	@Override
 	public Progress[] getProgress() {
-		return new Progress[0];
+		return new Progress[]{
+				new ProgressImpl(currentDocumentCount.get(), totalDocumentCount, "documents")
+		};
 	}
 }
