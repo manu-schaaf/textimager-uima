@@ -2,19 +2,17 @@ package BIOfid.Engine;
 
 import BIOfid.Utility.CountMap;
 import BIOfid.Utility.IndexingMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.uima.UimaContext;
 import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
 import org.apache.uima.cas.CASException;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.jcas.cas.TOP;
 import org.apache.uima.jcas.tcas.Annotation;
-import org.apache.uima.resource.ResourceInitializationException;
 import org.dkpro.statistics.agreement.coding.CodingAnnotationStudy;
+import org.dkpro.statistics.agreement.coding.ICodingAnnotationItem;
 import org.dkpro.statistics.agreement.coding.KrippendorffAlphaAgreement;
 import org.dkpro.statistics.agreement.distance.NominalDistanceFunction;
 import org.texttechnologielab.annotation.type.Fingerprint;
@@ -27,18 +25,11 @@ import static org.apache.uima.fit.util.JCasUtil.select;
 
 public class CodingInterAnnotatorAgreementEngine extends InterAnnotatorAgreementEngine {
 	
-	private ImmutableSet<Class<? extends Annotation>> annotationClasses = ImmutableSet.of(Annotation.class);
 	private TreeSet<String> categories = new TreeSet<>();
 	private Integer maxCasIndex = 0;
 	private HashMap<Integer, HashMap<String, HashMap<Integer, String>>> perCasStudies = new HashMap<>();
 	private HashMap<Integer, Integer> perCasTokenCount = new HashMap<>();
 	private LinkedHashSet<String> annotatorList = new LinkedHashSet<>();
-	private ImmutableSet<String> excludedAnnotators = ImmutableSet.of();
-	
-	@Override
-	public void initialize(UimaContext context) throws ResourceInitializationException {
-		super.initialize(context);
-	}
 	
 	@Override
 	public void process(JCas jCas) throws AnalysisEngineProcessException {
@@ -67,6 +58,7 @@ public class CodingInterAnnotatorAgreementEngine extends InterAnnotatorAgreement
 				// Check for empty view name and excluded annotators
 				if (viewName.isEmpty() || excludedAnnotators.contains(viewName))
 					return;
+				
 				HashMap<Integer, String> currentViewAnnotationMap = new HashMap<>();
 				perViewAnnotations.put(viewName, currentViewAnnotationMap);
 				annotatorList.add(viewName);
@@ -126,12 +118,13 @@ public class CodingInterAnnotatorAgreementEngine extends InterAnnotatorAgreement
 			}
 			
 			CodingAnnotationStudy codingAnnotationStudy = new CodingAnnotationStudy(annotatorList.size());
-			TreeSet<String> categories = this.categories;
+			CountMap<Object> globalCategoryOverlap = new CountMap<>();
 			for (int casIndex = 0; casIndex < maxCasIndex; casIndex++) {
 				if (perCasStudies.containsKey(casIndex)) {
 					HashMap<String, HashMap<Integer, String>> perCasStudy = perCasStudies.get(casIndex);
 					for (int tokenIndex = 0; tokenIndex < perCasTokenCount.get(casIndex); tokenIndex++) {
 						ArrayList<String> perTokenAnnotations = new ArrayList<>();
+						CountMap<String> categoryOverlap = new CountMap<>();
 						for (String annotatorName : annotatorList) {
 							String category = perCasStudy.getOrDefault(annotatorName, new HashMap<>()).getOrDefault(tokenIndex, null);
 							perTokenAnnotations.add(category);
@@ -140,8 +133,13 @@ public class CodingInterAnnotatorAgreementEngine extends InterAnnotatorAgreement
 								categoryCount.inc(category);
 								annotatorCategoryCount.get(annotatorName).inc(category);
 								categories.add(category);
+								
+								categoryOverlap.inc(category);
 							}
 						}
+						categoryOverlap.forEach(((o, integer) -> {
+							if (integer > 1) globalCategoryOverlap.inc(o);
+						}));
 						codingAnnotationStudy.addItemAsArray(perTokenAnnotations.toArray(new String[0]));
 					}
 				}
@@ -152,7 +150,15 @@ public class CodingInterAnnotatorAgreementEngine extends InterAnnotatorAgreement
 							"Category\tCount\tAgreement\n" +
 							"Overall\t%d\t%f\n",
 					annotatorList.size(), annotatorList.toString(), codingAnnotationStudy.getUnitCount(), agreement.calculateAgreement());
-			printStudyResults(agreement, categoryCount, annotatorCategoryCount, categories, annotatorMap.keySet());
+			printStudyResults(agreement, categoryCount, annotatorCategoryCount, categories, annotatorList);
+			
+			if (pPrintStatistics) {
+				System.out.print("\nInter-annotator overlap\nCategory\tCount\n");
+				System.out.printf("Overall\t%d\n", globalCategoryOverlap.values().stream().reduce(Integer::sum).get());
+				for (String category : categories) {
+					System.out.printf("%s\t%d\n", category, globalCategoryOverlap.getOrDefault(category, 0));
+				}
+			}
 		}
 	}
 	

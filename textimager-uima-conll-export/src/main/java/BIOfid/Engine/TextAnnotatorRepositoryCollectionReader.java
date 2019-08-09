@@ -5,7 +5,9 @@ import org.apache.commons.io.FileUtils;
 import org.apache.http.client.HttpResponseException;
 import org.apache.uima.UimaContext;
 import org.apache.uima.cas.CAS;
+import org.apache.uima.cas.impl.XmiCasDeserializer;
 import org.apache.uima.cas.impl.XmiCasSerializer;
+import org.apache.uima.cas.impl.XmiSerializationSharedData;
 import org.apache.uima.collection.CollectionException;
 import org.apache.uima.fit.component.CasCollectionReader_ImplBase;
 import org.apache.uima.fit.descriptor.ConfigurationParameter;
@@ -26,9 +28,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.LinkedHashSet;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.IntStream;
 
 import static org.apache.uima.fit.util.JCasUtil.select;
 
@@ -102,7 +104,7 @@ public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader
 	@ConfigurationParameter(
 			name = PARAM_FORCE_RESERIALIZE,
 			mandatory = false,
-			defaultValue = "false"
+			defaultValue = "true"
 	)
 	private static Boolean forceReserialize;
 	
@@ -111,6 +113,7 @@ public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader
 	private ForkJoinPool remotePool;
 	private AtomicInteger currentDocumentCount = new AtomicInteger(0);
 	private int totalDocumentCount = 0;
+	private ConcurrentHashMap<Path, XmiSerializationSharedData> xmiSerializationSharedDataMap;
 	
 	@Override
 	public void initialize(UimaContext aContext) throws ResourceInitializationException {
@@ -122,13 +125,19 @@ public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader
 		
 		if (remoteFiles.getBoolean("success")) {
 			final JSONArray rArray = remoteFiles.getJSONArray("result");
-			totalDocumentCount = rArray.length();
-			System.out.printf("Running TextAnnotatorFetch in parallel with %d threads for %d files from repository '%s'\n", remotePool.getParallelism(), totalDocumentCount, pRepository);
+			final LinkedHashSet<String> remoteURIs = new LinkedHashSet<>();
+			for (int i = 0; i < rArray.length(); i++) {
+				remoteURIs.add(rArray.get(i).toString());
+			}
+			totalDocumentCount = remoteURIs.size();
+			
+			logger.info(String.format("Running TextAnnotatorFetch in parallel with %d threads for %d files from repository '%s'\n", remotePool.getParallelism(), totalDocumentCount, pRepository));
 			
 			// Download and pre-process all remote files in parallel
-			forkJoinTask = remotePool.submit(() -> IntStream.range(0, totalDocumentCount).parallel().forEach(a -> {
+			xmiSerializationSharedDataMap = new ConcurrentHashMap<>();
+			forkJoinTask = remotePool.submit(() -> remoteURIs.stream().parallel().forEach(uri -> {
 				try {
-					String documentURI = pMongoDb + rArray.get(a).toString();
+					String documentURI = pMongoDb + uri;
 					JSONObject documentJSON = RESTUtils.getObjectFromRest(documentURI, pSessionId);
 					
 					if (documentJSON.getBoolean("success")) {
@@ -139,13 +148,13 @@ public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader
 								.replaceAll("\\.[^.]+$", "");
 						
 						// Download file
-						URL casURL = new URL(pTextAnnotatorUrl + "cas/" + rArray.get(a).toString() + "?session=" + pSessionId);
+						URL casURL = new URL(pTextAnnotatorUrl + "cas/" + uri + "?session=" + pSessionId);
 						Path utf8Path = Paths.get(sourceLocation, cleanDocumentName + ".xmi");
 						File utf8File = utf8Path.toFile();
 						try {
-							this.logger.info(String.format("Downloading file %s..", casURL.toString()));
+							logger.info(String.format("Downloading file %s..", casURL.toString()));
 							FileUtils.copyInputStreamToFile(casURL.openStream(), utf8File);
-							this.logger.info(String.format("Downloaded file %s.", casURL.toString()));
+							logger.info(String.format("Downloaded file %s.", casURL.toString()));
 						} catch (Exception e) {
 							logger.warn("Could not copy file from input stream: " + casURL.toString());
 							logger.warn(e.getMessage());
@@ -178,8 +187,10 @@ public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader
 							}
 							
 							// Reserialize file as xmi
-							try (FileOutputStream fs = new FileOutputStream(utf8File)) {
-								XmiCasSerializer.serialize(jCas.getCas(), null, fs, true, null);
+							try (FileOutputStream outputStream = new FileOutputStream(utf8File)) {
+								XmiSerializationSharedData xmiSerializationSharedData = new XmiSerializationSharedData();
+								XmiCasSerializer.serialize(jCas.getCas(), null, outputStream, true, xmiSerializationSharedData);
+								xmiSerializationSharedDataMap.put(utf8Path, xmiSerializationSharedData);
 							} catch (Exception e) {
 								logger.warn("Could not write reserialized file: " + utf8Path);
 								logger.warn(e.getMessage());
@@ -224,7 +235,8 @@ public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader
 		forkJoinTaskGet();
 		Path path = currentResources.pop();
 		try (FileInputStream inputStream = FileUtils.openInputStream(path.toFile())) {
-			CasIOUtils.load(inputStream, null, aCAS, true);
+			XmiCasDeserializer.deserialize(inputStream, aCAS, true, xmiSerializationSharedDataMap.get(path));
+//			CasIOUtils.load(inputStream, null, aCAS, true);
 		} catch (Exception e) {
 			getLogger().error("Error while opening file: " + path.toString());
 			System.err.println("Error while opening file: " + path.toString());

@@ -2,29 +2,27 @@ package BIOfid.Engine;
 
 import BIOfid.Utility.CountMap;
 import BIOfid.Utility.IndexingMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Streams;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
-import org.apache.uima.UimaContext;
 import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
 import org.apache.uima.cas.CASException;
-import org.apache.uima.fit.internal.ExtendedLogger;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.jcas.cas.TOP;
 import org.apache.uima.jcas.tcas.Annotation;
-import org.apache.uima.resource.ResourceInitializationException;
 import org.dkpro.statistics.agreement.coding.CodingAnnotationStudy;
 import org.dkpro.statistics.agreement.unitizing.IUnitizingAnnotationUnit;
 import org.dkpro.statistics.agreement.unitizing.KrippendorffAlphaUnitizingAgreement;
 import org.dkpro.statistics.agreement.unitizing.UnitizingAnnotationStudy;
-import org.jetbrains.annotations.NotNull;
 import org.texttechnologielab.annotation.type.Fingerprint;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -35,14 +33,9 @@ public class UnitizingInterAnnotatorAgreementEngine extends InterAnnotatorAgreem
 	
 	private TreeSet<String> categories = new TreeSet<>();
 	private AtomicInteger documentOffset = new AtomicInteger(0);
-	
 	private ArrayList<ImmutablePair<Integer, Iterable<IUnitizingAnnotationUnit>>> annotationStudies = new ArrayList<>();
 	private IndexingMap<String> annotatorMap = new IndexingMap<>();
 	
-	@Override
-	public void initialize(UimaContext context) throws ResourceInitializationException {
-		super.initialize(context);
-	}
 	
 	@Override
 	public void process(JCas jCas) throws AnalysisEngineProcessException {

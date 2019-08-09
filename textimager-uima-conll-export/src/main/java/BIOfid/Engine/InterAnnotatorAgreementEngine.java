@@ -1,7 +1,6 @@
 package BIOfid.Engine;
 
 import BIOfid.Utility.CountMap;
-import BIOfid.Utility.IndexingMap;
 import com.google.common.collect.ImmutableSet;
 import org.apache.uima.UimaContext;
 import org.apache.uima.fit.component.JCasConsumer_ImplBase;
@@ -62,11 +61,10 @@ public abstract class InterAnnotatorAgreementEngine extends JCasConsumer_ImplBas
 			mandatory = false,
 			defaultValue = "true"
 	)
-	protected Boolean pPrintStatistics;
+	Boolean pPrintStatistics;
 	
-	protected IndexingMap<String> annotatorMap = new IndexingMap<>();
-	protected ImmutableSet<Class<? extends Annotation>> annotationClasses = ImmutableSet.of(Annotation.class);
-	protected ImmutableSet<String> excludedAnnotators = ImmutableSet.of();
+	ImmutableSet<Class<? extends Annotation>> annotationClasses = ImmutableSet.of(Annotation.class);
+	ImmutableSet<String> excludedAnnotators = ImmutableSet.of();
 	protected ExtendedLogger logger;
 	
 	@Override
@@ -90,7 +88,7 @@ public abstract class InterAnnotatorAgreementEngine extends JCasConsumer_ImplBas
 			}
 			// If any class could be found, update the set
 			if (classArrayList.size() > 0)
-				this.annotationClasses = ImmutableSet.copyOf(classArrayList);
+				annotationClasses = ImmutableSet.copyOf(classArrayList);
 		}
 		
 		// Set the list of excluded annotators
