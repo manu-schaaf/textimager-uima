@@ -32,7 +32,7 @@ import java.util.stream.IntStream;
 import static org.apache.uima.fit.util.JCasUtil.select;
 
 public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader_ImplBase {
-	ExtendedLogger logger = getLogger();
+	private ExtendedLogger logger = getLogger();
 	
 	public static final String PARAM_TEXT_ANNOTATOR_URL = "pTextAnnotatorUrl";
 	@ConfigurationParameter(
@@ -62,7 +62,8 @@ public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader
 	@ConfigurationParameter(
 			name = PARAM_DOCUMENTS_REPOSITORY,
 			mandatory = false,
-			defaultValue = "14393"
+			defaultValue = "19147"  // Annotation neues Schema
+//			defaultValue = "14393"  // Delivery 1 + 2
 	)
 	private static String pRepository;
 	
@@ -111,17 +112,17 @@ public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader
 	@Override
 	public void initialize(UimaContext aContext) throws ResourceInitializationException {
 		super.initialize(aContext);
-		
 		remotePool = new ForkJoinPool(pThreads);
 		
-		String requestURL = pTextAnnotatorUrl + "documents/" + pRepository;
-		final JSONObject remoteFiles = RESTUtils.getObjectFromRest(requestURL, pSessionId);
+		String remoteFilesURL = pTextAnnotatorUrl + "documents/" + pRepository;
+		final JSONObject remoteFiles = RESTUtils.getObjectFromRest(remoteFilesURL, pSessionId);
 		
 		if (remoteFiles.getBoolean("success")) {
 			final JSONArray rArray = remoteFiles.getJSONArray("result");
 			System.out.printf("Running TextAnnotatorFetch in parallel with %d threads for %d files from repository '%s'\n", remotePool.getParallelism(), rArray.length(), pRepository);
 			
 			AtomicInteger count = new AtomicInteger(0);
+			// Download and pre-process all remote files in parallel
 			forkJoinTask = remotePool.submit(() -> IntStream.range(0, rArray.length()).parallel().forEach(a -> {
 				try {
 					count.incrementAndGet();
@@ -129,39 +130,33 @@ public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader
 					JSONObject documentJSON = RESTUtils.getObjectFromRest(documentURI, pSessionId);
 					
 					if (documentJSON.getBoolean("success")) {
+						JCas jCas = JCasFactory.createJCas();
 						String documentName = documentJSON.getJSONObject("result").getString("name");
 						String cleanDocumentName = documentName
 								.replaceFirst("[^_]*_(\\d+)_.*", "$1")
 								.replaceAll("\\.[^.]+$", "");
 						
-						// Download XMI
+						// Download file
 						URL casURL = new URL(pTextAnnotatorUrl + "cas/" + rArray.get(a).toString() + "?session=" + pSessionId);
-						
-						// Process XMI & write conll
-						JCas jCas = JCasFactory.createJCas();
-						
 						Path utf8Path = Paths.get(sourceLocation, cleanDocumentName + ".xmi");
 						File utf8File = utf8Path.toFile();
 						try {
-							logger.info(String.format("Downloading file %s..", casURL.toString()));
+							this.logger.info(String.format("Downloading file %s..", casURL.toString()));
 							FileUtils.copyInputStreamToFile(casURL.openStream(), utf8File);
-							logger.info(String.format("Downloaded file %s.", casURL.toString()));
-						} catch (Exception ioE) {
-							getLogger().warn("Could not write UTF-8 file!");
-							System.err.println("Could not write UTF-8 file!");
-							ioE.printStackTrace();
+							this.logger.info(String.format("Downloaded file %s.", casURL.toString()));
+						} catch (Exception e) {
+							logger.warn("Could not copy file from input stream: " + casURL.toString());
+							logger.warn(e.getMessage());
 							return;
 						}
-						
 						
 						// Reserialize the UTF-8 forced JCas
 						if (forceReserialize) {
 							try (FileInputStream inputStream = FileUtils.openInputStream(utf8File)) {
 								CasIOUtils.load(inputStream, null, jCas.getCas(), true);
-							} catch (Exception ioE) {
-								getLogger().warn("Could not read UTF-8 file!");
-								System.err.println("Could not read UTF-8 file!");
-								ioE.printStackTrace();
+							} catch (Exception e) {
+								logger.warn("Could not load file: " + utf8Path);
+								logger.warn(e.getMessage());
 								return;
 							}
 							
@@ -172,18 +167,27 @@ public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader
 								documentMetaData.setDocumentTitle(documentName);
 							}
 							
+							// Delete old file
+							try {
+								FileUtils.forceDelete(utf8File);
+							} catch (FileNotFoundException | NullPointerException e) {
+								logger.warn("File " + utf8Path.toString() + " up for deletion could not be found.");
+							}
+							
+							// Reserialize file as xmi
 							try (FileOutputStream fs = new FileOutputStream(utf8File)) {
 								XmiCasSerializer.serialize(jCas.getCas(), null, fs, true, null);
-							} catch (Exception ioE) {
-								getLogger().warn("Could not write UTF-8 file!");
-								System.err.println("Could not write UTF-8 file!");
-								ioE.printStackTrace();
+							} catch (Exception e) {
+								logger.warn("Could not write reserialized file: " + utf8Path);
+								logger.warn(e.getMessage());
 								return;
 							}
 						}
+						
+						// After successful download and serialization, add the path to the current resources
 						currentResources.add(utf8Path);
 						
-						// Write raw text
+						// Write raw text as UTF-8 file
 						if (jCas.getDocumentText() != null && !jCas.getDocumentText().isEmpty()) {
 							String content = jCas.getDocumentText();
 							try (PrintWriter pw = new PrintWriter(new OutputStreamWriter(Files.newOutputStream(Paths.get(textLocation, cleanDocumentName + ".txt")), StandardCharsets.UTF_8))) {
@@ -193,10 +197,11 @@ public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader
 							}
 						}
 					} else {
+						// If response JSON misses the "success" field, throw an exception
 						throw new HttpResponseException(400, String.format("Request to '%s' failed! Response: %s", documentURI, documentJSON.toString()));
 					}
 				} catch (HttpResponseException httpE) {
-					System.err.println(httpE.getMessage());
+					logger.error(httpE.getMessage());
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
@@ -204,7 +209,8 @@ public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader
 						count.get(), rArray.length(), remotePool.getRunningThreadCount(), remotePool.getPoolSize()));
 			})).fork();
 		} else {
-			System.err.println(remoteFiles);
+			logger.error("Repository URIs could not be fetched!");
+			logger.error(remoteFiles);
 		}
 	}
 	
