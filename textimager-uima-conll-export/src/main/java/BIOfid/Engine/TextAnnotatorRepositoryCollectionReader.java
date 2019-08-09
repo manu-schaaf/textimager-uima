@@ -167,6 +167,7 @@ public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader
 								documentMetaData.setDocumentId(cleanDocumentName);
 								documentMetaData.setDocumentUri(documentURI);
 								documentMetaData.setDocumentTitle(documentName);
+								jCas.addFsToIndexes(documentMetaData);
 							}
 							
 							// Delete old file
@@ -264,7 +265,7 @@ public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader
 	@Override
 	public Progress[] getProgress() {
 		return new Progress[]{
-				new ProgressImpl(currentDocumentCount.get(), totalDocumentCount, "documents")
+				new ProgressImpl(currentDocumentCount.get(), totalDocumentCount, "file")
 		};
 	}
 }
