@@ -35,8 +35,22 @@ public class ColumnPrinterEngine extends JCasAnnotator_ImplBase {
 	 * If true, only consider annotations coverd by a {@link Fingerprint}.
 	 */
 	public static final String PARAM_FILTER_FINGERPRINTED = "pFilterFingerprinted";
-	@ConfigurationParameter(name = PARAM_FILTER_FINGERPRINTED, defaultValue = "true")
+	@ConfigurationParameter(
+			name = PARAM_FILTER_FINGERPRINTED,
+			defaultValue = "true"
+	)
 	private Boolean pFilterFingerprinted;
+	
+	/**
+	 * The minimal number of views any given document has to have, to be printed.
+	 */
+	public static final String PARAM_MIN_VIEWS = "pMinViews";
+	@ConfigurationParameter(
+			name = PARAM_MIN_VIEWS,
+			defaultValue = "3"
+	)
+	private Integer pMinViews;
+	
 	private PrintWriter printWriter;
 	
 	@Override
@@ -56,7 +70,7 @@ public class ColumnPrinterEngine extends JCasAnnotator_ImplBase {
 					.map(JCas::getViewName)
 					.collect(Collectors.toCollection(LinkedHashSet::new));
 			
-			if (viewNames.size() >= 2) {
+			if (viewNames.size() >= pMinViews) {
 				HashMap<String, HashMap<Integer, ArrayList<String>>> viewHierarchyMap = new HashMap<>();
 				
 				for (String viewName : viewNames) {
@@ -92,12 +106,8 @@ public class ColumnPrinterEngine extends JCasAnnotator_ImplBase {
 					}
 					viewHierarchyMap.put(viewName, neMap);
 				}
-
-//				if (select(jCas, DocumentMetaData.class).size() > 0) {
+				
 				printWriter.printf("#%s", new DocumentMetaData(jCas).getDocumentId());
-//				} else {
-//					printWriter.printf("#??????");
-//				}
 				for (String name : viewNames) {
 					String strippedName = StringUtils.substringAfterLast(name.trim(), "/");
 					printWriter.printf("\t%s", !strippedName.equals("") ? strippedName : name);
