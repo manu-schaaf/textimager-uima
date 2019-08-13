@@ -1,5 +1,5 @@
-import BIOfid.Engine.ConllBIO2003Writer;
-import BIOfid.Engine.BioEncoder.DKProHierarchicalBioEncoder;
+import BIOfid.Extraction.ConllBIO2003Writer;
+import BIOfid.BioEncoder.DKProHierarchicalBioEncoder;
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import de.tudarmstadt.ukp.dkpro.core.api.ner.type.Location;
 import de.tudarmstadt.ukp.dkpro.core.api.ner.type.Organization;

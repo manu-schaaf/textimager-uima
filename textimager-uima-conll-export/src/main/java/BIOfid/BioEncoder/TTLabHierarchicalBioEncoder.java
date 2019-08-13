@@ -1,4 +1,4 @@
-package BIOfid.Engine.BioEncoder;
+package BIOfid.BioEncoder;
 
 import BIOfid.ConllFeature.ConllFeatures;
 import com.google.common.collect.Lists;

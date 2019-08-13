@@ -2,12 +2,14 @@ import BIOfid.Engine.Agreement.CodingInterAnnotatorAgreementCollectionProcessing
 import BIOfid.Engine.Agreement.SetSelectionStrategy;
 import BIOfid.Engine.Agreement.UnitizingInterAnnotatorAgreementCollectionProcessingEngine;
 import BIOfid.Engine.ColumnPrinterEngine;
+import BIOfid.Engine.Reader.TextAnnotatorRepositoryCollectionReader;
 import de.tudarmstadt.ukp.dkpro.core.io.xmi.XmiReader;
 import org.apache.uima.collection.CollectionReader;
 import org.apache.uima.fit.factory.AggregateBuilder;
 import org.apache.uima.fit.factory.AnalysisEngineFactory;
 import org.apache.uima.fit.factory.CollectionReaderFactory;
 import org.apache.uima.fit.pipeline.SimplePipeline;
+import org.junit.jupiter.api.Test;
 import org.texttechnologylab.annotation.AbstractNamedEntity;
 import org.texttechnologylab.annotation.NamedEntity;
 
@@ -15,25 +17,26 @@ import org.texttechnologylab.annotation.NamedEntity;
  * Created on 28.01.2019.
  */
 public class InterAnnotatorAgreementEngineTest {
-	public static void main(String[] args) {
+	@Test
+	public void testAnnotatorAgreement() {
 		try {
 //			String[] annotators = {"303228", "22442"};
-//			String xmiPath = "textimager-uima-conll-export/src/test/resources/";
+//			String xmiPath = "src/test/resources/";
 			String[] annotators = {"305236", "305235"};
-			String xmiPath = "textimager-uima-conll-export/src/test/out/xmi/";
-			String txtPath = "textimager-uima-conll-export/src/test/out/txt/";
-//			CollectionReader collection = CollectionReaderFactory.createReader(
-//					TextAnnotatorRepositoryCollectionReader.class,
-//					TextAnnotatorRepositoryCollectionReader.PARAM_SOURCE_LOCATION, xmiPath,
-//					TextAnnotatorRepositoryCollectionReader.PARAM_TARGET_LOCATION, txtPath,
-//					TextAnnotatorRepositoryCollectionReader.PARAM_SESSION_ID, "711D7EC80B746B5B76C20AB7955DB7AD", // FIXME: add session id here
-//					TextAnnotatorRepositoryCollectionReader.PARAM_FORCE_RESERIALIZE, true
-//			);
+			String xmiPath = "src/test/out/xmi/";
+			String txtPath = "src/test/out/txt/";
 			CollectionReader collection = CollectionReaderFactory.createReader(
-					XmiReader.class,
-					XmiReader.PARAM_PATTERNS, "[+]*.xmi",
-					XmiReader.PARAM_SOURCE_LOCATION, xmiPath
+					TextAnnotatorRepositoryCollectionReader.class,
+					TextAnnotatorRepositoryCollectionReader.PARAM_SOURCE_LOCATION, xmiPath,
+					TextAnnotatorRepositoryCollectionReader.PARAM_TARGET_LOCATION, txtPath,
+					TextAnnotatorRepositoryCollectionReader.PARAM_SESSION_ID, "", // FIXME: add session id here
+					TextAnnotatorRepositoryCollectionReader.PARAM_FORCE_RESERIALIZE, true
 			);
+//			CollectionReader collection = CollectionReaderFactory.createReader(
+//					XmiReader.class,
+//					XmiReader.PARAM_PATTERNS, "[+]*.xmi",
+//					XmiReader.PARAM_SOURCE_LOCATION, xmiPath
+//			);
 			
 			AggregateBuilder ab = new AggregateBuilder();
 			

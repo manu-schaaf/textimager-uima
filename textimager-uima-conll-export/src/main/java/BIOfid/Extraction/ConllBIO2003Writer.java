@@ -1,8 +1,8 @@
-package BIOfid.Engine;
+package BIOfid.Extraction;
 
-import BIOfid.Engine.BioEncoder.DKProHierarchicalBioEncoder;
-import BIOfid.Engine.BioEncoder.GenericBioEncoder;
-import BIOfid.Engine.BioEncoder.TTLabHierarchicalBioEncoder;
+import BIOfid.BioEncoder.DKProHierarchicalBioEncoder;
+import BIOfid.BioEncoder.GenericBioEncoder;
+import BIOfid.BioEncoder.TTLabHierarchicalBioEncoder;
 import com.google.common.base.Strings;
 import de.tudarmstadt.ukp.dkpro.core.api.lexmorph.type.pos.POS;
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;

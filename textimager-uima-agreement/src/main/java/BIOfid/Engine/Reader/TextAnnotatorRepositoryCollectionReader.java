@@ -18,6 +18,7 @@ import org.apache.uima.fit.component.CasCollectionReader_ImplBase;
 import org.apache.uima.fit.descriptor.ConfigurationParameter;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.internal.ExtendedLogger;
+import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.util.CasIOUtils;
@@ -37,11 +38,9 @@ import java.util.LinkedHashSet;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static org.apache.uima.fit.util.JCasUtil.select;
-
 @Component(value = OperationType.READER)
 public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader_ImplBase {
-	private ExtendedLogger logger = getLogger();
+	private ExtendedLogger logger;
 	
 	public static final String PARAM_TEXT_ANNOTATOR_URL = "pTextAnnotatorUrl";
 	@ConfigurationParameter(
@@ -127,11 +126,13 @@ public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader
 	@Override
 	public void initialize(UimaContext aContext) throws ResourceInitializationException {
 		super.initialize(aContext);
+		logger = new ExtendedLogger(getUimaContext());
+		
 		remotePool = new ForkJoinPool(pThreads);
 		pSessionId = StringUtils.appendIfMissing(pSessionId, ".jvm1");
 		
 		String remoteFilesURL = pTextAnnotatorUrl + "documents/" + pRepository;
-		System.out.println(remoteFilesURL);
+		logger.info(String.format("Fetching file URIs from %s", remoteFilesURL));
 		final JSONObject remoteFiles = RESTUtils.getObjectFromRest(remoteFilesURL, pSessionId);
 		
 		if (remoteFiles.getBoolean("success")) {
@@ -144,7 +145,7 @@ public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader
 			downloadProgress = new ProgressMeter(totalDocumentCount);
 			processingProgress = new ProgressMeter(totalDocumentCount);
 			
-			logger.info(String.format("Running TextAnnotatorFetch in parallel with %d threads for %d files from repository '%s'\n", remotePool.getParallelism(), totalDocumentCount, pRepository));
+			logger.info(String.format("Downloading %d files in parallel with %d threads for from repository '%s'", totalDocumentCount, remotePool.getParallelism(), pRepository));
 			
 			// Download and pre-process all remote files in parallel
 			xmiSerializationSharedDataMap = new ConcurrentHashMap<>();
@@ -165,9 +166,9 @@ public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader
 						Path utf8Path = Paths.get(sourceLocation, cleanDocumentName + ".xmi");
 						File utf8File = utf8Path.toFile();
 						try {
-							logger.info(String.format("Downloading file %s..", casURL.toString()));
+							logger.debug(String.format("Downloading file %s..", casURL.toString()));
 							FileUtils.copyInputStreamToFile(casURL.openStream(), utf8File);
-							logger.info(String.format("Downloaded file %s.", casURL.toString()));
+							logger.debug(String.format("Downloaded file %s.", casURL.toString()));
 						} catch (Exception e) {
 							logger.warn("Could not copy file from input stream: " + casURL.toString());
 							logger.warn(e.getMessage());
@@ -184,7 +185,7 @@ public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader
 								return;
 							}
 							
-							if (select(jCas, DocumentMetaData.class).size() == 0) {
+							if (JCasUtil.select(jCas, DocumentMetaData.class).size() == 0) {
 								DocumentMetaData documentMetaData = new DocumentMetaData(jCas);
 								documentMetaData.setDocumentId(cleanDocumentName);
 								documentMetaData.setDocumentUri(documentURI);

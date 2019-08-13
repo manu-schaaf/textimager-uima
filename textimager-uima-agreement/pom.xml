@@ -8,7 +8,7 @@
         <version>0.0.1-SNAPSHOT</version>
     </parent>
 
-    <artifactId>textimager-uima-conll-export</artifactId>
+    <artifactId>textimager-uima-agreement</artifactId>
     <version>0.0.1-SNAPSHOT</version>
 
     <properties>
@@ -138,12 +138,6 @@
                     <artifactId>commons-lang</artifactId>
                 </exclusion>
             </exclusions>
-        </dependency>
-        <dependency>
-            <groupId>org.hucompute.textimager.uima</groupId>
-            <artifactId>textimager-uima-agreement</artifactId>
-            <version>0.0.1-SNAPSHOT</version>
-            <scope>compile</scope>
         </dependency>
     </dependencies>
 
@@ -275,4 +269,5 @@
             <url>http://service.hucompute.org/artifactory/libs-snapshot-local</url>
         </snapshotRepository>
     </distributionManagement>
+
 </project>

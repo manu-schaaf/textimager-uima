@@ -15,6 +15,7 @@ import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
 import org.apache.uima.cas.CASException;
 import org.apache.uima.fit.component.JCasAnnotator_ImplBase;
 import org.apache.uima.fit.descriptor.ConfigurationParameter;
+import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.jcas.cas.TOP;
 import org.apache.uima.jcas.tcas.Annotation;
@@ -125,10 +126,10 @@ public class ColumnPrinterEngine extends JCasAnnotator_ImplBase {
 					
 					HashMap<Integer, ArrayList<String>> neMap = new HashMap<>();
 					IndexingMap<Token> tokenIndexingMap = new IndexingMap<>();
-					ArrayList<Token> vTokens = new ArrayList<>(select(viewCas, Token.class));
+					ArrayList<Token> vTokens = new ArrayList<>(JCasUtil.select(viewCas, Token.class));
 					vTokens.forEach(tokenIndexingMap::add);
 					
-					HashSet<TOP> fingerprinted = select(viewCas, Fingerprint.class).stream()
+					HashSet<TOP> fingerprinted = JCasUtil.select(viewCas, Fingerprint.class).stream()
 							.distinct()
 							.map(Fingerprint::getReference)
 							.collect(Collectors.toCollection(HashSet::new));
@@ -161,7 +162,7 @@ public class ColumnPrinterEngine extends JCasAnnotator_ImplBase {
 				}
 				printWriter.println();
 				
-				ArrayList<Token> tokens = new ArrayList<>(select(jCas, Token.class));
+				ArrayList<Token> tokens = new ArrayList<>(JCasUtil.select(jCas, Token.class));
 				for (int i = 0; i < tokens.size(); i++) {
 					Token tToken = tokens.get(i);
 					printWriter.printf("%s", tToken.getCoveredText());

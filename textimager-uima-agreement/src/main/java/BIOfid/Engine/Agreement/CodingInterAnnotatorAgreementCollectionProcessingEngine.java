@@ -152,7 +152,7 @@ public class CodingInterAnnotatorAgreementCollectionProcessingEngine extends Int
 				annotatorList.add(viewName);
 				
 				// Get all fingerprinted annotations
-				HashSet<TOP> fingerprinted = new HashSet<>(select(viewCas, Fingerprint.class).stream()
+				HashSet<TOP> fingerprinted = new HashSet<>(JCasUtil.select(viewCas, Fingerprint.class).stream()
 						.map(Fingerprint::getReference)
 						.collect(Collectors.toCollection(HashSet::new)));
 				

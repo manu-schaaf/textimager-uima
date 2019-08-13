@@ -1,7 +1,5 @@
 package BIOfid.Extraction;
 
-import BIOfid.Engine.ConllBIO2003Writer;
-import BIOfid.Engine.Agreement.UnitizingInterAnnotatorAgreementCollectionProcessingEngine;
 import de.tudarmstadt.ukp.dkpro.core.io.xmi.XmiReader;
 import org.apache.uima.UIMAException;
 import org.apache.uima.analysis_engine.AnalysisEngineDescription;
@@ -46,14 +44,6 @@ public class ExtractConllFromFile {
 				
 				AggregateBuilder ab = new AggregateBuilder();
 				ab.add(conllEngineDescription);
-				ab.add(AnalysisEngineFactory.createEngineDescription(
-						UnitizingInterAnnotatorAgreementCollectionProcessingEngine.class,
-						UnitizingInterAnnotatorAgreementCollectionProcessingEngine.PARAM_ANNOTATION_CLASSES, new String[]{NamedEntity.class.getName(), AbstractNamedEntity.class.getName()},
-//						InterAnnotatorAgreementEngine.PARAM_EXCLUDE_ANNOTATORS, new String[]{"302902"},
-						UnitizingInterAnnotatorAgreementCollectionProcessingEngine.PARAM_MIN_VIEWS, 2
-//						InterAnnotatorAgreementEngine.PARAM_TARGET_LOCATION, "test",
-//						InterAnnotatorAgreementEngine.PARAM_OVERWRITE, true)
-				));
 				SimplePipeline.runPipeline(collection, ab.createAggregate());
 			} catch (Exception e) {
 				e.printStackTrace();
