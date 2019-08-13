@@ -1,7 +1,12 @@
-package BIOfid.Engine;
+package BIOfid.Engine.Reader;
 
+import de.tudarmstadt.ukp.dkpro.core.api.io.ProgressMeter;
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
+import de.tudarmstadt.ukp.dkpro.core.api.parameter.ComponentParameters;
+import eu.openminted.share.annotations.api.Component;
+import eu.openminted.share.annotations.api.constants.OperationType;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.http.client.HttpResponseException;
 import org.apache.uima.UimaContext;
 import org.apache.uima.cas.CAS;
@@ -34,6 +39,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.apache.uima.fit.util.JCasUtil.select;
 
+@Component(value = OperationType.READER)
 public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader_ImplBase {
 	private ExtendedLogger logger = getLogger();
 	
@@ -41,7 +47,7 @@ public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader
 	@ConfigurationParameter(
 			name = PARAM_TEXT_ANNOTATOR_URL,
 			mandatory = false,
-			defaultValue = "http://141.2.108.196:8080/"
+			defaultValue = "http://textannotator.hucompute.org:80/"
 	)
 	private static String pTextAnnotatorUrl;
 	
@@ -76,51 +82,56 @@ public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader
 	)
 	private static String pSessionId;
 	
-	public static final String PARAM_TARGET_LOCATION = "sourceLocation";
-	public static final String PARAM_SOURCE_LOCATION = "sourceLocation";
-	public static final String PARAM_PATH = "sourceLocation";
+	public static final String PARAM_SOURCE_LOCATION = ComponentParameters.PARAM_SOURCE_LOCATION;
 	@ConfigurationParameter(
-			name = "sourceLocation"
+			name = ComponentParameters.PARAM_SOURCE_LOCATION
 	)
 	private static String sourceLocation;
 	
-	public static final String PARAM_TEXT_LOCATION = "textLocation";
+	public static final String PARAM_TARGET_LOCATION = ComponentParameters.PARAM_TARGET_LOCATION;
 	@ConfigurationParameter(
-			name = PARAM_TEXT_LOCATION,
+			name = ComponentParameters.PARAM_TARGET_LOCATION,
 			mandatory = false,
 			defaultValue = ""
 	)
-	private static String textLocation;
-
-//	public static final String PARAM_FORCE_UTF8 = "forceUTF8";
-//	@ConfigurationParameter(
-//			name = PARAM_FORCE_UTF8,
-//			mandatory = false,
-//			defaultValue = "false"
-//	)
-//	private static Boolean forceUTF8;
+	private static String targetLocation;
 	
-	public static final String PARAM_FORCE_RESERIALIZE = "forceReserialize";
+	public static final String PARAM_FORCE_RESERIALIZE = "pForceReserialize";
 	@ConfigurationParameter(
 			name = PARAM_FORCE_RESERIALIZE,
 			mandatory = false,
 			defaultValue = "true"
 	)
-	private static Boolean forceReserialize;
+	private static Boolean pForceReserialize;
+	
+	/**
+	 * The frequency with which read documents are logged. Default: 1 (log every document).
+	 * <p>
+	 * Set to 0 or negative values to deactivate logging.
+	 */
+	public static final String PARAM_LOG_FREQ = "logFreq";
+	@ConfigurationParameter(name = PARAM_LOG_FREQ, mandatory = true, defaultValue = "1")
+	private int logFreq;
 	
 	private static ForkJoinTask<?> forkJoinTask;
 	private static final ConcurrentLinkedDeque<Path> currentResources = new ConcurrentLinkedDeque<>();
 	private ForkJoinPool remotePool;
-	private AtomicInteger currentDocumentCount = new AtomicInteger(0);
+	private AtomicInteger downloadCount = new AtomicInteger(0);
+	private AtomicInteger processingCount = new AtomicInteger(0);
 	private int totalDocumentCount = 0;
 	private ConcurrentHashMap<Path, XmiSerializationSharedData> xmiSerializationSharedDataMap;
+	
+	private ProgressMeter downloadProgress;
+	private ProgressMeter processingProgress;
 	
 	@Override
 	public void initialize(UimaContext aContext) throws ResourceInitializationException {
 		super.initialize(aContext);
 		remotePool = new ForkJoinPool(pThreads);
+		pSessionId = StringUtils.appendIfMissing(pSessionId, ".jvm1");
 		
 		String remoteFilesURL = pTextAnnotatorUrl + "documents/" + pRepository;
+		System.out.println(remoteFilesURL);
 		final JSONObject remoteFiles = RESTUtils.getObjectFromRest(remoteFilesURL, pSessionId);
 		
 		if (remoteFiles.getBoolean("success")) {
@@ -130,6 +141,8 @@ public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader
 				remoteURIs.add(rArray.get(i).toString());
 			}
 			totalDocumentCount = remoteURIs.size();
+			downloadProgress = new ProgressMeter(totalDocumentCount);
+			processingProgress = new ProgressMeter(totalDocumentCount);
 			
 			logger.info(String.format("Running TextAnnotatorFetch in parallel with %d threads for %d files from repository '%s'\n", remotePool.getParallelism(), totalDocumentCount, pRepository));
 			
@@ -162,7 +175,7 @@ public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader
 						}
 						
 						// Reserialize the UTF-8 forced JCas
-						if (forceReserialize) {
+						if (pForceReserialize) {
 							try (FileInputStream inputStream = FileUtils.openInputStream(utf8File)) {
 								CasIOUtils.load(inputStream, null, jCas.getCas(), true);
 							} catch (Exception e) {
@@ -204,7 +217,7 @@ public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader
 						// Write raw text as UTF-8 file
 						if (jCas.getDocumentText() != null && !jCas.getDocumentText().isEmpty()) {
 							String content = jCas.getDocumentText();
-							try (PrintWriter pw = new PrintWriter(new OutputStreamWriter(Files.newOutputStream(Paths.get(textLocation, cleanDocumentName + ".txt")), StandardCharsets.UTF_8))) {
+							try (PrintWriter pw = new PrintWriter(new OutputStreamWriter(Files.newOutputStream(Paths.get(targetLocation, cleanDocumentName + ".txt")), StandardCharsets.UTF_8))) {
 								pw.print(content);
 							} catch (IOException e) {
 								e.printStackTrace();
@@ -219,10 +232,14 @@ public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader
 				} catch (Exception e) {
 					e.printStackTrace();
 				} finally {
-					currentDocumentCount.incrementAndGet();
+					// Update progress
+					int downloads = downloadCount.incrementAndGet();
+					downloadProgress.setDone(downloads);
+					if (logFreq > 0 && downloads % logFreq == 0) {
+						logger.info(String.format("Download: %s (remote threads: %d, pool size: %d)",
+								downloadProgress, remotePool.getRunningThreadCount(), remotePool.getPoolSize()));
+					}
 				}
-				logger.info(String.format("\rFile %d/%d (running remote threads: %d, remote pool size: %d)",
-						currentDocumentCount.get(), totalDocumentCount, remotePool.getRunningThreadCount(), remotePool.getPoolSize()));
 			})).fork();
 		} else {
 			logger.error("Repository URIs could not be fetched!");
@@ -236,11 +253,17 @@ public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader
 		Path path = currentResources.pop();
 		try (FileInputStream inputStream = FileUtils.openInputStream(path.toFile())) {
 			XmiCasDeserializer.deserialize(inputStream, aCAS, true, xmiSerializationSharedDataMap.get(path));
-//			CasIOUtils.load(inputStream, null, aCAS, true);
 		} catch (Exception e) {
 			getLogger().error("Error while opening file: " + path.toString());
 			System.err.println("Error while opening file: " + path.toString());
 			e.printStackTrace();
+		}
+		
+		// Update process
+		int processed = processingCount.incrementAndGet();
+		processingProgress.setDone(processed);
+		if (logFreq > 0 && processed % logFreq == 0) {
+			logger.info(String.format("Processing: %s, %s", processingProgress, path.getFileName().toString()));
 		}
 	}
 	
@@ -266,7 +289,7 @@ public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader
 				try {
 					forkJoinTask.get(500, TimeUnit.MILLISECONDS);
 				} catch (TimeoutException e) {
-				
+					logger.trace("No resource available timeout.");
 				}
 			}
 		} catch (InterruptedException | ExecutionException e) {
@@ -277,7 +300,7 @@ public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader
 	@Override
 	public Progress[] getProgress() {
 		return new Progress[]{
-				new ProgressImpl(currentDocumentCount.get(), totalDocumentCount, "file")
+				new ProgressImpl(downloadCount.get(), totalDocumentCount, "file")
 		};
 	}
 }

@@ -1,4 +1,4 @@
-package BIOfid.Engine;
+package BIOfid.Engine.Agreement;
 
 import BIOfid.Utility.CountMap;
 import com.google.common.collect.ImmutableSet;
@@ -16,7 +16,7 @@ import org.texttechnologielab.annotation.type.Fingerprint;
 
 import java.util.*;
 
-public abstract class InterAnnotatorAgreementEngine extends JCasConsumer_ImplBase {
+public abstract class InterAnnotatorAgreementCollectionProcessingEngine extends JCasConsumer_ImplBase {
 	
 	/**
 	 * An array of fully qualified names of classes, that extend {@link Annotation},
@@ -27,9 +27,27 @@ public abstract class InterAnnotatorAgreementEngine extends JCasConsumer_ImplBas
 	@ConfigurationParameter(name = PARAM_ANNOTATION_CLASSES, mandatory = false)
 	protected String[] pAnnotationClasses;
 	
-	public static final String PARAM_EXCLUDE_ANNOTATORS = "pExcludedAnnotators";
-	@ConfigurationParameter(name = PARAM_EXCLUDE_ANNOTATORS, mandatory = false)
-	protected String[] pExcludedAnnotators;
+	/**
+	 * Defines the relation of the given annotators:
+	 * <ul>
+	 * <li>{@link InterAnnotatorAgreementCollectionProcessingEngine#WHITELIST}: only the listed annotators will be considered.</li>
+	 * <li>{@link InterAnnotatorAgreementCollectionProcessingEngine#BLACKLIST}: all listed annotators will be excluded.</li>
+	 * </ul>
+	 */
+	public static final String PARAM_ANNOTATOR_RELATION = "pRelation";
+	@ConfigurationParameter(
+			name = PARAM_ANNOTATOR_RELATION,
+			defaultValue = "true",
+			mandatory = false,
+			description = "Decides weather to white- to or blacklist the given annotators."
+	)
+	Boolean pWhitelisting;
+	public static final Boolean WHITELIST = true;
+	public static final Boolean BLACKLIST = false;
+	
+	public static final String PARAM_ANNOTATOR_LIST = "pAnnotatorList";
+	@ConfigurationParameter(name = PARAM_ANNOTATOR_LIST, mandatory = false)
+	protected String[] pAnnotatorList;
 	
 	/**
 	 * The minimal number of views in each CAS.
@@ -64,7 +82,7 @@ public abstract class InterAnnotatorAgreementEngine extends JCasConsumer_ImplBas
 	Boolean pPrintStatistics;
 	
 	ImmutableSet<Class<? extends Annotation>> annotationClasses = ImmutableSet.of(Annotation.class);
-	ImmutableSet<String> excludedAnnotators = ImmutableSet.of();
+	ImmutableSet<String> listedAnnotators = ImmutableSet.of();
 	protected ExtendedLogger logger;
 	
 	@Override
@@ -92,12 +110,12 @@ public abstract class InterAnnotatorAgreementEngine extends JCasConsumer_ImplBas
 		}
 		
 		// Set the list of excluded annotators
-		if (pExcludedAnnotators != null && pExcludedAnnotators.length > 0) {
-			excludedAnnotators = ImmutableSet.copyOf(pExcludedAnnotators);
+		if (pAnnotatorList != null && pAnnotatorList.length > 0) {
+			listedAnnotators = ImmutableSet.copyOf(pAnnotatorList);
 		}
 		logger.info("Computing inter-annotator agreement for subclasses of " + annotationClasses.toString());
-		if (!excludedAnnotators.isEmpty()) {
-			logger.info("Excluding annotators with ids: " + excludedAnnotators.toString());
+		if (!listedAnnotators.isEmpty()) {
+			logger.info(String.format("%s annotators with ids: " + listedAnnotators.toString(), pWhitelisting ? "Whitelisting" : "Blacklisting"));
 		}
 	}
 	
@@ -113,12 +131,15 @@ public abstract class InterAnnotatorAgreementEngine extends JCasConsumer_ImplBas
 	protected HashSet<Annotation> getOverlappedAnnotations(JCas viewCas, Class<? extends Annotation> aClass, Collection<? extends Annotation> annotations) {
 		HashSet<Annotation> overlappedAnnotations = new HashSet<>();
 		for (Annotation annotation : annotations) {
-			JCasUtil.subiterate(viewCas, aClass, annotation, false, false).forEach(overlappedAnnotations::add);
+			JCasUtil.subiterate(viewCas, aClass, annotation, false, false).forEach(item -> {
+				if (annotation.getType().equals(item.getType()))
+					overlappedAnnotations.add(item);
+			});
 		}
 		return overlappedAnnotations;
 	}
 	
-	protected void printStudyResults(ICategorySpecificAgreement agreement, CountMap<Object> categoryCount, HashMap<String, CountMap<Object>> annotatorCategoryCount, TreeSet<String> categories, Collection<String> annotators) {
+	protected void printStudyResults(ICategorySpecificAgreement agreement, CountMap<String> categoryCount, HashMap<String, CountMap<String>> annotatorCategoryCount, TreeSet<String> categories, Collection<String> annotators) {
 		for (String category : categories) {
 			System.out.printf("%s\t%d\t%f\n", category, categoryCount.get(category), agreement.calculateCategoryAgreement(category));
 		}
@@ -134,11 +155,7 @@ public abstract class InterAnnotatorAgreementEngine extends JCasConsumer_ImplBas
 			
 			System.out.print("Total");
 			for (String annotator : annotators) {
-				Optional<Integer> optionalInteger = annotatorCategoryCount.get(annotator).values().stream().reduce(Integer::sum);
-				if (optionalInteger.isPresent()) {
-					Integer total = optionalInteger.get();
-					System.out.printf("\t%d", total);
-				}
+				System.out.printf("\t%d", annotatorCategoryCount.get(annotator).values().stream().reduce(Integer::sum).orElse(0));
 			}
 			System.out.println();
 			

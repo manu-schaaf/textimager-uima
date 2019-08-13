@@ -1,5 +1,6 @@
 package BIOfid.Utility;
 
+import java.util.Collection;
 import java.util.HashMap;
 
 public class CountMap<T> extends HashMap<T, Integer> {
@@ -20,6 +21,17 @@ public class CountMap<T> extends HashMap<T, Integer> {
 	 */
 	public void inc(T key) {
 		this.put(key, this.getOrDefault(key, 0) + 1);
+	}
+	
+	/**
+	 * Increase the count for each of these keys. If any key does not exist, it will be added.
+	 *
+	 * @param keys
+	 */
+	public void incAll(Collection<T> keys) {
+		for (T key : keys) {
+			this.put(key, this.getOrDefault(key, 0) + 1);
+		}
 	}
 	
 	/**

@@ -1,8 +1,9 @@
-package BIOfid.Engine;
+package BIOfid.Engine.Agreement;
 
 import BIOfid.Utility.CountMap;
 import BIOfid.Utility.IndexingMap;
-import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
 import org.apache.commons.lang3.StringUtils;
@@ -13,23 +14,30 @@ import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.jcas.cas.TOP;
 import org.apache.uima.jcas.tcas.Annotation;
-import org.dkpro.statistics.agreement.coding.CodingAnnotationStudy;
 import org.dkpro.statistics.agreement.unitizing.IUnitizingAnnotationUnit;
 import org.dkpro.statistics.agreement.unitizing.KrippendorffAlphaUnitizingAgreement;
 import org.dkpro.statistics.agreement.unitizing.UnitizingAnnotationStudy;
 import org.texttechnologielab.annotation.type.Fingerprint;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.TreeSet;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
-import static org.apache.uima.fit.util.JCasUtil.select;
+import static org.apache.uima.fit.util.JCasUtil.indexCovering;
 
-public class UnitizingInterAnnotatorAgreementEngine extends InterAnnotatorAgreementEngine {
+
+/**
+ * Inter-annotator agreement engine using {@link UnitizingAnnotationStudy UnitizingAnnotationStudies} and
+ * {@link KrippendorffAlphaUnitizingAgreement KrippendorffAlphaUnitizingAgreement}.
+ * <p/>
+ * Creates one <i>local</i> {@link UnitizingAnnotationStudy UnitizingAnnotationStudy} for each CAS to be processed and
+ * concatenates the results in a single <i>global</i> study for which the Krippendorff-Alpha-Agreement is computed.
+ * <p/>
+ *
+ * @see KrippendorffAlphaUnitizingAgreement
+ */
+public class UnitizingInterAnnotatorAgreementCollectionProcessingEngine extends InterAnnotatorAgreementCollectionProcessingEngine {
 	
 	private TreeSet<String> categories = new TreeSet<>();
 	private AtomicInteger documentOffset = new AtomicInteger(0);
@@ -55,60 +63,87 @@ public class UnitizingInterAnnotatorAgreementEngine extends InterAnnotatorAgreem
 			// Initialize study
 			int documentLength = JCasUtil.select(jCas, Token.class).size();
 			UnitizingAnnotationStudy perCasStudy = new UnitizingAnnotationStudy((int) views, documentLength);
-			CodingAnnotationStudy codingAnnotationStudy = new CodingAnnotationStudy((int) views);
 			
 			// Iterate over all views
 			jCas.getViewIterator().forEachRemaining(viewCas -> {
 				// Split user id from view name and get annotator index for this id. Discards "_InitialView"
 				String viewName = StringUtils.substringAfterLast(viewCas.getViewName().trim(), "/");
-				// Check for empty view name and excluded annotators
-				if (viewName.isEmpty() || excludedAnnotators.contains(viewName))
+				// Check for empty view name and correct listing
+				// If whitelisting (true), the name must be in the set; if blacklisting (false), it must not be in the set
+				if (StringUtils.isEmpty(viewName) || !(pWhitelisting == listedAnnotators.contains(viewName)))
 					return;
 				annotatorMap.add(viewName);
 				
 				// Get all fingerprinted annotations
-				HashSet<TOP> fingerprinted = new HashSet<>(select(viewCas, Fingerprint.class).stream()
+				HashSet<TOP> fingerprinted = new HashSet<>(JCasUtil.select(viewCas, Fingerprint.class).stream()
 						.map(Fingerprint::getReference)
 						.collect(Collectors.toCollection(HashSet::new)));
 				
+				// Create a set of all multi-tokens, that are covering another token
+				HashSet<Token> coveredTokens = JCasUtil.indexCovering(viewCas, Token.class, Token.class).entrySet().stream()
+						.filter(entry -> entry.getValue().size() > 1)
+						.map(Map.Entry::getKey)
+						.collect(Collectors.toCollection(HashSet::new));
 				
-				// Create an index for the tokens
+				// Create an index for the token, that are not part of sub-token
 				IndexingMap<Token> tokenIndexingMap = new IndexingMap<>();
-				JCasUtil.select(viewCas, Token.class).forEach(tokenIndexingMap::add);
+				JCasUtil.select(viewCas, Token.class).stream()
+						.sequential()
+						.filter(((Predicate<Token>) coveredTokens::contains).negate())
+						.forEachOrdered(tokenIndexingMap::add);
 				
 				// Select all annotations of all given types and add an annotation unit for each item
 				for (Class<? extends Annotation> annotationClass : annotationClasses) {
 					ArrayList<? extends Annotation> annotations;
 					if (pFilterFingerprinted)
-						annotations = select(viewCas, annotationClass).stream()
+						annotations = JCasUtil.select(viewCas, annotationClass).stream()
 								.filter((Predicate<TOP>) fingerprinted::contains)
 								.collect(Collectors.toCollection(ArrayList::new));
 					else
-						annotations = new ArrayList<>(select(viewCas, annotationClass));
+						annotations = new ArrayList<>(JCasUtil.select(viewCas, annotationClass));
 					
+					HashMap<? extends Annotation, Collection<Token>> annotationTokenLookup = Maps.newHashMap(indexCovering(viewCas, annotationClass, Token.class));
 					
 					// Create a set of annotations, that are overlapped by another annotation
 					HashSet<Annotation> overlappedAnnotations = getOverlappedAnnotations(viewCas, annotationClass, annotations);
-					
 					// Remove annotations, that are overlapped by an annotation of the same Type
-					annotations.removeIf(overlappedAnnotations::contains);
+					annotations.removeAll(overlappedAnnotations);
 					
 					for (Annotation annotation : annotations) {
+						LinkedHashSet<Token> containedTokens = Sets.newLinkedHashSet(JCasUtil.subiterate(viewCas, Token.class, annotation, true, true));
+						containedTokens.addAll(annotationTokenLookup.getOrDefault(annotation, Sets.newLinkedHashSet()));
+						
+						// initialize indexes
 						int begin = Integer.MAX_VALUE;
 						int end = Integer.MIN_VALUE;
-						ArrayList<Token> containedTokens = Lists.newArrayList(JCasUtil.subiterate(viewCas, Token.class, annotation, false, true));
+						
+						// Check if the token is indexed
+						// If not, it is part of a sub-token and will be skipped
+						containedTokens.retainAll(tokenIndexingMap.keySet());
+						if (containedTokens.isEmpty())
+							continue;
+						
 						for (Token token : containedTokens) {
+							if (!tokenIndexingMap.containsKey(token))
+								continue;
+							
 							int index = tokenIndexingMap.get(token);
 							if (index < begin) {
 								begin = index;
-							} else if (index > end) {
+							}
+							if (index > end) {
 								end = index;
 							}
 						}
+						
+						if (end == Integer.MIN_VALUE || begin == Integer.MAX_VALUE)
+							logger.error("Error during annotation boundary detection!");
+						
 						String category = annotation.getType().getShortName();
+						int length = end - begin + 1;
 						perCasStudy.addUnit(
 								begin,
-								end - begin + 1,
+								length,
 								annotatorMap.get(viewName),
 								category
 						);
@@ -130,8 +165,8 @@ public class UnitizingInterAnnotatorAgreementEngine extends InterAnnotatorAgreem
 		super.collectionProcessComplete();
 		if (annotatorMap.size() > 1) {
 			UnitizingAnnotationStudy completeStudy = new UnitizingAnnotationStudy(annotatorMap.size(), documentOffset.get());
-			CountMap<Object> categoryCount = new CountMap<>();
-			HashMap<String, CountMap<Object>> annotatorCategoryCount = new HashMap<>();
+			CountMap<String> categoryCount = new CountMap<>();
+			HashMap<String, CountMap<String>> annotatorCategoryCount = new HashMap<>();
 			
 			// Initialize a CountMap for each annotator
 			for (String annotator : annotatorMap.keySet()) {
@@ -145,9 +180,9 @@ public class UnitizingInterAnnotatorAgreementEngine extends InterAnnotatorAgreem
 				// Add all annotation units from the study with correct offset
 				for (IUnitizingAnnotationUnit annotationUnit : study.getRight()) {
 					int id = annotationUnit.getRaterIdx();
+					long offset = annotationUnit.getOffset();
 					long length = annotationUnit.getLength();
-					long offset = annotationUnit.getEndOffset() - length;
-					Object category = annotationUnit.getCategory();
+					String category = (String) annotationUnit.getCategory();
 					
 					completeStudy.addUnit(studyOffset + offset, length, id, category);
 					
@@ -159,10 +194,10 @@ public class UnitizingInterAnnotatorAgreementEngine extends InterAnnotatorAgreem
 			
 			// Compute and print the agreement for all categories
 			KrippendorffAlphaUnitizingAgreement agreement = new KrippendorffAlphaUnitizingAgreement(completeStudy);
-			System.out.printf("\nKrippendorff-Alpha-Unitizing-Agreement\nInter-annotator agreement for %d annotators: %s\n" +
+			System.out.printf("\nKrippendorffAlphaUnitizingAgreement\nInter-annotator agreement for %d annotators: %s\n" +
 							"Category\tCount\tAgreement\n" +
 							"Overall\t%d\t%f\n",
-					annotatorMap.size(), annotatorMap.toString(), completeStudy.getUnitCount(), agreement.calculateAgreement());
+					annotatorMap.size(), annotatorMap.keySet().toString(), completeStudy.getUnitCount(), agreement.calculateAgreement());
 			printStudyResults(agreement, categoryCount, annotatorCategoryCount, categories, annotatorMap.keySet());
 		}
 	}

@@ -28,10 +28,16 @@
             <version>2.3.0</version>
             <exclusions>
                 <exclusion>
-                    <artifactId>uimaj-core</artifactId>
                     <groupId>org.apache.uima</groupId>
+                    <artifactId>uimaj-core</artifactId>
                 </exclusion>
             </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>de.tudarmstadt.ukp.dkpro.core</groupId>
+            <artifactId>de.tudarmstadt.ukp.dkpro.core.api.metadata-asl</artifactId>
+            <version>1.10.0</version>
+            <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>org.texttechnologylab.annotation</groupId>
@@ -39,8 +45,12 @@
             <version>1.7</version>
             <exclusions>
                 <exclusion>
-                    <artifactId>uimaj-core</artifactId>
                     <groupId>org.apache.uima</groupId>
+                    <artifactId>uimaj-core</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>de.tudarmstadt.ukp.dkpro.core</groupId>
+                    <artifactId>de.tudarmstadt.ukp.dkpro.core.api.metadata-asl</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>

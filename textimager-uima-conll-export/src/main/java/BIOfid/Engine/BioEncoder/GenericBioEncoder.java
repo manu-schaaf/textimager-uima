@@ -1,10 +1,8 @@
-package BIOfid.Engine;
+package BIOfid.Engine.BioEncoder;
 
 import BIOfid.ConllFeature.ConllFeatures;
 import BIOfid.Utility.CountMap;
-import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
-import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
 import org.apache.uima.UIMAException;
 import org.apache.uima.cas.CASException;
@@ -14,15 +12,12 @@ import org.apache.uima.jcas.JCas;
 import org.apache.uima.jcas.cas.TOP;
 import org.apache.uima.jcas.tcas.Annotation;
 import org.apache.uima.util.CasCopier;
-import org.dkpro.statistics.agreement.unitizing.KrippendorffAlphaUnitizingAgreement;
-import org.dkpro.statistics.agreement.unitizing.UnitizingAnnotationStudy;
 import org.texttechnologielab.annotation.type.Fingerprint;
 import org.texttechnologylab.annotation.AbstractNamedEntity;
 import org.texttechnologylab.annotation.NamedEntity;
 import org.texttechnologylab.annotation.type.Other;
 
 import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;

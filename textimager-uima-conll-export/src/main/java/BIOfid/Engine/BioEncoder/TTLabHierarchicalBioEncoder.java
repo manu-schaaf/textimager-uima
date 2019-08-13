@@ -1,8 +1,7 @@
-package BIOfid.Engine;
+package BIOfid.Engine.BioEncoder;
 
 import BIOfid.ConllFeature.ConllFeatures;
 import com.google.common.collect.Lists;
-import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
 import org.apache.commons.collections4.bidimap.DualLinkedHashBidiMap;
 import org.apache.uima.UIMAException;
