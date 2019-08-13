@@ -157,13 +157,13 @@ public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader
 					if (documentJSON.getBoolean("success")) {
 						JCas jCas = JCasFactory.createJCas();
 						String documentName = documentJSON.getJSONObject("result").getString("name");
-						String cleanDocumentName = documentName
+						String documentId = documentName
 								.replaceFirst("[^_]*_(\\d+)_.*", "$1")
 								.replaceAll("\\.[^.]+$", "");
 						
 						// Download file
 						URL casURL = new URL(pTextAnnotatorUrl + "cas/" + uri + "?session=" + pSessionId);
-						Path utf8Path = Paths.get(sourceLocation, cleanDocumentName + ".xmi");
+						Path utf8Path = Paths.get(sourceLocation, uri + ".xmi");
 						File utf8File = utf8Path.toFile();
 						try {
 							logger.debug(String.format("Downloading file %s..", casURL.toString()));
@@ -187,7 +187,7 @@ public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader
 							
 							if (JCasUtil.select(jCas, DocumentMetaData.class).size() == 0) {
 								DocumentMetaData documentMetaData = new DocumentMetaData(jCas);
-								documentMetaData.setDocumentId(cleanDocumentName);
+								documentMetaData.setDocumentId(documentId);
 								documentMetaData.setDocumentUri(documentURI);
 								documentMetaData.setDocumentTitle(documentName);
 								jCas.addFsToIndexes(documentMetaData);
@@ -218,7 +218,7 @@ public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader
 						// Write raw text as UTF-8 file
 						if (jCas.getDocumentText() != null && !jCas.getDocumentText().isEmpty()) {
 							String content = jCas.getDocumentText();
-							try (PrintWriter pw = new PrintWriter(new OutputStreamWriter(Files.newOutputStream(Paths.get(targetLocation, cleanDocumentName + ".txt")), StandardCharsets.UTF_8))) {
+							try (PrintWriter pw = new PrintWriter(new OutputStreamWriter(Files.newOutputStream(Paths.get(targetLocation, uri + ".txt")), StandardCharsets.UTF_8))) {
 								pw.print(content);
 							} catch (IOException e) {
 								e.printStackTrace();
@@ -255,16 +255,15 @@ public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader
 		try (FileInputStream inputStream = FileUtils.openInputStream(path.toFile())) {
 			XmiCasDeserializer.deserialize(inputStream, aCAS, true, xmiSerializationSharedDataMap.get(path));
 		} catch (Exception e) {
-			getLogger().error("Error while opening file: " + path.toString());
-			System.err.println("Error while opening file: " + path.toString());
+			logger.error("Error while opening file: " + path.toString());
 			e.printStackTrace();
-		}
-		
-		// Update process
-		int processed = processingCount.incrementAndGet();
-		processingProgress.setDone(processed);
-		if (logFreq > 0 && processed % logFreq == 0) {
-			logger.info(String.format("Processing: %s, %s", processingProgress, path.getFileName().toString()));
+		} finally {
+			// Update process
+			int processed = processingCount.incrementAndGet();
+			processingProgress.setDone(processed);
+			if (logFreq > 0 && processed % logFreq == 0) {
+				logger.info(String.format("Processing: %s, %s", processingProgress, path.getFileName().toString()));
+			}
 		}
 	}
 	
