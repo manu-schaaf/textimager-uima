@@ -34,11 +34,12 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Collections;
-import java.util.LinkedHashSet;
-import java.util.Set;
+import java.util.ArrayList;
+import java.util.Objects;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 @Component(value = OperationType.READER)
 public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader_ImplBase {
@@ -139,10 +140,12 @@ public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader
 		
 		if (remoteFiles.getBoolean("success")) {
 			final JSONArray rArray = remoteFiles.getJSONArray("result");
-			final Set<Object> remoteURIs = Collections.synchronizedSet(new LinkedHashSet<>());
-			for (int i = 0; i < rArray.length(); i++) {
-				remoteURIs.add(rArray.get(i).toString());
-			}
+			final ArrayList<String> remoteURIs = IntStream.range(0, rArray.length())
+					.map(i -> (int) rArray.get(i))
+					.distinct()
+					.sorted()
+					.mapToObj(Objects::toString)
+					.collect(Collectors.toCollection(ArrayList::new));
 			totalDocumentCount = remoteURIs.size();
 			downloadProgress = new ProgressMeter(totalDocumentCount);
 			processingProgress = new ProgressMeter(totalDocumentCount);
@@ -152,95 +155,98 @@ public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader
 			
 			// Download and pre-process all remote files in parallel
 			xmiSerializationSharedDataMap = new ConcurrentHashMap<>();
-			forkJoinTask = remotePool.submit(() -> remoteURIs.stream().parallel().forEach(uri -> {
-				String mongoUri = pMongoDb + uri;
-				try {
-					JSONObject documentJSON = RESTUtils.getObjectFromRest(mongoUri, pSessionId);
-					
-					if (documentJSON.getBoolean("success")) {
-						JCas jCas = JCasFactory.createJCas();
-						String documentName = documentJSON.getJSONObject("result").getString("name");
-						String documentId = documentName
-								.replaceFirst("[^_]*_(\\d+)_.*", "$1")
-								.replaceAll("\\.[^.]+$", "");
-						
-						// Download file
-						URL casURL = new URL(pTextAnnotatorUrl + "cas/" + uri + "?session=" + pSessionId);
-						Path utf8Path = Paths.get(sourceLocation, uri + ".xmi");
-						File utf8File = utf8Path.toFile();
-						try {
-							logger.debug(String.format("Downloading file %s..", casURL.toString()));
-							FileUtils.copyInputStreamToFile(casURL.openStream(), utf8File);
-							logger.debug(String.format("Downloaded file %s.", casURL.toString()));
-						} catch (Exception e) {
-							logger.warn("Could not copy file from input stream: " + casURL.toString());
-							logger.warn(e.getMessage());
-							return;
-						}
-						
-						// Reserialize the UTF-8 forced JCas
-						if (pForceReserialize) {
-							try (FileInputStream inputStream = FileUtils.openInputStream(utf8File)) {
-								CasIOUtils.load(inputStream, null, jCas.getCas(), true);
-							} catch (Exception e) {
-								logger.warn("Could not load file: " + utf8Path);
-								logger.warn(e.getMessage());
-								return;
-							}
+			forkJoinTask = remotePool.submit(() -> IntStream.range(0, remoteURIs.size()).parallel().forEach(i -> {
+				synchronized (remoteURIs) {
+					String uri = remoteURIs.get(i);
+					String mongoUri = pMongoDb + uri;
+					try {
+						// Get document JSON from MongoDB
+						JSONObject documentJSON = RESTUtils.getObjectFromRest(mongoUri, pSessionId);
+						if (documentJSON.getBoolean("success")) {
+							JCas jCas = JCasFactory.createJCas();
+							String documentName = documentJSON.getJSONObject("result").getString("name");
+							String documentId = documentName
+									.replaceFirst("[^_]*_(\\d+)_.*", "$1")
+									.replaceAll("\\.[^.]+$", "");
 							
-							if (JCasUtil.select(jCas, DocumentMetaData.class).size() == 0) {
-								DocumentMetaData documentMetaData = new DocumentMetaData(jCas);
-								documentMetaData.setDocumentId(documentId);
-								documentMetaData.setDocumentUri(mongoUri);
-								documentMetaData.setDocumentTitle(documentName);
-								jCas.addFsToIndexes(documentMetaData);
-							}
-							
-							// Delete old file
+							// Download file
+							URL casURL = new URL(pTextAnnotatorUrl + "cas/" + uri + "?session=" + pSessionId);
+							Path utf8Path = Paths.get(sourceLocation, uri + ".xmi");
+							File utf8File = utf8Path.toFile();
 							try {
-								FileUtils.forceDelete(utf8File);
-							} catch (FileNotFoundException | NullPointerException e) {
-								logger.warn("File " + utf8Path.toString() + " up for deletion could not be found.");
-							}
-							
-							// Reserialize file as xmi
-							try (FileOutputStream outputStream = new FileOutputStream(utf8File)) {
-								XmiSerializationSharedData xmiSerializationSharedData = new XmiSerializationSharedData();
-								XmiCasSerializer.serialize(jCas.getCas(), null, outputStream, true, xmiSerializationSharedData);
-								xmiSerializationSharedDataMap.put(utf8Path, xmiSerializationSharedData);
+								logger.debug(String.format("Downloading file %s..", casURL.toString()));
+								FileUtils.copyInputStreamToFile(casURL.openStream(), utf8File);
+								logger.debug(String.format("Downloaded file %s.", casURL.toString()));
 							} catch (Exception e) {
-								logger.warn("Could not write reserialized file: " + utf8Path);
+								logger.warn("Could not copy file from input stream: " + casURL.toString());
 								logger.warn(e.getMessage());
 								return;
 							}
-						}
-						
-						// After successful download and serialization, add the path to the current resources
-						currentResources.add(utf8Path);
-						
-						// Write raw text as UTF-8 file
-						if (jCas.getDocumentText() != null && !jCas.getDocumentText().isEmpty()) {
-							String content = jCas.getDocumentText();
-							try (PrintWriter pw = new PrintWriter(new OutputStreamWriter(Files.newOutputStream(Paths.get(targetLocation, uri + ".txt")), StandardCharsets.UTF_8))) {
-								pw.print(content);
-							} catch (IOException e) {
-								e.printStackTrace();
+							
+							// Reserialize the UTF-8 forced JCas
+							if (pForceReserialize) {
+								try (FileInputStream inputStream = FileUtils.openInputStream(utf8File)) {
+									CasIOUtils.load(inputStream, null, jCas.getCas(), true);
+								} catch (Exception e) {
+									logger.warn("Could not load file: " + utf8Path);
+									logger.warn(e.getMessage());
+									return;
+								}
+								
+								if (JCasUtil.select(jCas, DocumentMetaData.class).size() == 0) {
+									DocumentMetaData documentMetaData = new DocumentMetaData(jCas);
+									documentMetaData.setDocumentId(documentId);
+									documentMetaData.setDocumentUri(mongoUri);
+									documentMetaData.setDocumentTitle(documentName);
+									jCas.addFsToIndexes(documentMetaData);
+								}
+								
+								// Delete old file
+								try {
+									FileUtils.forceDelete(utf8File);
+								} catch (FileNotFoundException | NullPointerException e) {
+									logger.warn("File " + utf8Path.toString() + " up for deletion could not be found.");
+								}
+								
+								// Reserialize file as xmi
+								try (FileOutputStream outputStream = new FileOutputStream(utf8File)) {
+									XmiSerializationSharedData xmiSerializationSharedData = new XmiSerializationSharedData();
+									XmiCasSerializer.serialize(jCas.getCas(), null, outputStream, true, xmiSerializationSharedData);
+									xmiSerializationSharedDataMap.put(utf8Path, xmiSerializationSharedData);
+								} catch (Exception e) {
+									logger.warn("Could not write reserialized file: " + utf8Path);
+									logger.warn(e.getMessage());
+									return;
+								}
 							}
+							
+							// After successful download and serialization, add the path to the current resources
+							currentResources.add(utf8Path);
+							
+							// Write raw text as UTF-8 file
+							if (jCas.getDocumentText() != null && !jCas.getDocumentText().isEmpty()) {
+								String content = jCas.getDocumentText();
+								try (PrintWriter pw = new PrintWriter(new OutputStreamWriter(Files.newOutputStream(Paths.get(targetLocation, uri + ".txt")), StandardCharsets.UTF_8))) {
+									pw.print(content);
+								} catch (IOException e) {
+									e.printStackTrace();
+								}
+							}
+						} else {
+							// If response JSON misses the "success" field, throw an exception
+							throw new HttpResponseException(400, String.format("Request to '%s' failed! Response: %s", mongoUri, documentJSON.toString()));
 						}
-					} else {
-						// If response JSON misses the "success" field, throw an exception
-						throw new HttpResponseException(400, String.format("Request to '%s' failed! Response: %s", mongoUri, documentJSON.toString()));
-					}
-				} catch (HttpResponseException httpE) {
-					logger.error(httpE.getMessage());
-				} catch (Exception e) {
-					e.printStackTrace();
-				} finally {
-					// Update progress
-					int downloads = downloadCount.incrementAndGet();
-					downloadProgress.setDone(downloads);
-					if (logFreq > 0 && downloads % logFreq == 0) {
-						logger.info(String.format("Download: %s, %s", downloadProgress, mongoUri));
+					} catch (HttpResponseException httpE) {
+						logger.error(httpE.getMessage());
+					} catch (Exception e) {
+						e.printStackTrace();
+					} finally {
+						// Update progress
+						int downloads = downloadCount.incrementAndGet();
+						downloadProgress.setDone(downloads);
+						if (logFreq > 0 && downloads % logFreq == 0) {
+							logger.info(String.format("Download %s, %s", downloadProgress, mongoUri));
+						}
 					}
 				}
 			})).fork();
@@ -265,7 +271,7 @@ public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader
 				int processed = processingCount.incrementAndGet();
 				processingProgress.setDone(processed);
 				if (logFreq > 0 && processed % logFreq == 0) {
-					logger.info(String.format("Processing: %s, %s", processingProgress, path.getFileName().toString()));
+					logger.info(String.format("Processing %s, %s", processingProgress, path.getFileName().toString()));
 				}
 			}
 		}

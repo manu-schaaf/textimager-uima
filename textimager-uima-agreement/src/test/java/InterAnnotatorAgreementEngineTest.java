@@ -29,7 +29,7 @@ public class InterAnnotatorAgreementEngineTest {
 					TextAnnotatorRepositoryCollectionReader.class,
 					TextAnnotatorRepositoryCollectionReader.PARAM_SOURCE_LOCATION, xmiPath,
 					TextAnnotatorRepositoryCollectionReader.PARAM_TARGET_LOCATION, txtPath,
-					TextAnnotatorRepositoryCollectionReader.PARAM_SESSION_ID, "", // FIXME: add session id here
+					TextAnnotatorRepositoryCollectionReader.PARAM_SESSION_ID, "711D7EC80B746B5B76C20AB7955DB7AD", // FIXME: add session id here
 					TextAnnotatorRepositoryCollectionReader.PARAM_FORCE_RESERIALIZE, true
 			);
 //			CollectionReader collection = CollectionReaderFactory.createReader(
