@@ -34,7 +34,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Collections;
 import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -137,7 +139,7 @@ public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader
 		
 		if (remoteFiles.getBoolean("success")) {
 			final JSONArray rArray = remoteFiles.getJSONArray("result");
-			final LinkedHashSet<String> remoteURIs = new LinkedHashSet<>();
+			final Set<Object> remoteURIs = Collections.synchronizedSet(new LinkedHashSet<>());
 			for (int i = 0; i < rArray.length(); i++) {
 				remoteURIs.add(rArray.get(i).toString());
 			}
@@ -145,14 +147,15 @@ public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader
 			downloadProgress = new ProgressMeter(totalDocumentCount);
 			processingProgress = new ProgressMeter(totalDocumentCount);
 			
-			logger.info(String.format("Downloading %d files in parallel with %d threads for from repository '%s'", totalDocumentCount, remotePool.getParallelism(), pRepository));
+			logger.info(String.format("Downloading %d files in parallel with %d threads for from repository '%s':\n%s",
+					totalDocumentCount, remotePool.getParallelism(), pRepository, remoteURIs.toString()));
 			
 			// Download and pre-process all remote files in parallel
 			xmiSerializationSharedDataMap = new ConcurrentHashMap<>();
 			forkJoinTask = remotePool.submit(() -> remoteURIs.stream().parallel().forEach(uri -> {
+				String mongoUri = pMongoDb + uri;
 				try {
-					String documentURI = pMongoDb + uri;
-					JSONObject documentJSON = RESTUtils.getObjectFromRest(documentURI, pSessionId);
+					JSONObject documentJSON = RESTUtils.getObjectFromRest(mongoUri, pSessionId);
 					
 					if (documentJSON.getBoolean("success")) {
 						JCas jCas = JCasFactory.createJCas();
@@ -188,7 +191,7 @@ public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader
 							if (JCasUtil.select(jCas, DocumentMetaData.class).size() == 0) {
 								DocumentMetaData documentMetaData = new DocumentMetaData(jCas);
 								documentMetaData.setDocumentId(documentId);
-								documentMetaData.setDocumentUri(documentURI);
+								documentMetaData.setDocumentUri(mongoUri);
 								documentMetaData.setDocumentTitle(documentName);
 								jCas.addFsToIndexes(documentMetaData);
 							}
@@ -226,7 +229,7 @@ public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader
 						}
 					} else {
 						// If response JSON misses the "success" field, throw an exception
-						throw new HttpResponseException(400, String.format("Request to '%s' failed! Response: %s", documentURI, documentJSON.toString()));
+						throw new HttpResponseException(400, String.format("Request to '%s' failed! Response: %s", mongoUri, documentJSON.toString()));
 					}
 				} catch (HttpResponseException httpE) {
 					logger.error(httpE.getMessage());
@@ -237,8 +240,7 @@ public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader
 					int downloads = downloadCount.incrementAndGet();
 					downloadProgress.setDone(downloads);
 					if (logFreq > 0 && downloads % logFreq == 0) {
-						logger.info(String.format("Download: %s (remote threads: %d, pool size: %d)",
-								downloadProgress, remotePool.getRunningThreadCount(), remotePool.getPoolSize()));
+						logger.info(String.format("Download: %s, %s", downloadProgress, mongoUri));
 					}
 				}
 			})).fork();
@@ -250,19 +252,21 @@ public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader
 	
 	@Override
 	public void getNext(CAS aCAS) throws IOException, CollectionException {
-		forkJoinTaskGet();
-		Path path = currentResources.pop();
-		try (FileInputStream inputStream = FileUtils.openInputStream(path.toFile())) {
-			XmiCasDeserializer.deserialize(inputStream, aCAS, true, xmiSerializationSharedDataMap.get(path));
-		} catch (Exception e) {
-			logger.error("Error while opening file: " + path.toString());
-			e.printStackTrace();
-		} finally {
-			// Update process
-			int processed = processingCount.incrementAndGet();
-			processingProgress.setDone(processed);
-			if (logFreq > 0 && processed % logFreq == 0) {
-				logger.info(String.format("Processing: %s, %s", processingProgress, path.getFileName().toString()));
+		synchronized (currentResources) {
+			forkJoinTaskGet();
+			Path path = currentResources.pop();
+			try (FileInputStream inputStream = FileUtils.openInputStream(path.toFile())) {
+				XmiCasDeserializer.deserialize(inputStream, aCAS, true, xmiSerializationSharedDataMap.get(path));
+			} catch (Exception e) {
+				logger.error("Error while opening file: " + path.toString());
+				e.printStackTrace();
+			} finally {
+				// Update process
+				int processed = processingCount.incrementAndGet();
+				processingProgress.setDone(processed);
+				if (logFreq > 0 && processed % logFreq == 0) {
+					logger.info(String.format("Processing: %s, %s", processingProgress, path.getFileName().toString()));
+				}
 			}
 		}
 	}
@@ -279,8 +283,10 @@ public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader
 	
 	@Override
 	public boolean hasNext() throws IOException, CollectionException {
-		forkJoinTaskGet();
-		return !currentResources.isEmpty();
+		synchronized (currentResources) {
+			forkJoinTaskGet();
+			return !currentResources.isEmpty();
+		}
 	}
 	
 	private void forkJoinTaskGet() {
