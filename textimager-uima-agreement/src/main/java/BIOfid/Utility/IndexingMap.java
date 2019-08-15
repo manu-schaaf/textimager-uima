@@ -37,8 +37,7 @@ public class IndexingMap<T> extends DualLinkedHashBidiMap<T, Integer> {
 	 */
 	public void add(T item) {
 		if (!this.containsKey(item)) {
-			super.put(item, index.get());
-			index.incrementAndGet();
+			super.put(item, index.getAndIncrement());
 		}
 	}
 	
