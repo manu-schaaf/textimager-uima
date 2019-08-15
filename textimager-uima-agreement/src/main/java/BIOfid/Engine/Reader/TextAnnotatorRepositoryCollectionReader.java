@@ -1,5 +1,6 @@
 package BIOfid.Engine.Reader;
 
+import com.google.common.collect.Sets;
 import de.tudarmstadt.ukp.dkpro.core.api.io.ProgressMeter;
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import de.tudarmstadt.ukp.dkpro.core.api.parameter.ComponentParameters;
@@ -25,6 +26,7 @@ import org.apache.uima.util.CasIOUtils;
 import org.apache.uima.util.Progress;
 import org.apache.uima.util.ProgressImpl;
 import org.hucompute.utilities.helper.RESTUtils;
+import org.jetbrains.annotations.NotNull;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -34,7 +36,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Objects;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -115,9 +119,9 @@ public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader
 	@ConfigurationParameter(name = PARAM_LOG_FREQ, mandatory = true, defaultValue = "1")
 	private int logFreq;
 	
-	private static ForkJoinTask<?> forkJoinTask;
-	private static final ConcurrentLinkedDeque<Path> currentResources = new ConcurrentLinkedDeque<>();
-	private ForkJoinPool remotePool;
+	private static final ArrayDeque<Path> currentResources = new ArrayDeque<>();
+	private static final HashSet<Future<Path>> processedResources = Sets.newHashSet();
+	private ExecutorService remotePool;
 	private AtomicInteger downloadCount = new AtomicInteger(0);
 	private AtomicInteger processingCount = new AtomicInteger(0);
 	private int totalDocumentCount = 0;
@@ -125,13 +129,14 @@ public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader
 	
 	private ProgressMeter downloadProgress;
 	private ProgressMeter processingProgress;
+	private ArrayList<Future<Path>> tasks = new ArrayList<>();
 	
 	@Override
 	public void initialize(UimaContext aContext) throws ResourceInitializationException {
 		super.initialize(aContext);
 		logger = new ExtendedLogger(getUimaContext());
 		
-		remotePool = new ForkJoinPool(pThreads);
+		remotePool = Executors.newFixedThreadPool(pThreads);
 		pSessionId = StringUtils.appendIfMissing(pSessionId, ".jvm1");
 		
 		String remoteFilesURL = pTextAnnotatorUrl + "documents/" + pRepository;
@@ -140,116 +145,24 @@ public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader
 		
 		if (remoteFiles.getBoolean("success")) {
 			final JSONArray rArray = remoteFiles.getJSONArray("result");
-			final ArrayList<String> remoteURIs = IntStream.range(0, rArray.length())
+			final ArrayList<String> remoteUris = IntStream.range(0, rArray.length())
 					.map(i -> (int) rArray.get(i))
 					.distinct()
 					.sorted()
 					.mapToObj(Objects::toString)
 					.collect(Collectors.toCollection(ArrayList::new));
-			totalDocumentCount = remoteURIs.size();
+			totalDocumentCount = remoteUris.size();
 			downloadProgress = new ProgressMeter(totalDocumentCount);
 			processingProgress = new ProgressMeter(totalDocumentCount);
 			
 			logger.info(String.format("Downloading %d files in parallel with %d threads for from repository '%s':\n%s",
-					totalDocumentCount, remotePool.getParallelism(), pRepository, remoteURIs.toString()));
+					totalDocumentCount, pThreads, pRepository, remoteUris.toString()));
 			
 			// Download and pre-process all remote files in parallel
 			xmiSerializationSharedDataMap = new ConcurrentHashMap<>();
-			forkJoinTask = remotePool.submit(() -> IntStream.range(0, remoteURIs.size()).parallel().forEach(i -> {
-				synchronized (remoteURIs) {
-					String uri = remoteURIs.get(i);
-					String mongoUri = pMongoDb + uri;
-					try {
-						// Get document JSON from MongoDB
-						JSONObject documentJSON = RESTUtils.getObjectFromRest(mongoUri, pSessionId);
-						if (documentJSON.getBoolean("success")) {
-							JCas jCas = JCasFactory.createJCas();
-							String documentName = documentJSON.getJSONObject("result").getString("name");
-							String documentId = documentName
-									.replaceFirst("[^_]*_(\\d+)_.*", "$1")
-									.replaceAll("\\.[^.]+$", "");
-							
-							// Download file
-							URL casURL = new URL(pTextAnnotatorUrl + "cas/" + uri + "?session=" + pSessionId);
-							Path utf8Path = Paths.get(sourceLocation, uri + ".xmi");
-							File utf8File = utf8Path.toFile();
-							try {
-								logger.debug(String.format("Downloading file %s..", casURL.toString()));
-								FileUtils.copyInputStreamToFile(casURL.openStream(), utf8File);
-								logger.debug(String.format("Downloaded file %s.", casURL.toString()));
-							} catch (Exception e) {
-								logger.warn("Could not copy file from input stream: " + casURL.toString());
-								logger.warn(e.getMessage());
-								return;
-							}
-							
-							// Reserialize the UTF-8 forced JCas
-							if (pForceReserialize) {
-								try (FileInputStream inputStream = FileUtils.openInputStream(utf8File)) {
-									CasIOUtils.load(inputStream, null, jCas.getCas(), true);
-								} catch (Exception e) {
-									logger.warn("Could not load file: " + utf8Path);
-									logger.warn(e.getMessage());
-									return;
-								}
-								
-								if (JCasUtil.select(jCas, DocumentMetaData.class).size() == 0) {
-									DocumentMetaData documentMetaData = new DocumentMetaData(jCas);
-									documentMetaData.setDocumentId(documentId);
-									documentMetaData.setDocumentUri(mongoUri);
-									documentMetaData.setDocumentTitle(documentName);
-									jCas.addFsToIndexes(documentMetaData);
-								}
-								
-								// Delete old file
-								try {
-									FileUtils.forceDelete(utf8File);
-								} catch (FileNotFoundException | NullPointerException e) {
-									logger.warn("File " + utf8Path.toString() + " up for deletion could not be found.");
-								}
-								
-								// Reserialize file as xmi
-								try (FileOutputStream outputStream = new FileOutputStream(utf8File)) {
-									XmiSerializationSharedData xmiSerializationSharedData = new XmiSerializationSharedData();
-									XmiCasSerializer.serialize(jCas.getCas(), null, outputStream, true, xmiSerializationSharedData);
-									xmiSerializationSharedDataMap.put(utf8Path, xmiSerializationSharedData);
-								} catch (Exception e) {
-									logger.warn("Could not write reserialized file: " + utf8Path);
-									logger.warn(e.getMessage());
-									return;
-								}
-							}
-							
-							// After successful download and serialization, add the path to the current resources
-							currentResources.add(utf8Path);
-							
-							// Write raw text as UTF-8 file
-							if (jCas.getDocumentText() != null && !jCas.getDocumentText().isEmpty()) {
-								String content = jCas.getDocumentText();
-								try (PrintWriter pw = new PrintWriter(new OutputStreamWriter(Files.newOutputStream(Paths.get(targetLocation, uri + ".txt")), StandardCharsets.UTF_8))) {
-									pw.print(content);
-								} catch (IOException e) {
-									e.printStackTrace();
-								}
-							}
-						} else {
-							// If response JSON misses the "success" field, throw an exception
-							throw new HttpResponseException(400, String.format("Request to '%s' failed! Response: %s", mongoUri, documentJSON.toString()));
-						}
-					} catch (HttpResponseException httpE) {
-						logger.error(httpE.getMessage());
-					} catch (Exception e) {
-						e.printStackTrace();
-					} finally {
-						// Update progress
-						int downloads = downloadCount.incrementAndGet();
-						downloadProgress.setDone(downloads);
-						if (logFreq > 0 && downloads % logFreq == 0) {
-							logger.info(String.format("Download %s, %s", downloadProgress, mongoUri));
-						}
-					}
-				}
-			})).fork();
+			for (String uri : remoteUris) {
+				tasks.add(remotePool.submit(new DownloadCallable(uri)));
+			}
 		} else {
 			logger.error("Repository URIs could not be fetched!");
 			logger.error(remoteFiles);
@@ -258,21 +171,19 @@ public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader
 	
 	@Override
 	public void getNext(CAS aCAS) throws IOException, CollectionException {
-		synchronized (currentResources) {
-			forkJoinTaskGet();
-			Path path = currentResources.pop();
-			try (FileInputStream inputStream = FileUtils.openInputStream(path.toFile())) {
-				XmiCasDeserializer.deserialize(inputStream, aCAS, true, xmiSerializationSharedDataMap.get(path));
-			} catch (Exception e) {
-				logger.error("Error while opening file: " + path.toString());
-				e.printStackTrace();
-			} finally {
-				// Update process
-				int processed = processingCount.incrementAndGet();
-				processingProgress.setDone(processed);
-				if (logFreq > 0 && processed % logFreq == 0) {
-					logger.info(String.format("Processing %s, %s", processingProgress, path.getFileName().toString()));
-				}
+		waitForNext();
+		Path path = currentResources.pop();
+		try (FileInputStream inputStream = FileUtils.openInputStream(path.toFile())) {
+			XmiCasDeserializer.deserialize(inputStream, aCAS, true, xmiSerializationSharedDataMap.get(path));
+		} catch (Exception e) {
+			logger.error("Error while opening file: " + path.toString());
+			e.printStackTrace();
+		} finally {
+			// Update process
+			int processed = processingCount.incrementAndGet();
+			processingProgress.setDone(processed);
+			if (logFreq > 0 && processed % logFreq == 0) {
+				logger.info(String.format("Processing %s, %s", processingProgress, path.getFileName().toString()));
 			}
 		}
 	}
@@ -280,32 +191,51 @@ public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader
 	@Override
 	public void destroy() {
 		super.destroy();
-		if (forkJoinTask != null && !forkJoinTask.isDone()) {
-			forkJoinTask.cancel(true);
-		}
 		if (remotePool != null)
 			remotePool.shutdownNow();
 	}
 	
 	@Override
 	public boolean hasNext() throws IOException, CollectionException {
-		synchronized (currentResources) {
-			forkJoinTaskGet();
-			return !currentResources.isEmpty();
+		waitForNext();
+		return !currentResources.isEmpty();
+	}
+	
+	private void waitForNext() {
+		try {
+			Boolean allTasksDone = tasks.stream()
+					.map(this::checkFuture)
+					.reduce(Boolean::logicalAnd).orElse(false);
+			synchronized (currentResources) {
+				while (currentResources.isEmpty() && !allTasksDone) {
+					currentResources.wait(500);
+					allTasksDone = tasks.stream()
+							.map(this::checkFuture)
+							.reduce(Boolean::logicalAnd).orElse(false);
+				}
+			}
+		} catch (InterruptedException e) {
+			e.printStackTrace();
 		}
 	}
 	
-	private void forkJoinTaskGet() {
-		try {
-			while (currentResources.isEmpty() && !forkJoinTask.isDone()) {
+	@NotNull
+	private Boolean checkFuture(Future<Path> future) {
+		if (future.isDone()) {
+			if (!processedResources.contains(future)) {
+				processedResources.add(future);
 				try {
-					forkJoinTask.get(500, TimeUnit.MILLISECONDS);
-				} catch (TimeoutException e) {
-					logger.trace("No resource available timeout.");
+					Path path = future.get();
+					if (path != null) {
+						currentResources.add(path);
+					}
+				} catch (InterruptedException | ExecutionException e) {
+					e.printStackTrace();
 				}
 			}
-		} catch (InterruptedException | ExecutionException e) {
-			e.printStackTrace();
+			return true;
+		} else {
+			return false;
 		}
 	}
 	
@@ -314,5 +244,111 @@ public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader
 		return new Progress[]{
 				new ProgressImpl(downloadCount.get(), totalDocumentCount, "file")
 		};
+	}
+	
+	private class DownloadCallable implements Callable<Path> {
+		final String uri;
+		
+		DownloadCallable(String uri) {
+			this.uri = uri;
+		}
+		
+		@Override
+		public Path call() {
+			String mongoUri = pMongoDb + uri;
+			Path utf8Path = null;
+			try {
+				// Get document JSON from MongoDB
+				JSONObject documentJSON = RESTUtils.getObjectFromRest(mongoUri, pSessionId);
+				if (documentJSON.getBoolean("success")) {
+					JCas jCas = JCasFactory.createJCas();
+					String documentName = documentJSON.getJSONObject("result").getString("name");
+					String documentId = documentName
+							.replaceFirst("[^_]*_(\\d+)_.*", "$1")
+							.replaceAll("\\.[^.]+$", "");
+					
+					// Download file
+					URL casURL = new URL(pTextAnnotatorUrl + "cas/" + uri + "?session=" + pSessionId);
+					utf8Path = Paths.get(sourceLocation, uri + ".xmi");
+					File utf8File = utf8Path.toFile();
+					try {
+						logger.debug(String.format("Downloading file %s..", casURL.toString()));
+						FileUtils.copyInputStreamToFile(casURL.openStream(), utf8File);
+						logger.debug(String.format("Downloaded file %s.", casURL.toString()));
+					} catch (Exception e) {
+						logger.warn("Could not copy file from input stream: " + casURL.toString());
+						logger.warn(e.getMessage());
+						return null; // FIXME
+					}
+					
+					// Reserialize the UTF-8 forced JCas
+					if (pForceReserialize) {
+						try (FileInputStream inputStream = FileUtils.openInputStream(utf8File)) {
+							CasIOUtils.load(inputStream, null, jCas.getCas(), true);
+						} catch (Exception e) {
+							logger.warn("Could not load file: " + utf8Path);
+							logger.warn(e.getMessage());
+							return null; // FIXME
+						}
+						
+						if (JCasUtil.select(jCas, DocumentMetaData.class).size() == 0) {
+							DocumentMetaData documentMetaData = new DocumentMetaData(jCas);
+							documentMetaData.setDocumentId(documentId);
+							documentMetaData.setDocumentUri(mongoUri);
+							documentMetaData.setDocumentTitle(documentName);
+							jCas.addFsToIndexes(documentMetaData);
+						}
+						
+						// Delete old file
+						try {
+							FileUtils.forceDelete(utf8File);
+						} catch (FileNotFoundException | NullPointerException e) {
+							logger.warn("File " + utf8Path.toString() + " up for deletion could not be found.");
+						}
+						
+						// Reserialize file as xmi
+						try (FileOutputStream outputStream = new FileOutputStream(utf8File)) {
+							XmiSerializationSharedData xmiSerializationSharedData = new XmiSerializationSharedData();
+							XmiCasSerializer.serialize(jCas.getCas(), null, outputStream, true, xmiSerializationSharedData);
+							xmiSerializationSharedDataMap.put(utf8Path, xmiSerializationSharedData);
+						} catch (Exception e) {
+							logger.warn("Could not write reserialized file: " + utf8Path);
+							logger.warn(e.getMessage());
+							return null; // FIXME
+						}
+					}
+					
+					Path textPath = Paths.get(targetLocation, uri + ".txt");
+					try {
+						// Write raw text as UTF-8 file
+						if (jCas.getDocumentText() != null && !jCas.getDocumentText().isEmpty()) {
+							String content = jCas.getDocumentText();
+							try (PrintWriter pw = new PrintWriter(new OutputStreamWriter(Files.newOutputStream(textPath), StandardCharsets.UTF_8))) {
+								pw.print(content);
+							}
+						}
+					} catch (Exception e) {
+						logger.warn("Could not write text file: " + textPath);
+						logger.warn(e.getMessage());
+						return null; // FIXME
+					}
+				} else {
+					// If response JSON misses the "success" field, throw an exception
+					throw new HttpResponseException(400, String.format("Request to '%s' failed! Response: %s", mongoUri, documentJSON.toString()));
+				}
+			} catch (HttpResponseException httpE) {
+				logger.error(httpE.getMessage());
+			} catch (Exception e) {
+				e.printStackTrace();
+			} finally {
+				// Update progress
+				int downloads = downloadCount.incrementAndGet();
+				downloadProgress.setDone(downloads);
+				if (logFreq > 0 && downloads % logFreq == 0) {
+					logger.info(String.format("Download %s, %s", downloadProgress, mongoUri));
+				}
+			}
+			return utf8Path;
+		}
 	}
 }
