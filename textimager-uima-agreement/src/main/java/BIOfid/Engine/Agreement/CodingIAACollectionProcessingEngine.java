@@ -2,6 +2,7 @@ package BIOfid.Engine.Agreement;
 
 import BIOfid.Utility.CountMap;
 import BIOfid.Utility.IndexingMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
 import org.apache.commons.lang3.StringUtils;
@@ -23,7 +24,6 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static org.apache.uima.fit.util.JCasUtil.indexCovering;
-import static org.apache.uima.fit.util.JCasUtil.select;
 
 /**
  * Inter-annotator agreement engine using a {@link CodingAnnotationStudy CodingAnnotationStudy} and
@@ -37,12 +37,12 @@ import static org.apache.uima.fit.util.JCasUtil.select;
  * @see KrippendorffAlphaAgreement
  * @see PercentageAgreement
  */
-public class CodingInterAnnotatorAgreementCollectionProcessingEngine extends InterAnnotatorAgreementCollectionProcessingEngine {
-	private TreeSet<String> categories = new TreeSet<>();
-	private Integer maxCasIndex = 0;
-	private HashMap<Integer, HashMap<String, HashMap<Integer, Set<String>>>> perCasStudies = new HashMap<>();
-	private HashMap<Integer, Integer> perCasTokenCount = new HashMap<>();
-	private LinkedHashSet<String> annotatorList = new LinkedHashSet<>();
+public class CodingIAACollectionProcessingEngine extends AbstractIAAEngine {
+	TreeSet<String> categories = new TreeSet<>();
+	Integer maxCasIndex = 0;
+	HashMap<Integer, HashMap<String, HashMap<Integer, Set<String>>>> perCasStudies = new HashMap<>();
+	HashMap<Integer, Integer> perCasTokenCount = new HashMap<>();
+	LinkedHashSet<String> annotatorList = new LinkedHashSet<>();
 	
 	/**
 	 * Parameter for the {@link SetSelectionStrategy SetSelectionStrategy} to use.<br>
@@ -58,32 +58,32 @@ public class CodingInterAnnotatorAgreementCollectionProcessingEngine extends Int
 			defaultValue = "MAX",
 			description = "Parameter for the SetSelectionStrategy to use."
 	)
-	private String pSetSelectionStrategy;
+	String pSetSelectionStrategy;
 	
 	// Agreement measure choices
 	/**
-	 * Paramter string for {@link CodingInterAnnotatorAgreementCollectionProcessingEngine#CohenKappaAgreement}.
+	 * Paramter string for {@link CodingIAACollectionProcessingEngine#CohenKappaAgreement}.
 	 *
 	 * @see CohenKappaAgreement
 	 */
 	public final static String CohenKappaAgreement = "CohenKappaAgreement";
 	
 	/**
-	 * Paramter string for {@link CodingInterAnnotatorAgreementCollectionProcessingEngine#FleissKappaAgreement}.
+	 * Paramter string for {@link CodingIAACollectionProcessingEngine#FleissKappaAgreement}.
 	 *
 	 * @see FleissKappaAgreement
 	 */
 	public final static String FleissKappaAgreement = "FleissKappaAgreement";
 	
 	/**
-	 * Paramter string for {@link CodingInterAnnotatorAgreementCollectionProcessingEngine#PercentageAgreement}.
+	 * Paramter string for {@link CodingIAACollectionProcessingEngine#PercentageAgreement}.
 	 *
 	 * @see PercentageAgreement
 	 */
 	public final static String PercentageAgreement = "PercentageAgreement";
 	
 	/**
-	 * Paramter string for {@link CodingInterAnnotatorAgreementCollectionProcessingEngine#KrippendorffAlphaAgreement}.
+	 * Paramter string for {@link CodingIAACollectionProcessingEngine#KrippendorffAlphaAgreement}.
 	 *
 	 * @see KrippendorffAlphaAgreement
 	 */
@@ -91,13 +91,13 @@ public class CodingInterAnnotatorAgreementCollectionProcessingEngine extends Int
 	
 	/**
 	 * Parameter for the agreement measure the to use.<br>
-	 * Default: {@link CodingInterAnnotatorAgreementCollectionProcessingEngine#KrippendorffAlphaAgreement CodingInterAnnotatorAgreementEngine.KrippendorffAlphaAgreement}.<br>
+	 * Default: {@link CodingIAACollectionProcessingEngine#KrippendorffAlphaAgreement CodingInterAnnotatorAgreementEngine.KrippendorffAlphaAgreement}.<br>
 	 * Choices:
 	 * <ul>
-	 * <li>{@link CodingInterAnnotatorAgreementCollectionProcessingEngine#KrippendorffAlphaAgreement CodingInterAnnotatorAgreementEngine.KrippendorffAlphaAgreement}
-	 * <li>{@link CodingInterAnnotatorAgreementCollectionProcessingEngine#FleissKappaAgreement CodingInterAnnotatorAgreementEngine.FleissKappaAgreement}
-	 * <li>{@link CodingInterAnnotatorAgreementCollectionProcessingEngine#CohenKappaAgreement CodingInterAnnotatorAgreementEngine.CohenKappaAgreement}
-	 * <li>{@link CodingInterAnnotatorAgreementCollectionProcessingEngine#PercentageAgreement CodingInterAnnotatorAgreementEngine.PercentageAgreement}
+	 * <li>{@link CodingIAACollectionProcessingEngine#KrippendorffAlphaAgreement CodingInterAnnotatorAgreementEngine.KrippendorffAlphaAgreement}
+	 * <li>{@link CodingIAACollectionProcessingEngine#FleissKappaAgreement CodingInterAnnotatorAgreementEngine.FleissKappaAgreement}
+	 * <li>{@link CodingIAACollectionProcessingEngine#CohenKappaAgreement CodingInterAnnotatorAgreementEngine.CohenKappaAgreement}
+	 * <li>{@link CodingIAACollectionProcessingEngine#PercentageAgreement CodingInterAnnotatorAgreementEngine.PercentageAgreement}
 	 * </ul>
 	 * <p>
 	 *
@@ -112,7 +112,7 @@ public class CodingInterAnnotatorAgreementCollectionProcessingEngine extends Int
 			defaultValue = KrippendorffAlphaAgreement,
 			description = "Parameter for the agreement measure the to use."
 	)
-	private String pAgreementMeasure;
+	String pAgreementMeasure;
 	
 	@Override
 	public void process(JCas jCas) throws AnalysisEngineProcessException {
@@ -187,7 +187,7 @@ public class CodingInterAnnotatorAgreementCollectionProcessingEngine extends Int
 							for (Annotation annotation : annotationCoveringTokenIndex.get(token)) {
 								// Check pFilterFingerprinted -> fingerprinted::contains
 								if (!pFilterFingerprinted || fingerprinted.contains(annotation)) {
-									String category = annotation.getType().getShortName();
+									String category = getCatgoryName(annotation);
 									
 									Set<String> categorySet = currentViewAnnotationMap.getOrDefault(index, new HashSet<>());
 									categorySet.add(category);
@@ -237,7 +237,7 @@ public class CodingInterAnnotatorAgreementCollectionProcessingEngine extends Int
 						for (String annotatorName : annotatorList) {
 							Set<String> category = perCasStudy
 									.getOrDefault(annotatorName, new HashMap<>())
-									.getOrDefault(tokenIndex, new HashSet<>(Collections.singleton("")));
+									.getOrDefault(tokenIndex, ImmutableSet.of(""));
 							perTokenAnnotations.add(category);
 							
 							if (!category.contains("")) {
@@ -275,7 +275,7 @@ public class CodingInterAnnotatorAgreementCollectionProcessingEngine extends Int
 	 * @param annotatorCategoryCount
 	 * @param globalCategoryOverlap
 	 */
-	private void calcualteAgreement(SetCodingAnnotationStudy codingAnnotationStudy, CountMap<String> globalCategoryCount, HashMap<String, CountMap<String>> annotatorCategoryCount, CountMap<String> globalCategoryOverlap) {
+	void calcualteAgreement(SetCodingAnnotationStudy codingAnnotationStudy, CountMap<String> globalCategoryCount, HashMap<String, CountMap<String>> annotatorCategoryCount, CountMap<String> globalCategoryOverlap) {
 		// Choose the agreement measure method
 		IAgreementMeasure agreement;
 		switch (pAgreementMeasure) {
@@ -302,14 +302,14 @@ public class CodingInterAnnotatorAgreementCollectionProcessingEngine extends Int
 						"Category\tCount\tAgreement\n" +
 						"Overall\t%d\t%f\n",
 				annotatorList.size(), annotatorList.toString(), codingAnnotationStudy.getUnitCount(), agreement.calculateAgreement());
-		printStudyResults((ICategorySpecificAgreement) agreement, globalCategoryCount, annotatorCategoryCount, categories, annotatorList);
+		printStudyResultsAndStatistics((ICategorySpecificAgreement) agreement, globalCategoryCount, annotatorCategoryCount, categories, annotatorList);
 		
 		if (pPrintStatistics) {
 			printGlobalCategoryOverlap(globalCategoryOverlap);
 		}
 	}
 	
-	private void printGlobalCategoryOverlap(CountMap<String> globalCategoryOverlap) {
+	void printGlobalCategoryOverlap(CountMap<String> globalCategoryOverlap) {
 		System.out.print("\nGlobal inter-annotator category overlap\nCategory\tCount\n");
 		Optional<Integer> totalOverlap = globalCategoryOverlap.values().stream().reduce(Integer::sum);
 		System.out.printf("Total\t%d\n", totalOverlap.orElse(0));

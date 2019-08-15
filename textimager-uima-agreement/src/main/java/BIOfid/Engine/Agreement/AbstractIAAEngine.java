@@ -16,7 +16,10 @@ import org.texttechnologielab.annotation.type.Fingerprint;
 
 import java.util.*;
 
-public abstract class InterAnnotatorAgreementCollectionProcessingEngine extends JCasConsumer_ImplBase {
+/**
+ * Abstract base class for all inter-annotator agreement engines.
+ */
+public abstract class AbstractIAAEngine extends JCasConsumer_ImplBase {
 	
 	/**
 	 * An array of fully qualified names of classes, that extend {@link Annotation},
@@ -25,13 +28,14 @@ public abstract class InterAnnotatorAgreementCollectionProcessingEngine extends 
 	 */
 	public static final String PARAM_ANNOTATION_CLASSES = "pAnnotationClasses";
 	@ConfigurationParameter(name = PARAM_ANNOTATION_CLASSES, mandatory = false)
-	protected String[] pAnnotationClasses;
+	private String[] pAnnotationClasses;
+	ImmutableSet<Class<? extends Annotation>> annotationClasses = ImmutableSet.of(Annotation.class);
 	
 	/**
 	 * Defines the relation of the given annotators:
 	 * <ul>
-	 * <li>{@link InterAnnotatorAgreementCollectionProcessingEngine#WHITELIST}: only the listed annotators will be considered.</li>
-	 * <li>{@link InterAnnotatorAgreementCollectionProcessingEngine#BLACKLIST}: all listed annotators will be excluded.</li>
+	 * <li>{@link AbstractIAAEngine#WHITELIST}: only the listed annotators will be considered.</li>
+	 * <li>{@link AbstractIAAEngine#BLACKLIST}: all listed annotators will be excluded.</li>
 	 * </ul>
 	 */
 	public static final String PARAM_ANNOTATOR_RELATION = "pRelation";
@@ -47,7 +51,8 @@ public abstract class InterAnnotatorAgreementCollectionProcessingEngine extends 
 	
 	public static final String PARAM_ANNOTATOR_LIST = "pAnnotatorList";
 	@ConfigurationParameter(name = PARAM_ANNOTATOR_LIST, mandatory = false)
-	protected String[] pAnnotatorList;
+	private String[] pAnnotatorList;
+	ImmutableSet<String> listedAnnotators = ImmutableSet.of();
 	
 	/**
 	 * The minimal number of views in each CAS.
@@ -81,8 +86,6 @@ public abstract class InterAnnotatorAgreementCollectionProcessingEngine extends 
 	)
 	Boolean pPrintStatistics;
 	
-	ImmutableSet<Class<? extends Annotation>> annotationClasses = ImmutableSet.of(Annotation.class);
-	ImmutableSet<String> listedAnnotators = ImmutableSet.of();
 	protected ExtendedLogger logger;
 	
 	@Override
@@ -139,7 +142,14 @@ public abstract class InterAnnotatorAgreementCollectionProcessingEngine extends 
 		return overlappedAnnotations;
 	}
 	
-	protected void printStudyResults(ICategorySpecificAgreement agreement, CountMap<String> categoryCount, HashMap<String, CountMap<String>> annotatorCategoryCount, TreeSet<String> categories, Collection<String> annotators) {
+	protected void printStudyResults(ICategorySpecificAgreement agreement, TreeSet<String> categories, Collection<String> annotators) {
+		for (String category : categories) {
+			System.out.printf("%s\t%f\n", category, agreement.calculateCategoryAgreement(category));
+		}
+		System.out.println();
+	}
+	
+	protected void printStudyResultsAndStatistics(ICategorySpecificAgreement agreement, CountMap<String> categoryCount, HashMap<String, CountMap<String>> annotatorCategoryCount, TreeSet<String> categories, Collection<String> annotators) {
 		for (String category : categories) {
 			System.out.printf("%s\t%d\t%f\n", category, categoryCount.get(category), agreement.calculateCategoryAgreement(category));
 		}
@@ -167,5 +177,9 @@ public abstract class InterAnnotatorAgreementCollectionProcessingEngine extends 
 				System.out.println();
 			}
 		}
+	}
+	
+	protected String getCatgoryName(Annotation annotation) {
+		return annotation.getType().getName();
 	}
 }

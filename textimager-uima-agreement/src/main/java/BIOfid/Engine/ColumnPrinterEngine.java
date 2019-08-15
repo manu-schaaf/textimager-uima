@@ -1,6 +1,6 @@
 package BIOfid.Engine;
 
-import BIOfid.Engine.Agreement.InterAnnotatorAgreementCollectionProcessingEngine;
+import BIOfid.Engine.Agreement.AbstractIAAEngine;
 import BIOfid.Utility.IndexingMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
@@ -67,8 +67,8 @@ public class ColumnPrinterEngine extends JCasAnnotator_ImplBase {
 	/**
 	 * Defines the relation of the given annotators:
 	 * <ul>
-	 * <li>{@link InterAnnotatorAgreementCollectionProcessingEngine#WHITELIST}: only the listed annotators will be considered.</li>
-	 * <li>{@link InterAnnotatorAgreementCollectionProcessingEngine#BLACKLIST}: all listed annotators will be excluded.</li>
+	 * <li>{@link AbstractIAAEngine#WHITELIST}: only the listed annotators will be considered.</li>
+	 * <li>{@link AbstractIAAEngine#BLACKLIST}: all listed annotators will be excluded.</li>
 	 * </ul>
 	 */
 	public static final String PARAM_ANNOTATOR_RELATION = "pRelation";
