@@ -4,6 +4,7 @@ import BIOfid.Utility.CountMap;
 import BIOfid.Utility.IndexingMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
+import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
@@ -200,7 +201,15 @@ public class CodingIAACollectionProcessingEngine extends AbstractIAAEngine {
 			});
 			
 			// After all views have been processed, add the perViewAnnotationMap to perCasStudies
-			perCasStudies.put(maxCasIndex, perViewAnnotationMap); // FIXME: Refactor this with the token count into an object
+			perCasStudies.put(maxCasIndex, perViewAnnotationMap); // FIXME: Refactor this with the token count into an object?
+			
+			// If pAggregationMethod is SEPARATE or BOTH, compute agreement for this CAS only
+			switch (pMultiCasHandling) {
+				case SEPARATE:
+				case BOTH:
+					aggregateSeparate(jCas, maxCasIndex, perViewAnnotationMap);
+					break;
+			}
 			maxCasIndex += 1;
 		} catch (CASException e) {
 			e.printStackTrace();
@@ -213,57 +222,146 @@ public class CodingIAACollectionProcessingEngine extends AbstractIAAEngine {
 		
 		// Create a global study from all items
 		if (annotatorList.size() > 1) {
-			CountMap<String> globalCategoryCount = new CountMap<>();
-			HashMap<String, CountMap<String>> annotatorCategoryCount = new HashMap<>();
-			// Initialize a CountMap for each annotator
-			for (String annotator : annotatorList) {
-				annotatorCategoryCount.put(annotator, new CountMap<>());
+			switch (pMultiCasHandling) {
+				case SEPARATE:
+					return;
+				case BOTH:
+				case COMBINED:
+				default:
+					aggregateCollect();
+					break;
 			}
+		}
+	}
+	
+	private void aggregateSeparate(JCas jCas, Integer casIndex, HashMap<String, HashMap<Integer, Set<String>>> perCasStudy) {
+		CountMap<String> globalCategoryCount = new CountMap<>();
+		HashMap<String, CountMap<String>> annotatorCategoryCount = new HashMap<>();
+		// Initialize a CountMap for each annotator
+		for (String annotator : annotatorList) {
+			annotatorCategoryCount.put(annotator, new CountMap<>());
+		}
+		
+		SetCodingAnnotationStudy codingAnnotationStudy = new SetCodingAnnotationStudy(annotatorList.size(), SetSelectionStrategy.valueOf(pSetSelectionStrategy));
+		CountMap<String> globalCategoryOverlap = new CountMap<>();
+		for (int tokenIndex = 0; tokenIndex < perCasTokenCount.get(casIndex); tokenIndex++) {
+			// Holds the sets of annotations for this token per annotator
+			ArrayList<Set<String>> perTokenAnnotations = new ArrayList<>();
+			CountMap<String> categoryOverlap = new CountMap<>();
 			
-			SetCodingAnnotationStudy codingAnnotationStudy = new SetCodingAnnotationStudy(annotatorList.size(), SetSelectionStrategy.valueOf(pSetSelectionStrategy));
-			CountMap<String> globalCategoryOverlap = new CountMap<>();
-			for (int casIndex = 0; casIndex < maxCasIndex; casIndex++) {
-				if (perCasStudies.containsKey(casIndex) && perCasTokenCount.containsKey(casIndex)) { // FIXME: remove this check, as it is unnecessary
-					HashMap<String, HashMap<Integer, Set<String>>> perCasStudy = perCasStudies.get(casIndex);
-					for (int tokenIndex = 0; tokenIndex < perCasTokenCount.get(casIndex); tokenIndex++) {
-						// Holds the sets of annotations for this token per annotator
-						ArrayList<Set<String>> perTokenAnnotations = new ArrayList<>();
-						CountMap<String> categoryOverlap = new CountMap<>();
+			// Bool to check if any annotator has an annotation over the current token
+			boolean any = false;
+			
+			// Get all annotations over the current token by index
+			for (String annotatorName : annotatorList) {
+				Set<String> category = perCasStudy
+						.getOrDefault(annotatorName, new HashMap<>())
+						.getOrDefault(tokenIndex, ImmutableSet.of(""));
+				perTokenAnnotations.add(category);
+				
+				if (!category.contains("")) {
+					any = true;
+					categories.addAll(category);
+					
+					// Statistics
+					globalCategoryCount.incAll(category);
+					annotatorCategoryCount.get(annotatorName).incAll(category);
+					categoryOverlap.incAll(category);
+				}
+			}
+			if (any) {
+				// Add the annotations to the study
+				codingAnnotationStudy.addItemSetsAsArray(perTokenAnnotations.toArray(new Set[0]));
+				
+				// Increase the overlap count for each category with more than one vote
+				categoryOverlap.forEach((o, integer) -> {
+					if (integer > 1) globalCategoryOverlap.inc(o);
+				});
+			}
+		}
+		
+		
+		// Compute agreement
+		IAgreementMeasure agreement = calcualteAgreement(codingAnnotationStudy, globalCategoryCount, annotatorCategoryCount, globalCategoryOverlap);
+		
+		// Print the agreement for all categories
+		System.out.printf("\n%s - %s - %s\n" +
+						"Inter-annotator agreement for %d annotators: %s\n" +
+						"Category\tCount\tAgreement\n" +
+						"Overall\t%d\t%f\n",
+				pAgreementMeasure, pSetSelectionStrategy, DocumentMetaData.get(jCas).getDocumentTitle(),
+				annotatorList.size(), annotatorList.toString(),
+				codingAnnotationStudy.getUnitCount(), agreement.calculateAgreement());
+		printStudyResultsAndStatistics((ICategorySpecificAgreement) agreement, globalCategoryCount, annotatorCategoryCount, categories, annotatorList);
+		
+		if (pPrintStatistics) {
+			printCategoryOverlap(globalCategoryOverlap);
+		}
+	}
+	
+	private void aggregateCollect() {
+		CountMap<String> globalCategoryCount = new CountMap<>();
+		HashMap<String, CountMap<String>> annotatorCategoryCount = new HashMap<>();
+		// Initialize a CountMap for each annotator
+		for (String annotator : annotatorList) {
+			annotatorCategoryCount.put(annotator, new CountMap<>());
+		}
+		
+		SetCodingAnnotationStudy codingAnnotationStudy = new SetCodingAnnotationStudy(annotatorList.size(), SetSelectionStrategy.valueOf(pSetSelectionStrategy));
+		CountMap<String> globalCategoryOverlap = new CountMap<>();
+		for (int casIndex = 0; casIndex < maxCasIndex; casIndex++) {
+			if (perCasStudies.containsKey(casIndex) && perCasTokenCount.containsKey(casIndex)) { // FIXME: remove this check, as it is unnecessary
+				HashMap<String, HashMap<Integer, Set<String>>> perCasStudy = perCasStudies.get(casIndex);
+				for (int tokenIndex = 0; tokenIndex < perCasTokenCount.get(casIndex); tokenIndex++) {
+					// Holds the sets of annotations for this token per annotator
+					ArrayList<Set<String>> perTokenAnnotations = new ArrayList<>();
+					CountMap<String> categoryOverlap = new CountMap<>();
+					
+					// Bool to check if any annotator has an annotation over the current token
+					boolean any = false;
+					
+					// Get all annotations over the current token by index
+					for (String annotatorName : annotatorList) {
+						Set<String> category = perCasStudy
+								.getOrDefault(annotatorName, new HashMap<>())
+								.getOrDefault(tokenIndex, ImmutableSet.of(""));
+						perTokenAnnotations.add(category);
 						
-						// Bool to check if any annotator has an annotation over the current token
-						boolean any = false;
+						if (!category.contains("")) {
+							any = true;
+							categories.addAll(category);
+							
+							// Statistics
+							globalCategoryCount.incAll(category);
+							annotatorCategoryCount.get(annotatorName).incAll(category);
+							categoryOverlap.incAll(category);
+						}
+					}
+					if (any) {
+						// Add the annotations to the study
+						codingAnnotationStudy.addItemSetsAsArray(perTokenAnnotations.toArray(new Set[0]));
 						
-						// Get all annotations over the current token by index
-						for (String annotatorName : annotatorList) {
-							Set<String> category = perCasStudy
-									.getOrDefault(annotatorName, new HashMap<>())
-									.getOrDefault(tokenIndex, ImmutableSet.of(""));
-							perTokenAnnotations.add(category);
-							
-							if (!category.contains("")) {
-								any = true;
-								categories.addAll(category);
-								
-								// Statistics
-								globalCategoryCount.incAll(category);
-								annotatorCategoryCount.get(annotatorName).incAll(category);
-								categoryOverlap.incAll(category);
-							}
-						}
-						if (any) {
-							// Add the annotations to the study
-							codingAnnotationStudy.addItemSetsAsArray(perTokenAnnotations.toArray(new Set[0]));
-							
-							// Increase the overlap count for each category with more than one vote
-							categoryOverlap.forEach((o, integer) -> {
-								if (integer > 1) globalCategoryOverlap.inc(o);
-							});
-						}
+						// Increase the overlap count for each category with more than one vote
+						categoryOverlap.forEach((o, integer) -> {
+							if (integer > 1) globalCategoryOverlap.inc(o);
+						});
 					}
 				}
 			}
-			
-			calcualteAgreement(codingAnnotationStudy, globalCategoryCount, annotatorCategoryCount, globalCategoryOverlap);
+		}
+		
+		// Compute agreement
+		IAgreementMeasure agreement = calcualteAgreement(codingAnnotationStudy, globalCategoryCount, annotatorCategoryCount, globalCategoryOverlap);
+		
+		// Print the agreement for all categories
+		System.out.printf("\n" + pAgreementMeasure + " - " + pSetSelectionStrategy + "\nInter-annotator agreement for %d annotators: %s\n" +
+						"Category\tCount\tAgreement\n" +
+						"Overall\t%d\t%f\n",
+				annotatorList.size(), annotatorList.toString(), codingAnnotationStudy.getUnitCount(), agreement.calculateAgreement());
+		printStudyResultsAndStatistics((ICategorySpecificAgreement) agreement, globalCategoryCount, annotatorCategoryCount, categories, annotatorList);
+		
+		if (pPrintStatistics) {
+			printCategoryOverlap(globalCategoryOverlap);
 		}
 	}
 	
@@ -275,7 +373,7 @@ public class CodingIAACollectionProcessingEngine extends AbstractIAAEngine {
 	 * @param annotatorCategoryCount
 	 * @param globalCategoryOverlap
 	 */
-	void calcualteAgreement(SetCodingAnnotationStudy codingAnnotationStudy, CountMap<String> globalCategoryCount, HashMap<String, CountMap<String>> annotatorCategoryCount, CountMap<String> globalCategoryOverlap) {
+	IAgreementMeasure calcualteAgreement(SetCodingAnnotationStudy codingAnnotationStudy, CountMap<String> globalCategoryCount, HashMap<String, CountMap<String>> annotatorCategoryCount, CountMap<String> globalCategoryOverlap) {
 		// Choose the agreement measure method
 		IAgreementMeasure agreement;
 		switch (pAgreementMeasure) {
@@ -297,20 +395,11 @@ public class CodingIAACollectionProcessingEngine extends AbstractIAAEngine {
 				break;
 		}
 		
-		// Compute and print the agreement for all categories
-		System.out.printf("\n" + pAgreementMeasure + " - " + pSetSelectionStrategy + "\nInter-annotator agreement for %d annotators: %s\n" +
-						"Category\tCount\tAgreement\n" +
-						"Overall\t%d\t%f\n",
-				annotatorList.size(), annotatorList.toString(), codingAnnotationStudy.getUnitCount(), agreement.calculateAgreement());
-		printStudyResultsAndStatistics((ICategorySpecificAgreement) agreement, globalCategoryCount, annotatorCategoryCount, categories, annotatorList);
-		
-		if (pPrintStatistics) {
-			printGlobalCategoryOverlap(globalCategoryOverlap);
-		}
+		return agreement;
 	}
 	
-	void printGlobalCategoryOverlap(CountMap<String> globalCategoryOverlap) {
-		System.out.print("\nGlobal inter-annotator category overlap\nCategory\tCount\n");
+	private void printCategoryOverlap(CountMap<String> globalCategoryOverlap) {
+		System.out.print("\nInter-annotator category overlap\nCategory\tCount\n");
 		Optional<Integer> totalOverlap = globalCategoryOverlap.values().stream().reduce(Integer::sum);
 		System.out.printf("Total\t%d\n", totalOverlap.orElse(0));
 		for (String category : categories) {

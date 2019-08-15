@@ -86,6 +86,33 @@ public abstract class AbstractIAAEngine extends JCasConsumer_ImplBase {
 	)
 	Boolean pPrintStatistics;
 	
+	/**
+	 * Possible aggregation methods for the calculation of the inter-annotator agreement values.
+	 */
+	public static final String PARAM_MULTI_CAS_HANDLING = "pMultiCasHandling";
+	@ConfigurationParameter(
+			name = PARAM_MULTI_CAS_HANDLING,
+			mandatory = false,
+			defaultValue = COMBINED
+	)
+	String pMultiCasHandling;
+	
+	/**
+	 * {@link AbstractIAAEngine#PARAM_MULTI_CAS_HANDLING} choice. Process each of the CAS separately and output their
+	 * inter-annotator agreement.
+	 */
+	public static final String SEPARATE = "SEPARATE";
+	
+	/**
+	 * {@link AbstractIAAEngine#PARAM_MULTI_CAS_HANDLING} choice. Collect all annotations from each cas in a single study.
+	 */
+	public static final String COMBINED = "COMBINED";
+	
+	/**
+	 * {@link AbstractIAAEngine#PARAM_MULTI_CAS_HANDLING} choice. Process each and collect them into a single study afterwards.
+	 */
+	public static final String BOTH = "BOTH";
+	
 	protected ExtendedLogger logger;
 	
 	@Override

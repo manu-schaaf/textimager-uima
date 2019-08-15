@@ -5,6 +5,7 @@ import BIOfid.Utility.IndexingMap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
+import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
@@ -154,17 +155,13 @@ public class UnitizingIAACollectionProcessingEngine extends AbstractIAAEngine {
 			// Store the collected annotations units and update the document offset for final evaluation
 			annotationStudies.add(ImmutablePair.of(documentOffset.get(), perCasStudy.getUnits()));
 			documentOffset.getAndAdd(documentLength);
-
-//			// Compute and print the agreement for all categories
-//			KrippendorffAlphaUnitizingAgreement agreement = new KrippendorffAlphaUnitizingAgreement(perCasStudy);
-//			System.out.printf("\n%s\n" +
-//							"KrippendorffAlphaUnitizingAgreement\nInter-annotator agreement for %d annotators: %s\n" +
-//							"Category\tCount\tAgreement\n" +
-//							"Overall\t%d\t%f\n",
-//					DocumentMetaData.get(jCas).getDocumentUri(),
-//					annotatorIndex.size(), annotatorIndex.keySet().toString(), perCasStudy.getUnitCount(), agreement.calculateAgreement());
-//			// FIXME
-//			printStudyResults(agreement, categories, annotatorIndex.keySet());
+			
+			switch (pMultiCasHandling) {
+				case SEPARATE:
+				case BOTH:
+					aggregateSeparate(jCas, perCasStudy);
+					break;
+			}
 		} catch (CASException e) {
 			e.printStackTrace();
 		}
@@ -174,42 +171,85 @@ public class UnitizingIAACollectionProcessingEngine extends AbstractIAAEngine {
 	public void collectionProcessComplete() throws AnalysisEngineProcessException {
 		super.collectionProcessComplete();
 		if (annotatorIndex.size() > 1) {
-			UnitizingAnnotationStudy completeStudy = new UnitizingAnnotationStudy(annotatorIndex.size(), documentOffset.get());
-			CountMap<String> categoryCount = new CountMap<>();
-			HashMap<String, CountMap<String>> annotatorCategoryCount = new HashMap<>();
-			
-			// Initialize a CountMap for each annotator
-			for (String annotator : annotatorIndex.keySet()) {
-				annotatorCategoryCount.put(annotator, new CountMap<>());
+			switch (pMultiCasHandling) {
+				case SEPARATE:
+					return;
+				case BOTH:
+				case COMBINED:
+				default:
+					aggregateCollect();
+					break;
 			}
-			
-			// Iterate over all previously collected studies
-			for (ImmutablePair<Integer, Iterable<IUnitizingAnnotationUnit>> study : annotationStudies) {
-				int studyOffset = study.getLeft();
-				
-				// Add all annotation units from the study with correct offset
-				for (IUnitizingAnnotationUnit annotationUnit : study.getRight()) {
-					int id = annotationUnit.getRaterIdx();
-					long offset = annotationUnit.getOffset();
-					long length = annotationUnit.getLength();
-					String category = (String) annotationUnit.getCategory();
-					
-					completeStudy.addUnit(studyOffset + offset, length, id, category);
-					
-					// Update category counts
-					categoryCount.inc(category);
-					annotatorCategoryCount.get(annotatorIndex.getKey(id)).inc(category);
-				}
-			}
-			
-			// Compute and print the agreement for all categories
-			KrippendorffAlphaUnitizingAgreement agreement = new KrippendorffAlphaUnitizingAgreement(completeStudy);
-			System.out.printf("\nKrippendorffAlphaUnitizingAgreement\nInter-annotator agreement for %d annotators: %s\n" +
-							"Category\tCount\tAgreement\n" +
-							"Overall\t%d\t%f\n",
-					annotatorIndex.size(), annotatorIndex.keySet().toString(), completeStudy.getUnitCount(), agreement.calculateAgreement());
-			printStudyResultsAndStatistics(agreement, categoryCount, annotatorCategoryCount, categories, annotatorIndex.keySet());
 		}
+	}
+	
+	private void aggregateSeparate(JCas jCas, UnitizingAnnotationStudy completeStudy) {
+		// Iterate over all previously collected studies
+		CountMap<String> categoryCount = new CountMap<>();
+		HashMap<String, CountMap<String>> annotatorCategoryCount = new HashMap<>();
+		
+		// Initialize a CountMap for each annotator
+		for (String annotator : annotatorIndex.keySet()) {
+			annotatorCategoryCount.put(annotator, new CountMap<>());
+		}
+		
+		for (IUnitizingAnnotationUnit annotationUnit : completeStudy.getUnits()) {
+			int id = annotationUnit.getRaterIdx();
+			String category = (String) annotationUnit.getCategory();
+			
+			// Update category counts
+			categoryCount.inc(category);
+			annotatorCategoryCount.get(annotatorIndex.getKey(id)).inc(category);
+		}
+		
+		// Compute and print the agreement for all categories
+		KrippendorffAlphaUnitizingAgreement agreement = new KrippendorffAlphaUnitizingAgreement(completeStudy);
+		System.out.printf("\nKrippendorffAlphaUnitizingAgreement - %s\n" +
+						"Inter-annotator agreement for %d annotators: %s\n" +
+						"Category\tCount\tAgreement\n" +
+						"Overall\t%d\t%f\n",
+				DocumentMetaData.get(jCas).getDocumentTitle(),
+				annotatorIndex.size(), annotatorIndex.keySet().toString(),
+				completeStudy.getUnitCount(), agreement.calculateAgreement());
+		printStudyResultsAndStatistics(agreement, categoryCount, annotatorCategoryCount, categories, annotatorIndex.keySet());
+	}
+	
+	private void aggregateCollect() {
+		UnitizingAnnotationStudy completeStudy = new UnitizingAnnotationStudy(annotatorIndex.size(), documentOffset.get());
+		CountMap<String> categoryCount = new CountMap<>();
+		HashMap<String, CountMap<String>> annotatorCategoryCount = new HashMap<>();
+		
+		// Initialize a CountMap for each annotator
+		for (String annotator : annotatorIndex.keySet()) {
+			annotatorCategoryCount.put(annotator, new CountMap<>());
+		}
+		
+		// Iterate over all previously collected studies
+		for (ImmutablePair<Integer, Iterable<IUnitizingAnnotationUnit>> study : annotationStudies) {
+			int studyOffset = study.getLeft();
+			
+			// Add all annotation units from the study with correct offset
+			for (IUnitizingAnnotationUnit annotationUnit : study.getRight()) {
+				int id = annotationUnit.getRaterIdx();
+				long offset = annotationUnit.getOffset();
+				long length = annotationUnit.getLength();
+				String category = (String) annotationUnit.getCategory();
+				
+				completeStudy.addUnit(studyOffset + offset, length, id, category);
+				
+				// Update category counts
+				categoryCount.inc(category);
+				annotatorCategoryCount.get(annotatorIndex.getKey(id)).inc(category);
+			}
+		}
+		
+		// Compute and print the agreement for all categories
+		KrippendorffAlphaUnitizingAgreement agreement = new KrippendorffAlphaUnitizingAgreement(completeStudy);
+		System.out.printf("\nKrippendorffAlphaUnitizingAgreement\nInter-annotator agreement for %d annotators: %s\n" +
+						"Category\tCount\tAgreement\n" +
+						"Overall\t%d\t%f\n",
+				annotatorIndex.size(), annotatorIndex.keySet().toString(), completeStudy.getUnitCount(), agreement.calculateAgreement());
+		printStudyResultsAndStatistics(agreement, categoryCount, annotatorCategoryCount, categories, annotatorIndex.keySet());
 	}
 	
 }

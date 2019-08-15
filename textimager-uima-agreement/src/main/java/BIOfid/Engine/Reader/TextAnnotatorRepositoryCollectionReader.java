@@ -269,7 +269,7 @@ public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader
 					
 					// Download file
 					URL casURL = new URL(pTextAnnotatorUrl + "cas/" + uri + "?session=" + pSessionId);
-					utf8Path = Paths.get(sourceLocation, uri + ".xmi");
+					utf8Path = Paths.get(sourceLocation, documentName);
 					File utf8File = utf8Path.toFile();
 					try {
 						logger.debug(String.format("Downloading file %s..", casURL.toString()));
@@ -292,11 +292,19 @@ public class TextAnnotatorRepositoryCollectionReader extends CasCollectionReader
 						}
 						
 						if (JCasUtil.select(jCas, DocumentMetaData.class).size() == 0) {
-							DocumentMetaData documentMetaData = new DocumentMetaData(jCas);
+							DocumentMetaData documentMetaData = DocumentMetaData.create(jCas);
 							documentMetaData.setDocumentId(documentId);
 							documentMetaData.setDocumentUri(mongoUri);
 							documentMetaData.setDocumentTitle(documentName);
-							jCas.addFsToIndexes(documentMetaData);
+							jCas.addFsToIndexes(documentMetaData); // FIXME: is this still needed?
+						} else {
+							DocumentMetaData documentMetaData = DocumentMetaData.get(jCas);
+							if (documentMetaData.getDocumentUri() == null)
+								documentMetaData.setDocumentUri(mongoUri);
+							if (documentMetaData.getDocumentId() == null)
+								documentMetaData.setDocumentId(documentId);
+							if (documentMetaData.getDocumentTitle() == null)
+								documentMetaData.setDocumentTitle(documentName);
 						}
 						
 						// Delete old file
