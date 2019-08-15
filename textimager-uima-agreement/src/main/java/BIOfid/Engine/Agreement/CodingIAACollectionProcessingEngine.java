@@ -207,7 +207,7 @@ public class CodingIAACollectionProcessingEngine extends AbstractIAAEngine {
 			switch (pMultiCasHandling) {
 				case SEPARATE:
 				case BOTH:
-					aggregateSeparate(jCas, maxCasIndex, perViewAnnotationMap);
+					handleSeparate(jCas, maxCasIndex, perViewAnnotationMap);
 					break;
 			}
 			maxCasIndex += 1;
@@ -228,13 +228,13 @@ public class CodingIAACollectionProcessingEngine extends AbstractIAAEngine {
 				case BOTH:
 				case COMBINED:
 				default:
-					aggregateCollect();
+					handleCombined();
 					break;
 			}
 		}
 	}
 	
-	private void aggregateSeparate(JCas jCas, Integer casIndex, HashMap<String, HashMap<Integer, Set<String>>> perCasStudy) {
+	private void handleSeparate(JCas jCas, Integer casIndex, HashMap<String, HashMap<Integer, Set<String>>> perCasStudy) {
 		CountMap<String> globalCategoryCount = new CountMap<>();
 		HashMap<String, CountMap<String>> annotatorCategoryCount = new HashMap<>();
 		// Initialize a CountMap for each annotator
@@ -299,7 +299,7 @@ public class CodingIAACollectionProcessingEngine extends AbstractIAAEngine {
 		}
 	}
 	
-	private void aggregateCollect() {
+	private void handleCombined() {
 		CountMap<String> globalCategoryCount = new CountMap<>();
 		HashMap<String, CountMap<String>> annotatorCategoryCount = new HashMap<>();
 		// Initialize a CountMap for each annotator

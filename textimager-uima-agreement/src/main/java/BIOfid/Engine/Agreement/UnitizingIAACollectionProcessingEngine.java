@@ -159,7 +159,7 @@ public class UnitizingIAACollectionProcessingEngine extends AbstractIAAEngine {
 			switch (pMultiCasHandling) {
 				case SEPARATE:
 				case BOTH:
-					aggregateSeparate(jCas, perCasStudy);
+					handleSeparate(jCas, perCasStudy);
 					break;
 			}
 		} catch (CASException e) {
@@ -177,13 +177,13 @@ public class UnitizingIAACollectionProcessingEngine extends AbstractIAAEngine {
 				case BOTH:
 				case COMBINED:
 				default:
-					aggregateCollect();
+					handleCombined();
 					break;
 			}
 		}
 	}
 	
-	private void aggregateSeparate(JCas jCas, UnitizingAnnotationStudy completeStudy) {
+	private void handleSeparate(JCas jCas, UnitizingAnnotationStudy completeStudy) {
 		// Iterate over all previously collected studies
 		CountMap<String> categoryCount = new CountMap<>();
 		HashMap<String, CountMap<String>> annotatorCategoryCount = new HashMap<>();
@@ -214,7 +214,7 @@ public class UnitizingIAACollectionProcessingEngine extends AbstractIAAEngine {
 		printStudyResultsAndStatistics(agreement, categoryCount, annotatorCategoryCount, categories, annotatorIndex.keySet());
 	}
 	
-	private void aggregateCollect() {
+	private void handleCombined() {
 		UnitizingAnnotationStudy completeStudy = new UnitizingAnnotationStudy(annotatorIndex.size(), documentOffset.get());
 		CountMap<String> categoryCount = new CountMap<>();
 		HashMap<String, CountMap<String>> annotatorCategoryCount = new HashMap<>();
