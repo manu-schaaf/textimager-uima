@@ -3,6 +3,7 @@ package BIOfid.Engine.Agreement;
 import BIOfid.Utility.CountMap;
 import BIOfid.Utility.IndexingMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Streams;
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
@@ -53,13 +54,24 @@ public class CodingIAACollectionProcessingEngine extends AbstractIAAEngine {
 	 * <li>{@link SetSelectionStrategy#MAX}
 	 * </ul>
 	 */
-	public static final String PARAM_SET_SELECTION_STRATEGY = "pSetSelectionStrategy";
+	public static final String PARAM_SET_SELECTION_STRATEGY = "getParamSetSelectionStrategy";
 	@ConfigurationParameter(
 			name = PARAM_SET_SELECTION_STRATEGY,
 			defaultValue = "MAX",
 			description = "Parameter for the SetSelectionStrategy to use."
 	)
-	String pSetSelectionStrategy;
+	String getParamSetSelectionStrategy;
+	
+	/**
+	 * TODO:comment
+	 */
+	public static final String PARAM_ANNOTATE = "getParamAnnotate";
+	@ConfigurationParameter(
+			name = PARAM_ANNOTATE,
+			defaultValue = "false",
+			description = "Set true to enable token-level inter-annotator agreement annotation"
+	)
+	Boolean getParamAnnotate;
 	
 	// Agreement measure choices
 	/**
@@ -107,13 +119,13 @@ public class CodingIAACollectionProcessingEngine extends AbstractIAAEngine {
 	 * @see KrippendorffAlphaAgreement
 	 * @see PercentageAgreement
 	 */
-	public static final String PARAM_AGREEMENT_MEASURE = "pAgreementMeasure";
+	public static final String PARAM_AGREEMENT_MEASURE = "getParamAgreementMeasure";
 	@ConfigurationParameter(
 			name = PARAM_AGREEMENT_MEASURE,
 			defaultValue = KrippendorffAlphaAgreement,
 			description = "Parameter for the agreement measure the to use."
 	)
-	String pAgreementMeasure;
+	String getParamAgreementMeasure;
 	
 	@Override
 	public void process(JCas jCas) throws AnalysisEngineProcessException {
@@ -207,7 +219,7 @@ public class CodingIAACollectionProcessingEngine extends AbstractIAAEngine {
 			switch (pMultiCasHandling) {
 				case SEPARATE:
 				case BOTH:
-					handleSeparate(jCas, maxCasIndex, perViewAnnotationMap);
+					handleSeparate(jCas, perCasTokenCount.get(maxCasIndex), perViewAnnotationMap);
 					break;
 			}
 			maxCasIndex += 1;
@@ -234,7 +246,7 @@ public class CodingIAACollectionProcessingEngine extends AbstractIAAEngine {
 		}
 	}
 	
-	private void handleSeparate(JCas jCas, Integer casIndex, HashMap<String, HashMap<Integer, Set<String>>> perCasStudy) {
+	private void handleSeparate(JCas jCas, int tokenCount, HashMap<String, HashMap<Integer, Set<String>>> perCasStudy) {
 		CountMap<String> globalCategoryCount = new CountMap<>();
 		HashMap<String, CountMap<String>> annotatorCategoryCount = new HashMap<>();
 		// Initialize a CountMap for each annotator
@@ -242,9 +254,12 @@ public class CodingIAACollectionProcessingEngine extends AbstractIAAEngine {
 			annotatorCategoryCount.put(annotator, new CountMap<>());
 		}
 		
-		SetCodingAnnotationStudy codingAnnotationStudy = new SetCodingAnnotationStudy(annotatorList.size(), SetSelectionStrategy.valueOf(pSetSelectionStrategy));
+		// Per token lookup for the created annotation items
+		LinkedHashMap<Integer, ICodingAnnotationItem[]> tokenItemLookup = new LinkedHashMap<>();
+		
+		SetCodingAnnotationStudy codingAnnotationStudy = new SetCodingAnnotationStudy(annotatorList.size(), SetSelectionStrategy.valueOf(getParamSetSelectionStrategy));
 		CountMap<String> globalCategoryOverlap = new CountMap<>();
-		for (int tokenIndex = 0; tokenIndex < perCasTokenCount.get(casIndex); tokenIndex++) {
+		for (int tokenIndex = 0; tokenIndex < tokenCount; tokenIndex++) {
 			// Holds the sets of annotations for this token per annotator
 			ArrayList<Set<String>> perTokenAnnotations = new ArrayList<>();
 			CountMap<String> categoryOverlap = new CountMap<>();
@@ -271,7 +286,7 @@ public class CodingIAACollectionProcessingEngine extends AbstractIAAEngine {
 			}
 			if (any) {
 				// Add the annotations to the study
-				codingAnnotationStudy.addItemSetsAsArray(perTokenAnnotations.toArray(new Set[0]));
+				tokenItemLookup.put(tokenIndex, codingAnnotationStudy.addItemSetsAsArray(perTokenAnnotations.toArray(new Set[0])));
 				
 				// Increase the overlap count for each category with more than one vote
 				categoryOverlap.forEach((o, integer) -> {
@@ -279,7 +294,6 @@ public class CodingIAACollectionProcessingEngine extends AbstractIAAEngine {
 				});
 			}
 		}
-		
 		
 		// Compute agreement
 		IAgreementMeasure agreement = calcualteAgreement(codingAnnotationStudy, globalCategoryCount, annotatorCategoryCount, globalCategoryOverlap);
@@ -289,13 +303,50 @@ public class CodingIAACollectionProcessingEngine extends AbstractIAAEngine {
 						"Inter-annotator agreement for %d annotators: %s\n" +
 						"Category\tCount\tAgreement\n" +
 						"Overall\t%d\t%f\n",
-				pAgreementMeasure, pSetSelectionStrategy, DocumentMetaData.get(jCas).getDocumentTitle(),
+				getParamAgreementMeasure, getParamSetSelectionStrategy, DocumentMetaData.get(jCas).getDocumentTitle(),
 				annotatorList.size(), annotatorList.toString(),
 				codingAnnotationStudy.getUnitCount(), agreement.calculateAgreement());
 		printStudyResultsAndStatistics((ICategorySpecificAgreement) agreement, globalCategoryCount, annotatorCategoryCount, categories, annotatorList);
 		
 		if (pPrintStatistics) {
 			printCategoryOverlap(globalCategoryOverlap);
+		}
+		
+		// If set, create per token annotations in the given JCas
+		if (getParamAnnotate) {
+			createAgreementAnnotations(jCas, tokenItemLookup, (ICodingItemSpecificAgreement) agreement);
+		}
+	}
+	
+	private void createAgreementAnnotations(JCas jCas, LinkedHashMap<Integer, ICodingAnnotationItem[]> tokenItemLookup, ICodingItemSpecificAgreement agreement) {
+		try {
+			JCas viewIAA = JCasUtil.getView(jCas, "IAA", true);
+			viewIAA.removeAllIncludingSubtypes(Agreement.type);
+			
+			// Iterate over all tokens that have an entry in
+			LinkedList<Token> tokens = Lists.newLinkedList(JCasUtil.select(jCas, Token.class));
+			for (Integer tokenIndex : tokenItemLookup.keySet()) {
+				Token token = tokens.get(tokenIndex);
+				ICodingAnnotationItem[] iCodingAnnotationItems = tokenItemLookup.get(tokenIndex);
+				Double itemAgreementValue = Arrays.stream(iCodingAnnotationItems)
+						.map(agreement::calculateItemAgreement)
+						.reduce(Double::sum)
+						.orElse(0.0);
+				itemAgreementValue /= iCodingAnnotationItems.length;
+				
+				// Create agreement annotation and add to viewIAA indexes
+				int begin = token.getBegin();
+				int end = token.getEnd();
+				Agreement itemAgreement = new Agreement(viewIAA, begin, end);
+				itemAgreement.setAgreementValue(itemAgreementValue);
+				itemAgreement.setAgreementMeasure(getParamAgreementMeasure);
+				viewIAA.addFsToIndexes(itemAgreement);
+			}
+			
+			JCasUtil.select(viewIAA, Agreement.class).forEach(agr -> System.out.printf("%s@(%d,%d) {%f}\n",
+					agr.getCoveredText(), agr.getBegin(), agr.getEnd(), agr.getAgreementValue()));
+		} catch (Exception e) {
+			e.printStackTrace();
 		}
 	}
 	
@@ -307,7 +358,7 @@ public class CodingIAACollectionProcessingEngine extends AbstractIAAEngine {
 			annotatorCategoryCount.put(annotator, new CountMap<>());
 		}
 		
-		SetCodingAnnotationStudy codingAnnotationStudy = new SetCodingAnnotationStudy(annotatorList.size(), SetSelectionStrategy.valueOf(pSetSelectionStrategy));
+		SetCodingAnnotationStudy codingAnnotationStudy = new SetCodingAnnotationStudy(annotatorList.size(), SetSelectionStrategy.valueOf(getParamSetSelectionStrategy));
 		CountMap<String> globalCategoryOverlap = new CountMap<>();
 		for (int casIndex = 0; casIndex < maxCasIndex; casIndex++) {
 			if (perCasStudies.containsKey(casIndex) && perCasTokenCount.containsKey(casIndex)) { // FIXME: remove this check, as it is unnecessary
@@ -354,10 +405,13 @@ public class CodingIAACollectionProcessingEngine extends AbstractIAAEngine {
 		IAgreementMeasure agreement = calcualteAgreement(codingAnnotationStudy, globalCategoryCount, annotatorCategoryCount, globalCategoryOverlap);
 		
 		// Print the agreement for all categories
-		System.out.printf("\n" + pAgreementMeasure + " - " + pSetSelectionStrategy + "\nInter-annotator agreement for %d annotators: %s\n" +
+		System.out.printf("\n%s - %s\n" +
+						"Inter-annotator agreement for %d annotators: %s\n" +
 						"Category\tCount\tAgreement\n" +
 						"Overall\t%d\t%f\n",
-				annotatorList.size(), annotatorList.toString(), codingAnnotationStudy.getUnitCount(), agreement.calculateAgreement());
+				getParamAgreementMeasure, getParamSetSelectionStrategy,
+				annotatorList.size(), annotatorList.toString(),
+				codingAnnotationStudy.getUnitCount(), agreement.calculateAgreement());
 		printStudyResultsAndStatistics((ICategorySpecificAgreement) agreement, globalCategoryCount, annotatorCategoryCount, categories, annotatorList);
 		
 		if (pPrintStatistics) {
@@ -376,7 +430,7 @@ public class CodingIAACollectionProcessingEngine extends AbstractIAAEngine {
 	IAgreementMeasure calcualteAgreement(SetCodingAnnotationStudy codingAnnotationStudy, CountMap<String> globalCategoryCount, HashMap<String, CountMap<String>> annotatorCategoryCount, CountMap<String> globalCategoryOverlap) {
 		// Choose the agreement measure method
 		IAgreementMeasure agreement;
-		switch (pAgreementMeasure) {
+		switch (getParamAgreementMeasure) {
 			case "CohenKappaAgreement":
 				if (codingAnnotationStudy.getRaterCount() != 2) {
 					throw new UnsupportedOperationException(String.format("CohenKappaAgreement only supports exactly 2 annotators, not %d!", codingAnnotationStudy.getRaterCount()));
