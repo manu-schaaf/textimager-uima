@@ -76,7 +76,9 @@ public abstract class AbstractIAAEngine extends JCasConsumer_ImplBase {
 	protected Boolean pFilterFingerprinted;
 	
 	/**
-	 * If true, print annotation statistics
+	 * If true, print agreement and annotation statistics.
+	 * <br>
+	 * Default: true.
 	 */
 	public static final String PARAM_PRINT_STATS = "pPrintStatistics";
 	@ConfigurationParameter(
@@ -87,7 +89,12 @@ public abstract class AbstractIAAEngine extends JCasConsumer_ImplBase {
 	Boolean pPrintStatistics;
 	
 	/**
-	 * Possible aggregation methods for the calculation of the inter-annotator agreement values.
+	 * Possible aggregation methods for the calculation of the inter-annotator agreement values:
+	 * <ul>
+	 *     <li>{@link AbstractIAAEngine#SEPARATE AbstractIAAEngine.SEPARATE}</li>
+	 *     <li>{@link AbstractIAAEngine#COMBINED AbstractIAAEngine.COMBINED}</li>
+	 *     <li>{@link AbstractIAAEngine#BOTH AbstractIAAEngine.BOTH}</li>
+	 * </ul>
 	 */
 	public static final String PARAM_MULTI_CAS_HANDLING = "pMultiCasHandling";
 	@ConfigurationParameter(
@@ -183,26 +190,24 @@ public abstract class AbstractIAAEngine extends JCasConsumer_ImplBase {
 		System.out.println();
 		
 		// Print annotation statistics for each annotator and all categories
-		if (pPrintStatistics) {
-			System.out.print("Annotation statistics:\nAnnotator");
+		System.out.print("Annotation statistics:\nAnnotator");
+		for (String annotator : annotators) {
+			System.out.printf("\t#%s", annotator);
+		}
+		System.out.println();
+		
+		System.out.print("Total");
+		for (String annotator : annotators) {
+			System.out.printf("\t%d", annotatorCategoryCount.get(annotator).values().stream().reduce(Integer::sum).orElse(0));
+		}
+		System.out.println();
+		
+		for (String category : categories) {
+			System.out.printf("%s", category);
 			for (String annotator : annotators) {
-				System.out.printf("\t#%s", annotator);
+				System.out.printf("\t%d", annotatorCategoryCount.get(annotator).get(category));
 			}
 			System.out.println();
-			
-			System.out.print("Total");
-			for (String annotator : annotators) {
-				System.out.printf("\t%d", annotatorCategoryCount.get(annotator).values().stream().reduce(Integer::sum).orElse(0));
-			}
-			System.out.println();
-			
-			for (String category : categories) {
-				System.out.printf("%s", category);
-				for (String annotator : annotators) {
-					System.out.printf("\t%d", annotatorCategoryCount.get(annotator).get(category));
-				}
-				System.out.println();
-			}
 		}
 	}
 	

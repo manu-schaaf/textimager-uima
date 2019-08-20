@@ -140,7 +140,7 @@ public class ColumnPrinterEngine extends JCasAnnotator_ImplBase {
 								for (Token token : entry.getValue()) {
 									Integer index = tokenIndexingMap.get(token);
 									ArrayList<String> nes = neMap.getOrDefault(index, new ArrayList<>());
-									nes.add(ne.getType().getShortName());
+									nes.add(ne.getType().getName().replaceFirst("org.texttechnologylab.annotation.type.", ""));
 									neMap.put(index, nes);
 								}
 						}

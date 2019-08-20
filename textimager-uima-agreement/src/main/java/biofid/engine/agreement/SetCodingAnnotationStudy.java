@@ -54,9 +54,9 @@ public class SetCodingAnnotationStudy extends CodingAnnotationStudy {
 	
 	public ICodingAnnotationItem[] addItemSetsAsArray(Set<String>[] annotations) {
 		Set<List<String>> cartesianProduct = Sets.cartesianProduct(Lists.newArrayList(annotations));
+		ArrayList<ICodingAnnotationItem> items = new ArrayList<>();
 		switch (setSelectionStrategy) {
 			case ALL:
-				ArrayList<ICodingAnnotationItem> items = new ArrayList<>();
 				cartesianProduct.forEach(item -> items.add(this.addItemAsArray(getAnnotations(item))));
 				return items.toArray(new ICodingAnnotationItem[0]);
 			case MAX:
@@ -66,6 +66,25 @@ public class SetCodingAnnotationStudy extends CodingAnnotationStudy {
 				List<String> last = treeSet.last();
 				ICodingAnnotationItem maxAgreementItem = this.addItemAsArray(getAnnotations(last));
 				return new ICodingAnnotationItem[]{maxAgreementItem};
+			case MATCH:
+				ArrayList<HashSet<String>> annotationSets = new ArrayList<>();
+				HashSet<String> allAnnotations = Sets.newHashSet();
+				for (Set<String> stringSet : annotations) {
+					allAnnotations.addAll(stringSet);
+					annotationSets.add(Sets.newHashSet(stringSet));
+				}
+				for (String annotation : allAnnotations) {
+					ArrayList<String> item = new ArrayList<>();
+					for (int i = 0; i < annotationSets.size(); i++) item.add("");
+					
+					for (int i = 0; i < annotationSets.size(); i++) {
+						HashSet<String> annotationSet = annotationSets.get(i);
+						if (annotationSet.contains(annotation)) item.set(i, annotation);
+						annotationSet.remove(annotation);
+					}
+					items.add(this.addItemAsArray(getAnnotations(item)));
+				}
+				return items.toArray(new ICodingAnnotationItem[0]);
 		}
 	}
 	

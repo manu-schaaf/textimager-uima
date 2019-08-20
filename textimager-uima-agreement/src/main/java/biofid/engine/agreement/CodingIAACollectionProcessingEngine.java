@@ -1,6 +1,5 @@
 package biofid.engine.agreement;
 
-import biofid.engine.agreement.annotation.Agreement;
 import biofid.utility.CountMap;
 import biofid.utility.IndexingMap;
 import com.google.common.collect.ImmutableSet;
@@ -9,6 +8,7 @@ import com.google.common.collect.Streams;
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.uima.UimaContext;
 import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
 import org.apache.uima.cas.CASException;
 import org.apache.uima.fit.descriptor.ConfigurationParameter;
@@ -16,11 +16,13 @@ import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.jcas.cas.TOP;
 import org.apache.uima.jcas.tcas.Annotation;
+import org.apache.uima.resource.ResourceInitializationException;
 import org.dkpro.statistics.agreement.IAgreementMeasure;
 import org.dkpro.statistics.agreement.ICategorySpecificAgreement;
 import org.dkpro.statistics.agreement.coding.*;
 import org.dkpro.statistics.agreement.distance.NominalDistanceFunction;
 import org.texttechnologielab.annotation.type.Fingerprint;
+import org.texttechnologylab.iaa.Agreement;
 
 import java.util.*;
 import java.util.function.Predicate;
@@ -65,7 +67,16 @@ public class CodingIAACollectionProcessingEngine extends AbstractIAAEngine {
 	String pSetSelectionStrategy;
 	
 	/**
-	 * TODO:comment
+	 * Create per-token {@link Agreement} annotations in the given CAS.<br>
+	 * The annotations will be added to a view with the name "IAA". If the view does not exist, it will be created.
+	 * <p/>
+	 * <b>IMPORTANT:</b>
+	 * Requires chosen agreement measure to implement interface {@link ICodingItemSpecificAgreement}!
+	 * <br>
+	 * Currently supported measures:<ul>
+	 * <li>{@link CodingIAACollectionProcessingEngine#KrippendorffAlphaAgreement CodingInterAnnotatorAgreementEngine.KrippendorffAlphaAgreement}
+	 * <li>{@link CodingIAACollectionProcessingEngine#PercentageAgreement CodingInterAnnotatorAgreementEngine.PercentageAgreement}
+	 * </ul>
 	 */
 	public static final String PARAM_ANNOTATE = "pAnnotate";
 	@ConfigurationParameter(
@@ -73,7 +84,6 @@ public class CodingIAACollectionProcessingEngine extends AbstractIAAEngine {
 			defaultValue = "false",
 			description = "Set true to enable token-level inter-annotator agreement annotation"
 	)
-	private
 	Boolean pAnnotate;
 	
 	// Agreement measure choices
@@ -128,8 +138,17 @@ public class CodingIAACollectionProcessingEngine extends AbstractIAAEngine {
 			defaultValue = KrippendorffAlphaAgreement,
 			description = "Parameter for the agreement measure the to use."
 	)
-	private
 	String pAgreementMeasure;
+	
+	@Override
+	public void initialize(UimaContext context) throws ResourceInitializationException {
+		super.initialize(context);
+		if (pAnnotate && !(ImmutableSet.of(KrippendorffAlphaAgreement, PercentageAgreement).contains(pAgreementMeasure))) {
+			throw new ResourceInitializationException(new UnsupportedOperationException(
+					"PARAM_ANNOTATE is set 'true', but the chosen PARAM_AGREEMENT_MEASURE does not implement ICodingItemSpecificAgreement!"
+			));
+		}
+	}
 	
 	@Override
 	public void process(JCas jCas) throws AnalysisEngineProcessException {
@@ -231,11 +250,12 @@ public class CodingIAACollectionProcessingEngine extends AbstractIAAEngine {
 		}
 	}
 	
+	/**
+	 * Create a global study from all items if {@link CodingIAACollectionProcessingEngine#PARAM_MULTI_CAS_HANDLING PARAM_MULTI_CAS_HANDLING}
+	 * is either BOTH or COMBINED.
+	 */
 	@Override
 	public void collectionProcessComplete() throws AnalysisEngineProcessException {
-		super.collectionProcessComplete();
-		
-		// Create a global study from all items
 		if (annotatorList.size() > 1) {
 			switch (pMultiCasHandling) {
 				case SEPARATE:
@@ -301,22 +321,23 @@ public class CodingIAACollectionProcessingEngine extends AbstractIAAEngine {
 		// Compute agreement
 		IAgreementMeasure agreement = calcualteAgreement(codingAnnotationStudy, globalCategoryCount, annotatorCategoryCount, globalCategoryOverlap);
 		
-		// Print the agreement for all categories
-		System.out.printf("\n%s - %s - %s\n" +
-						"Inter-annotator agreement for %d annotators: %s\n" +
-						"Category\tCount\tAgreement\n" +
-						"Overall\t%d\t%f\n",
-				pAgreementMeasure, pSetSelectionStrategy, DocumentMetaData.get(jCas).getDocumentTitle(),
-				annotatorList.size(), annotatorList.toString(),
-				codingAnnotationStudy.getUnitCount(), agreement.calculateAgreement());
-		printStudyResultsAndStatistics((ICategorySpecificAgreement) agreement, globalCategoryCount, annotatorCategoryCount, categories, annotatorList);
-		
 		if (pPrintStatistics) {
+			// Print the agreement for all categories
+			System.out.printf("\n%s - %s - %s\n" +
+							"Inter-annotator agreement for %d annotators: %s\n" +
+							"Category\tCount\tAgreement\n" +
+							"Overall\t%d\t%f\n",
+					pAgreementMeasure, pSetSelectionStrategy, DocumentMetaData.get(jCas).getDocumentTitle(),
+					annotatorList.size(), annotatorList.toString(),
+					codingAnnotationStudy.getUnitCount(), agreement.calculateAgreement());
+			printStudyResultsAndStatistics((ICategorySpecificAgreement) agreement, globalCategoryCount, annotatorCategoryCount, categories, annotatorList);
 			printCategoryOverlap(globalCategoryOverlap);
 		}
 		
 		// If set, create per token annotations in the given JCas
 		if (pAnnotate) {
+			if (!(agreement instanceof ICodingItemSpecificAgreement))
+				logger.error(String.format(""));
 			createAgreementAnnotations(jCas, tokenItemLookup, (ICodingItemSpecificAgreement) agreement);
 		}
 	}
@@ -324,6 +345,8 @@ public class CodingIAACollectionProcessingEngine extends AbstractIAAEngine {
 	private void createAgreementAnnotations(JCas jCas, LinkedHashMap<Integer, ICodingAnnotationItem[]> tokenItemLookup, ICodingItemSpecificAgreement agreement) {
 		try {
 			JCas viewIAA = JCasUtil.getView(jCas, "IAA", true);
+			if (viewIAA.getDocumentText() == null)
+				viewIAA.setDocumentText(jCas.getDocumentText());
 			viewIAA.removeAllIncludingSubtypes(Agreement.type);
 			
 			// Iterate over all tokens that have an entry in
@@ -345,9 +368,6 @@ public class CodingIAACollectionProcessingEngine extends AbstractIAAEngine {
 				itemAgreement.setAgreementMeasure(pAgreementMeasure);
 				viewIAA.addFsToIndexes(itemAgreement);
 			}
-			
-			JCasUtil.select(viewIAA, Agreement.class).forEach(agr -> System.out.printf("%s@(%d,%d) {%f}\n",
-					agr.getCoveredText(), agr.getBegin(), agr.getEnd(), agr.getAgreementValue()));
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -406,18 +426,16 @@ public class CodingIAACollectionProcessingEngine extends AbstractIAAEngine {
 		
 		// Compute agreement
 		IAgreementMeasure agreement = calcualteAgreement(codingAnnotationStudy, globalCategoryCount, annotatorCategoryCount, globalCategoryOverlap);
-		
-		// Print the agreement for all categories
-		System.out.printf("\n%s - %s\n" +
-						"Inter-annotator agreement for %d annotators: %s\n" +
-						"Category\tCount\tAgreement\n" +
-						"Overall\t%d\t%f\n",
-				pAgreementMeasure, pSetSelectionStrategy,
-				annotatorList.size(), annotatorList.toString(),
-				codingAnnotationStudy.getUnitCount(), agreement.calculateAgreement());
-		printStudyResultsAndStatistics((ICategorySpecificAgreement) agreement, globalCategoryCount, annotatorCategoryCount, categories, annotatorList);
-		
 		if (pPrintStatistics) {
+			// Print the agreement for all categories
+			System.out.printf("\n%s - %s\n" +
+							"Inter-annotator agreement for %d annotators: %s\n" +
+							"Category\tCount\tAgreement\n" +
+							"Overall\t%d\t%f\n",
+					pAgreementMeasure, pSetSelectionStrategy,
+					annotatorList.size(), annotatorList.toString(),
+					codingAnnotationStudy.getUnitCount(), agreement.calculateAgreement());
+			printStudyResultsAndStatistics((ICategorySpecificAgreement) agreement, globalCategoryCount, annotatorCategoryCount, categories, annotatorList);
 			printCategoryOverlap(globalCategoryOverlap);
 		}
 	}

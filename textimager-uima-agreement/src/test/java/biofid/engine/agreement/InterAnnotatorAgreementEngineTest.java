@@ -41,7 +41,7 @@ public class InterAnnotatorAgreementEngineTest {
 			AggregateBuilder ab = new AggregateBuilder();
 			
 			// Test parameters
-			boolean filterFingerprinted = false;
+			boolean filterFingerprinted = true;
 			String[] annotationClasses = {NamedEntity.class.getName(), AbstractNamedEntity.class.getName()};
 			
 			ab.add(AnalysisEngineFactory.createEngineDescription(
@@ -52,17 +52,17 @@ public class InterAnnotatorAgreementEngineTest {
 					ColumnPrinterEngine.PARAM_ANNOTATOR_RELATION, ColumnPrinterEngine.WHITELIST,
 					ColumnPrinterEngine.PARAM_FILTER_FINGERPRINTED, filterFingerprinted
 			));
-
-//			ab.add(AnalysisEngineFactory.createEngineDescription(
-//					TTLabUnitizingIAACollectionProcessingEngine.class,
-//					TTLabUnitizingIAACollectionProcessingEngine.PARAM_ANNOTATION_CLASSES, annotationClasses,
-//					TTLabUnitizingIAACollectionProcessingEngine.PARAM_INCLUDE_FLAGS, new String[]{TTLabUnitizingIAACollectionProcessingEngine.METAPHOR, TTLabUnitizingIAACollectionProcessingEngine.METONYM},
-//					TTLabUnitizingIAACollectionProcessingEngine.PARAM_MIN_VIEWS, 2,
-//					TTLabUnitizingIAACollectionProcessingEngine.PARAM_ANNOTATOR_LIST, annotators,
-//					TTLabUnitizingIAACollectionProcessingEngine.PARAM_ANNOTATOR_RELATION, UnitizingIAACollectionProcessingEngine.WHITELIST,
-//					TTLabUnitizingIAACollectionProcessingEngine.PARAM_FILTER_FINGERPRINTED, filterFingerprinted,
-//					TTLabUnitizingIAACollectionProcessingEngine.PARAM_MULTI_CAS_HANDLING, TTLabUnitizingIAACollectionProcessingEngine.COMBINED
-//			));
+			
+			ab.add(AnalysisEngineFactory.createEngineDescription(
+					TTLabUnitizingIAACollectionProcessingEngine.class,
+					TTLabUnitizingIAACollectionProcessingEngine.PARAM_ANNOTATION_CLASSES, annotationClasses,
+					TTLabUnitizingIAACollectionProcessingEngine.PARAM_INCLUDE_FLAGS, new String[]{TTLabUnitizingIAACollectionProcessingEngine.METAPHOR, TTLabUnitizingIAACollectionProcessingEngine.METONYM},
+					TTLabUnitizingIAACollectionProcessingEngine.PARAM_MIN_VIEWS, 2,
+					TTLabUnitizingIAACollectionProcessingEngine.PARAM_ANNOTATOR_LIST, annotators,
+					TTLabUnitizingIAACollectionProcessingEngine.PARAM_ANNOTATOR_RELATION, UnitizingIAACollectionProcessingEngine.WHITELIST,
+					TTLabUnitizingIAACollectionProcessingEngine.PARAM_FILTER_FINGERPRINTED, filterFingerprinted,
+					TTLabUnitizingIAACollectionProcessingEngine.PARAM_MULTI_CAS_HANDLING, TTLabUnitizingIAACollectionProcessingEngine.SEPARATE
+			));
 			ab.add(AnalysisEngineFactory.createEngineDescription(
 					CodingIAACollectionProcessingEngine.class,
 					CodingIAACollectionProcessingEngine.PARAM_ANNOTATION_CLASSES, annotationClasses,
@@ -71,20 +71,20 @@ public class InterAnnotatorAgreementEngineTest {
 					CodingIAACollectionProcessingEngine.PARAM_ANNOTATOR_RELATION, CodingIAACollectionProcessingEngine.WHITELIST,
 					CodingIAACollectionProcessingEngine.PARAM_FILTER_FINGERPRINTED, filterFingerprinted,
 					CodingIAACollectionProcessingEngine.PARAM_AGREEMENT_MEASURE, CodingIAACollectionProcessingEngine.KrippendorffAlphaAgreement,
-					CodingIAACollectionProcessingEngine.PARAM_SET_SELECTION_STRATEGY, SetSelectionStrategy.ALL,
-					CodingIAACollectionProcessingEngine.PARAM_MULTI_CAS_HANDLING, CodingIAACollectionProcessingEngine.SEPARATE,
-					CodingIAACollectionProcessingEngine.PARAM_ANNOTATE, true
+					CodingIAACollectionProcessingEngine.PARAM_SET_SELECTION_STRATEGY, SetSelectionStrategy.MATCH,
+					CodingIAACollectionProcessingEngine.PARAM_MULTI_CAS_HANDLING, CodingIAACollectionProcessingEngine.SEPARATE
 			));
-//			ab.add(AnalysisEngineFactory.createEngineDescription(
-//					CodingIAACollectionProcessingEngine.class,
-//					CodingIAACollectionProcessingEngine.PARAM_ANNOTATION_CLASSES, annotationClasses,
-//					CodingIAACollectionProcessingEngine.PARAM_MIN_VIEWS, 2,
-//					CodingIAACollectionProcessingEngine.PARAM_ANNOTATOR_LIST, annotators,
-//					CodingIAACollectionProcessingEngine.PARAM_ANNOTATOR_RELATION, CodingIAACollectionProcessingEngine.WHITELIST,
-//					CodingIAACollectionProcessingEngine.PARAM_FILTER_FINGERPRINTED, filterFingerprinted,
-//					CodingIAACollectionProcessingEngine.PARAM_AGREEMENT_MEASURE, CodingIAACollectionProcessingEngine.KrippendorffAlphaAgreement,
-//					CodingIAACollectionProcessingEngine.PARAM_SET_SELECTION_STRATEGY, SetSelectionStrategy.MAX
-//			));
+			ab.add(AnalysisEngineFactory.createEngineDescription(
+					CodingIAACollectionProcessingEngine.class,
+					CodingIAACollectionProcessingEngine.PARAM_ANNOTATION_CLASSES, annotationClasses,
+					CodingIAACollectionProcessingEngine.PARAM_MIN_VIEWS, 2,
+					CodingIAACollectionProcessingEngine.PARAM_ANNOTATOR_LIST, annotators,
+					CodingIAACollectionProcessingEngine.PARAM_ANNOTATOR_RELATION, CodingIAACollectionProcessingEngine.WHITELIST,
+					CodingIAACollectionProcessingEngine.PARAM_FILTER_FINGERPRINTED, filterFingerprinted,
+					CodingIAACollectionProcessingEngine.PARAM_AGREEMENT_MEASURE, CodingIAACollectionProcessingEngine.KrippendorffAlphaAgreement,
+					CodingIAACollectionProcessingEngine.PARAM_SET_SELECTION_STRATEGY, SetSelectionStrategy.MAX,
+					CodingIAACollectionProcessingEngine.PARAM_MULTI_CAS_HANDLING, CodingIAACollectionProcessingEngine.SEPARATE
+			));
 			
 			SimplePipeline.runPipeline(collection, ab.createAggregate());
 		} catch (Exception e) {
