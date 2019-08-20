@@ -1,4 +1,4 @@
-package BIOfid.Utility;
+package biofid.utility;
 
 import org.apache.commons.collections4.bidimap.DualLinkedHashBidiMap;
 

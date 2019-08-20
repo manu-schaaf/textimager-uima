@@ -1,7 +1,7 @@
-package BIOfid.Engine;
+package biofid.engine;
 
-import BIOfid.Engine.Agreement.AbstractIAAEngine;
-import BIOfid.Utility.IndexingMap;
+import biofid.engine.agreement.AbstractIAAEngine;
+import biofid.utility.IndexingMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Streams;

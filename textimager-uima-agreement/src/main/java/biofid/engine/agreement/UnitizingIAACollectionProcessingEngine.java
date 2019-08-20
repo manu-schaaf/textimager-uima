@@ -1,7 +1,7 @@
-package BIOfid.Engine.Agreement;
+package biofid.engine.agreement;
 
-import BIOfid.Utility.CountMap;
-import BIOfid.Utility.IndexingMap;
+import biofid.utility.CountMap;
+import biofid.utility.IndexingMap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
@@ -71,7 +71,7 @@ public class UnitizingIAACollectionProcessingEngine extends AbstractIAAEngine {
 				String viewName = StringUtils.substringAfterLast(viewCas.getViewName().trim(), "/");
 				// Check for empty view name and correct listing
 				// If whitelisting (true), the name must be in the set; if blacklisting (false), it must not be in the set
-				if (StringUtils.isEmpty(viewName) || !(pWhitelisting == listedAnnotators.contains(viewName)))
+				if (StringUtils.isEmpty(viewName) || !(pRelation == listedAnnotators.contains(viewName)))
 					return;
 				annotatorIndex.add(viewName);
 				

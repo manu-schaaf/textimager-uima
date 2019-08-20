@@ -30,7 +30,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-import static BIOfid.Utility.Util.*;
+import static biofid.utility.Util.*;
 
 //import org.languagetool.JLanguageTool;
 

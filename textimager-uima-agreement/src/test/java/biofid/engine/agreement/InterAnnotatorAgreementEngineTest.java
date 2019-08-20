@@ -1,6 +1,8 @@
-import BIOfid.Engine.Agreement.CodingIAACollectionProcessingEngine;
-import BIOfid.Engine.Agreement.SetSelectionStrategy;
-import BIOfid.Engine.ColumnPrinterEngine;
+package biofid.engine.agreement;
+
+import biofid.engine.agreement.CodingIAACollectionProcessingEngine;
+import biofid.engine.agreement.SetSelectionStrategy;
+import biofid.engine.ColumnPrinterEngine;
 import de.tudarmstadt.ukp.dkpro.core.io.xmi.XmiReader;
 import org.apache.uima.collection.CollectionReader;
 import org.apache.uima.fit.factory.AggregateBuilder;

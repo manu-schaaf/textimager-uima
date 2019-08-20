@@ -1,4 +1,4 @@
-package BIOfid.Engine.Agreement;
+package biofid.engine.agreement;
 
 import org.apache.uima.jcas.JCas;
 import org.apache.uima.jcas.cas.TOP_Type;

@@ -1,7 +1,7 @@
 package BIOfid.BioEncoder;
 
 import BIOfid.ConllFeature.ConllFeatures;
-import BIOfid.Utility.CountMap;
+import biofid.utility.CountMap;
 import com.google.common.collect.Lists;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
 import org.apache.uima.UIMAException;

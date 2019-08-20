@@ -1,4 +1,4 @@
-package BIOfid.Utility;
+package biofid.utility;
 
 import BIOfid.OCR.FineReaderExportHandler;
 import com.google.common.base.Strings;

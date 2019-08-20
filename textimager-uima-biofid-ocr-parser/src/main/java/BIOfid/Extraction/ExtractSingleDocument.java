@@ -20,8 +20,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static BIOfid.Utility.Util.processDocument;
-import static BIOfid.Utility.Util.writeToFile;
+import static biofid.utility.Util.processDocument;
+import static biofid.utility.Util.writeToFile;
 import static java.lang.System.exit;
 import static org.apache.uima.fit.util.JCasUtil.*;
 

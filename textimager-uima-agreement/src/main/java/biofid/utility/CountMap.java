@@ -1,4 +1,4 @@
-package BIOfid.Utility;
+package biofid.utility;
 
 import java.util.Collection;
 import java.util.HashMap;

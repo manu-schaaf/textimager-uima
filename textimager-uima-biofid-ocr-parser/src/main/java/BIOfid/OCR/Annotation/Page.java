@@ -1,6 +1,6 @@
 package BIOfid.OCR.Annotation;
 
-import BIOfid.Utility.Util;
+import biofid.utility.Util;
 import org.apache.uima.jcas.JCas;
 import org.texttechnologylab.annotation.ocr.OCRPage;
 import org.xml.sax.Attributes;

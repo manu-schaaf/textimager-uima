@@ -1,4 +1,4 @@
-package BIOfid.Engine.Agreement;
+package biofid.engine.agreement;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;

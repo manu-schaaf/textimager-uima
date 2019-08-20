@@ -23,7 +23,7 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static BIOfid.Utility.Util.writeToFile;
+import static biofid.utility.Util.writeToFile;
 import static org.apache.uima.fit.util.JCasUtil.*;
 
 /**

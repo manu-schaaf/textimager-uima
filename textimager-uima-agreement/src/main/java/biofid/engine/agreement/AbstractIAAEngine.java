@@ -1,6 +1,6 @@
-package BIOfid.Engine.Agreement;
+package biofid.engine.agreement;
 
-import BIOfid.Utility.CountMap;
+import biofid.utility.CountMap;
 import com.google.common.collect.ImmutableSet;
 import org.apache.uima.UimaContext;
 import org.apache.uima.fit.component.JCasConsumer_ImplBase;
@@ -45,7 +45,7 @@ public abstract class AbstractIAAEngine extends JCasConsumer_ImplBase {
 			mandatory = false,
 			description = "Decides weather to white- to or blacklist the given annotators."
 	)
-	Boolean pWhitelisting;
+	Boolean pRelation;
 	public static final Boolean WHITELIST = true;
 	public static final Boolean BLACKLIST = false;
 	
@@ -57,7 +57,7 @@ public abstract class AbstractIAAEngine extends JCasConsumer_ImplBase {
 	/**
 	 * The minimal number of views in each CAS.
 	 */
-	public static final String PARAM_MIN_VIEWS = "pDiscardSingleView";
+	public static final String PARAM_MIN_VIEWS = "pMinViews";
 	@ConfigurationParameter(
 			name = PARAM_MIN_VIEWS,
 			mandatory = false,
@@ -145,7 +145,7 @@ public abstract class AbstractIAAEngine extends JCasConsumer_ImplBase {
 		}
 		logger.info("Computing inter-annotator agreement for subclasses of " + annotationClasses.toString());
 		if (!listedAnnotators.isEmpty()) {
-			logger.info(String.format("%s annotators with ids: " + listedAnnotators.toString(), pWhitelisting ? "Whitelisting" : "Blacklisting"));
+			logger.info(String.format("%s annotators with ids: " + listedAnnotators.toString(), pRelation ? "Whitelisting" : "Blacklisting"));
 		}
 	}
 	
