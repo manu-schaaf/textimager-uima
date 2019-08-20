@@ -1,7 +1,5 @@
 package biofid.engine.agreement;
 
-import biofid.engine.agreement.CodingIAACollectionProcessingEngine;
-import biofid.engine.agreement.SetSelectionStrategy;
 import biofid.engine.ColumnPrinterEngine;
 import de.tudarmstadt.ukp.dkpro.core.io.xmi.XmiReader;
 import org.apache.uima.collection.CollectionReader;

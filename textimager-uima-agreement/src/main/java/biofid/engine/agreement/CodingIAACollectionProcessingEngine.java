@@ -1,5 +1,6 @@
 package biofid.engine.agreement;
 
+import biofid.engine.agreement.annotation.Agreement;
 import biofid.utility.CountMap;
 import biofid.utility.IndexingMap;
 import com.google.common.collect.ImmutableSet;

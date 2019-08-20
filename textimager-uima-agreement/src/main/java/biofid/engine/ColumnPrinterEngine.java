@@ -30,8 +30,6 @@ import java.io.PrintWriter;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static org.apache.uima.fit.util.JCasUtil.indexCovered;
-import static org.apache.uima.fit.util.JCasUtil.select;
 
 public class ColumnPrinterEngine extends JCasAnnotator_ImplBase {
 	/**
@@ -135,7 +133,7 @@ public class ColumnPrinterEngine extends JCasAnnotator_ImplBase {
 							.collect(Collectors.toCollection(HashSet::new));
 					
 					for (Class<? extends Annotation> type : Lists.newArrayList(NamedEntity.class, AbstractNamedEntity.class)) {
-						Map<Annotation, Collection<Token>> neIndex = indexCovered(viewCas, type, Token.class);
+						Map<Annotation, Collection<Token>> neIndex = JCasUtil.indexCovered(viewCas, type, Token.class);
 						for (Map.Entry<Annotation, Collection<Token>> entry : neIndex.entrySet()) {
 							Annotation ne = entry.getKey();
 							if (!pFilterFingerprinted || fingerprinted.contains(ne))
