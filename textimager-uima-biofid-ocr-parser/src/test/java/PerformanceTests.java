@@ -6,8 +6,8 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.regex.Pattern;
 
-import static BioFID.Utility.Util.countMatches;
-import static BioFID.Utility.Util.tokenPattern;
+import static biofid.utility.Util.countMatches;
+import static biofid.utility.Util.tokenPattern;
 
 /**
  * Created on 26.02.2019.

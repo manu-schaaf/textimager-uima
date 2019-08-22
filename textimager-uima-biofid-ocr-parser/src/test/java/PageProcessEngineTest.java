@@ -1,4 +1,4 @@
-import BioFID.OCR.PageProcessEngine;
+import BIOfid.OCR.PageProcessEngine;
 import de.tudarmstadt.ukp.dkpro.core.api.anomaly.type.Anomaly;
 import de.tudarmstadt.ukp.dkpro.core.api.anomaly.type.SpellingAnomaly;
 import de.tudarmstadt.ukp.dkpro.core.api.ner.type.NamedEntity;
@@ -9,7 +9,7 @@ import org.apache.uima.analysis_engine.AnalysisEngineDescription;
 import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.pipeline.SimplePipeline;
 import org.apache.uima.jcas.JCas;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.*;
 import java.util.List;
@@ -18,8 +18,7 @@ import java.util.stream.Collectors;
 import static org.apache.uima.fit.factory.AnalysisEngineFactory.createEngineDescription;
 import static org.apache.uima.fit.util.JCasUtil.*;
 
-public class PageProcessEngineTest
-{
+public class PageProcessEngineTest {
 	
 	final boolean printAnnotations = true;
 	
@@ -93,36 +92,36 @@ public class PageProcessEngineTest
 		
 		// Pipeline
 		SimplePipeline.runPipeline(inputCas, pageParser);
-		
-		System.out.println();
-		System.out.flush();
+
+//		System.out.println();
+//		System.out.flush();
+//
+//		for (Chunk block : select(inputCas, Chunk.class)) {
+//			if (block.getChunkValue().equals("true")) {
+//				System.out.println(selectCovered(inputCas, Token.class, block).stream().map(Token::getText).collect(Collectors.joining("")));
+//			}
+//		}
+//
+//		System.out.println();
+//		System.out.flush();
 		
 		for (Chunk block : select(inputCas, Chunk.class)) {
-			if (block.getChunkValue().equals("true")) {
-				System.out.println(selectCovered(inputCas, Token.class, block).stream().map(Token::getText).collect(Collectors.joining("")));
-			}
-		}
-		
-		System.out.println();
-		System.out.flush();
-		
-		for (Chunk block : select(inputCas, Chunk.class)) {
-			System.out.printf("<Block valid:%s length:%d>\n", block.getChunkValue(), block.getEnd() - block.getBegin());
+			System.out.printf("<Block valid:%s length:%d></Block>\n", block.getChunkValue(), block.getEnd() - block.getBegin());
 //			for (Paragraph paragraph : selectCovered(inputCas, Paragraph.class, block)) {
 //				System.out.printf("<Paragraph length:%d>\n", paragraph.getEnd() - paragraph.getBegin());
 //				for (Sentence line : selectCovered(inputCas, Sentence.class, paragraph)) {
 //					System.out.printf("<Line length:%d>\n", line.getEnd() - line.getBegin());
-			for (Token token : selectCovered(inputCas, Token.class, block)) {
-				printToken(inputCas, token);
-			}
+//			for (Token token : selectCovered(inputCas, Token.class, block)) {
+//				printToken(inputCas, token);
+//			}
 //					System.out.println("</Line>");
 //					System.out.flush();
 //				}
 //				System.out.println("</Paragraph>");
 //				System.out.flush();
 //			}
-			System.out.println("</Block>");
-			System.out.flush();
+//			System.out.println("</Block>");
+//			System.out.flush();
 		}
 	}
 	
@@ -130,7 +129,7 @@ public class PageProcessEngineTest
 		List<Anomaly> anomalies = selectCovered(inputCas, Anomaly.class, token);
 		List<SpellingAnomaly> spellingAnomalies = selectCovered(inputCas, SpellingAnomaly.class, token);
 		
-		System.out.printf("%s", token.getText());
+		System.out.printf("%s", token.getCoveredText());
 		
 		if (!anomalies.isEmpty()) {
 			System.out.printf("\tAnomaly<%s>", anomalies.stream().map(Anomaly::getDescription).collect(Collectors.joining(";")));

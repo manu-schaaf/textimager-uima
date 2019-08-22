@@ -76,7 +76,7 @@
         <dependency>
             <groupId>org.texttechnologylab.annotation</groupId>
             <artifactId>typesystem</artifactId>
-            <version>1.3</version>
+            <version>1.6</version>
         </dependency>
         <dependency>
             <groupId>de.tudarmstadt.ukp.dkpro.core</groupId>

@@ -1,4 +1,4 @@
-import BioFID.OCR.PageProcessEngine;
+import BIOfid.OCR.PageProcessEngine;
 import com.google.common.base.Strings;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
 import de.tudarmstadt.ukp.dkpro.core.api.syntax.type.chunk.Chunk;
@@ -14,7 +14,7 @@ import java.nio.file.Paths;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-import static BioFID.Utility.Util.writeToFile;
+import static biofid.utility.Util.writeToFile;
 import static org.apache.uima.fit.factory.AnalysisEngineFactory.createEngineDescription;
 import static org.apache.uima.fit.util.JCasUtil.select;
 import static org.apache.uima.fit.util.JCasUtil.selectCovered;
@@ -33,7 +33,7 @@ public class PageProcessEngineExampleOut {
 	@Test
 	public void runExternal() {
 		String path = "src/test/out/4704355";
-		String pathname = "/home/s3676959/Documents/BioFID/Export/Botanische_Zeitschriften//4704355";
+		String pathname = "/home/s3676959/Documents/BIOfid/Export/Botanische_Zeitschriften//4704355";
 		run(path, pathname);
 	}
 
@@ -84,7 +84,7 @@ public class PageProcessEngineExampleOut {
 			final int[] tokenCount = {0};
 			for (Chunk block : select(inputCas, Chunk.class)) {
 				if (block.getChunkValue().equals("true")) {
-					selectCovered(inputCas, Token.class, block).stream().map(Token::getText).forEachOrdered(str ->
+					selectCovered(inputCas, Token.class, block).stream().map(Token::getCoveredText).forEachOrdered(str ->
 					{
 						finalText.append(str);
 						if (!str.equals(" ")) tokenCount[0]++;
