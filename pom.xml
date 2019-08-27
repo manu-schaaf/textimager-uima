@@ -49,9 +49,9 @@
         <!--        <module>textimager-uima-io</module>-->
         <!--<module>textimager-uima-fasttext</module>-->
         <!--        <module>textimager-uima-taxon-recognition</module>-->
-        <module>textimager-uima-biofid-stringbased-taxon-tagger</module>
         <module>textimager-uima-biofid-ocr-parser</module>
         <module>textimager-uima-conll-export</module>
         <module>textimager-uima-agreement</module>
+        <module>biofid-gazetteer</module>
     </modules>
 </project>

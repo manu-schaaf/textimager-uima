@@ -1,0 +1,3 @@
+[submodule "biofid-gazetteer"]
+	path = biofid-gazetteer
+	url = https://github.com/m-stoeckel/biofid-gazetteer.git
