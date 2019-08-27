@@ -2,7 +2,11 @@ package biofid.engine.agreement;
 
 import biofid.utility.CountMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Streams;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.uima.UimaContext;
+import org.apache.uima.cas.CAS;
+import org.apache.uima.cas.CASException;
 import org.apache.uima.fit.component.JCasConsumer_ImplBase;
 import org.apache.uima.fit.descriptor.ConfigurationParameter;
 import org.apache.uima.fit.internal.ExtendedLogger;
@@ -15,6 +19,7 @@ import org.jetbrains.annotations.NotNull;
 import org.texttechnologielab.annotation.type.Fingerprint;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Abstract base class for all inter-annotator agreement engines.
@@ -64,6 +69,19 @@ public abstract class AbstractIAAEngine extends JCasConsumer_ImplBase {
 			defaultValue = "2"
 	)
 	protected Integer pMinViews;
+	
+	/**
+	 * The minimal number of eligible annotations in each view. Set to -1 to disable the constraint.
+	 * <p/>
+	 * Default: 10
+	 */
+	public static final String PARAM_MIN_ANNOTATIONS = "pMinAnnotations";
+	@ConfigurationParameter(
+			name = PARAM_MIN_ANNOTATIONS,
+			mandatory = false,
+			defaultValue = "10"
+	)
+	protected Integer pMinAnnotations;
 	
 	/**
 	 * If true, only consider annotations coverd by a {@link Fingerprint}.
@@ -121,6 +139,8 @@ public abstract class AbstractIAAEngine extends JCasConsumer_ImplBase {
 	public static final String BOTH = "BOTH";
 	
 	protected ExtendedLogger logger;
+	long viewCount;
+	LinkedHashSet<String> validViewNames;
 	
 	@Override
 	public void initialize(UimaContext context) throws ResourceInitializationException {
@@ -198,7 +218,7 @@ public abstract class AbstractIAAEngine extends JCasConsumer_ImplBase {
 		
 		System.out.print("Total");
 		for (String annotator : annotators) {
-			System.out.printf("\t%d", annotatorCategoryCount.get(annotator).values().stream().reduce(Integer::sum).orElse(0));
+			System.out.printf("\t%d", annotatorCategoryCount.get(annotator).values().stream().reduce(Long::sum).orElse(0L));
 		}
 		System.out.println();
 		
@@ -213,5 +233,29 @@ public abstract class AbstractIAAEngine extends JCasConsumer_ImplBase {
 	
 	protected String getCatgoryName(Annotation annotation) {
 		return annotation.getType().getName();
+	}
+	
+	protected boolean isCasValid(JCas jCas) throws CASException {
+		// Ensure document has SOFA string
+		if (jCas.getDocumentText() == null || jCas.getDocumentText().isEmpty())
+			return false;
+		
+		
+		// Check for empty view name and correct listing
+		validViewNames = Streams.stream(jCas.getViewIterator())
+				.map(JCas::getViewName)
+				.filter(fullName -> {
+					// If whitelisting (true), the name must be in the set; if blacklisting (false), it must not be in the set
+					String viewName = StringUtils.substringAfterLast(fullName.trim(), "/");
+					return StringUtils.isNotEmpty(viewName) && pRelation == listedAnnotators.contains(viewName);
+				})
+				.collect(Collectors.toCollection(LinkedHashSet::new));
+		viewCount = validViewNames.size();
+		
+		// TODO: comment.
+		// If was set, ensure there are multiple views other than _InitialView
+		if (viewCount < pMinViews)
+			return false;
+		return true;
 	}
 }

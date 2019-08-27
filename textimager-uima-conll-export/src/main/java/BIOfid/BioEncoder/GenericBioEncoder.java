@@ -37,7 +37,7 @@ public abstract class GenericBioEncoder<T extends Annotation> {
 	 * Set false to use IOB-1 format.
 	 */
 	boolean useIOB2; // FIXME
-	TreeMap<Integer, TreeSet<T>> namedEntityByRank;
+	TreeMap<Long, TreeSet<T>> namedEntityByRank;
 	ArrayList<Integer> maxCoverageOrder;
 	public LinkedHashMap<Integer, Long> coverageCount;
 	
@@ -45,7 +45,7 @@ public abstract class GenericBioEncoder<T extends Annotation> {
 	private Comparator<Annotation> hierachialComparator = new Comparator<Annotation>() {
 		@Override
 		public int compare(Annotation o1, Annotation o2) {
-			int cmp = Integer.compare(namedEntityHierachy.get(o1), namedEntityHierachy.get(o2));
+			int cmp = Long.compare(namedEntityHierachy.get(o1), namedEntityHierachy.get(o2));
 			cmp = cmp != 0 ? cmp : Integer.compare(o1.getBegin(), o2.getBegin());
 			return cmp;
 		}
@@ -94,7 +94,7 @@ public abstract class GenericBioEncoder<T extends Annotation> {
 			}
 			
 			// Initialize the hierarchy
-			namedEntities.forEach(key -> namedEntityHierachy.put(key, 0));
+			namedEntities.forEach(key -> namedEntityHierachy.put(key, 0L));
 			
 			// Iterate over all NEs that are being covered by another NE
 			// and set their hierarchy level to their parents level + 1

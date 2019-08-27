@@ -4,7 +4,6 @@ import biofid.utility.CountMap;
 import biofid.utility.IndexingMap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
-import com.google.common.collect.Streams;
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
 import org.apache.commons.lang3.StringUtils;
@@ -49,30 +48,20 @@ public class UnitizingIAACollectionProcessingEngine extends AbstractIAAEngine {
 	@Override
 	public void process(JCas jCas) throws AnalysisEngineProcessException {
 		try {
-			// Ensure document has SOFA string
-			if (jCas.getDocumentText() == null || jCas.getDocumentText().isEmpty())
-				return;
-			
-			// If PARAM_DISCARD_SINGLE_VIEW was set, ensure there are multiple views other than _InitialView
-			long views = Streams.stream(jCas.getViewIterator())
-					.map(view -> StringUtils.substringAfterLast(view.getViewName().trim(), "/"))
-					.filter(StringUtils::isNotEmpty)
-					.count();
-			if (views < pMinViews)
-				return;
+			if (!isCasValid(jCas)) return;
 			
 			// Initialize study
 			int documentLength = JCasUtil.select(jCas, Token.class).size();
-			UnitizingAnnotationStudy perCasStudy = new UnitizingAnnotationStudy((int) views, documentLength);
+			UnitizingAnnotationStudy perCasStudy = new UnitizingAnnotationStudy((int) viewCount, documentLength);
+			
+			// Count all annotations for PARAM_MIN_ANNOTATIONS
+			CountMap<String> perViewAnnotationCount = new CountMap<>();
 			
 			// Iterate over all views
-			jCas.getViewIterator().forEachRemaining(viewCas -> {
+			for (String fullViewName : validViewNames) {
+				JCas viewCas = jCas.getView(fullViewName);
 				// Split user id from view name and get annotator index for this id. Discards "_InitialView"
-				String viewName = StringUtils.substringAfterLast(viewCas.getViewName().trim(), "/");
-				// Check for empty view name and correct listing
-				// If whitelisting (true), the name must be in the set; if blacklisting (false), it must not be in the set
-				if (StringUtils.isEmpty(viewName) || !(pRelation == listedAnnotators.contains(viewName)))
-					return;
+				String viewName = StringUtils.substringAfterLast(fullViewName.trim(), "/");
 				annotatorIndex.add(viewName);
 				
 				// Get all fingerprinted annotations
@@ -136,8 +125,10 @@ public class UnitizingIAACollectionProcessingEngine extends AbstractIAAEngine {
 							}
 						}
 						
-						if (end == Integer.MIN_VALUE || begin == Integer.MAX_VALUE)
+						if (end == Integer.MIN_VALUE || begin == Integer.MAX_VALUE) {
 							logger.error("Error during annotation boundary detection!");
+							continue;
+						}
 						
 						String category = getCatgoryName(annotation);
 						int length = end - begin + 1;
@@ -148,9 +139,18 @@ public class UnitizingIAACollectionProcessingEngine extends AbstractIAAEngine {
 								category
 						);
 						categories.add(category);
+						
+						perViewAnnotationCount.inc(viewName);
 					}
 				}
-			});
+			}
+			
+			// Check PARAM_MIN_ANNOTATIONS constraint
+			long min = annotatorIndex.keySet().stream()
+					.map(perViewAnnotationCount::get)
+					.min(Long::compareTo).orElse(0L);
+			if (min < pMinAnnotations)
+				return;
 			
 			// Store the collected annotations units and update the document offset for final evaluation
 			annotationStudies.add(ImmutablePair.of(documentOffset.get(), perCasStudy.getUnits()));

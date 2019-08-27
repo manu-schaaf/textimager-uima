@@ -4,7 +4,6 @@ import biofid.utility.CountMap;
 import biofid.utility.IndexingMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Streams;
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
 import org.apache.commons.lang3.StringUtils;
@@ -153,17 +152,7 @@ public class CodingIAACollectionProcessingEngine extends AbstractIAAEngine {
 	@Override
 	public void process(JCas jCas) throws AnalysisEngineProcessException {
 		try {
-			// Ensure document has SOFA string
-			if (jCas.getDocumentText() == null || jCas.getDocumentText().isEmpty())
-				return;
-			
-			// If PARAM_DISCARD_SINGLE_VIEW was set, ensure there are multiple views other than _InitialView
-			long views = Streams.stream(jCas.getViewIterator())
-					.map(view -> StringUtils.substringAfterLast(view.getViewName().trim(), "/"))
-					.filter(StringUtils::isNotEmpty)
-					.count();
-			if (views < pMinViews)
-				return;
+			if (!isCasValid(jCas)) return;
 			
 			// Count all not sub-tokens
 			int tokenCount = (int) JCasUtil.select(jCas, Token.class).stream()
@@ -176,15 +165,15 @@ public class CodingIAACollectionProcessingEngine extends AbstractIAAEngine {
 					.count();
 			perCasTokenCount.put(maxCasIndex, tokenCount);
 			
+			// Count all annotations for PARAM_MIN_ANNOTATIONS
+			CountMap<String> perViewAnnotationCount = new CountMap<>();
+			
 			// Iterate over all views
 			HashMap<String, HashMap<Integer, Set<String>>> perViewAnnotationMap = new HashMap<>();
-			jCas.getViewIterator().forEachRemaining(viewCas -> {
+			for (String fullViewName : validViewNames) {
+				JCas viewCas = jCas.getView(fullViewName);
 				// Split user id from view name and get annotator index for this id. Discards "_InitialView"
-				String viewName = StringUtils.substringAfterLast(viewCas.getViewName().trim(), "/");
-				// Check for empty view name and correct listing
-				// If whitelisting (true), the name must be in the set; if blacklisting (false), it must not be in the set
-				if (StringUtils.isEmpty(viewName) || !(pRelation == listedAnnotators.contains(viewName)))
-					return;
+				String viewName = StringUtils.substringAfterLast(fullViewName.trim(), "/");
 				annotatorList.add(viewName);
 				
 				// Get all fingerprinted annotations
@@ -227,12 +216,21 @@ public class CodingIAACollectionProcessingEngine extends AbstractIAAEngine {
 									Set<String> categorySet = currentViewAnnotationMap.getOrDefault(index, new HashSet<>());
 									categorySet.add(category);
 									currentViewAnnotationMap.put(index, categorySet);
+									
+									perViewAnnotationCount.inc(viewName);
 								}
 							}
 						}
 					}
 				}
-			});
+			}
+			
+			// Check PARAM_MIN_ANNOTATIONS constraint
+			long min = annotatorList.stream()
+					.map(perViewAnnotationCount::get)
+					.min(Long::compareTo).orElse(0L);
+			if (min < pMinAnnotations)
+				return;
 			
 			// After all views have been processed, add the perViewAnnotationMap to perCasStudies
 			perCasStudies.put(maxCasIndex, perViewAnnotationMap); // FIXME: Refactor this with the token count into an object?
@@ -475,10 +473,10 @@ public class CodingIAACollectionProcessingEngine extends AbstractIAAEngine {
 	
 	private void printCategoryOverlap(CountMap<String> globalCategoryOverlap) {
 		System.out.print("\nInter-annotator category overlap\nCategory\tCount\n");
-		Optional<Integer> totalOverlap = globalCategoryOverlap.values().stream().reduce(Integer::sum);
-		System.out.printf("Total\t%d\n", totalOverlap.orElse(0));
+		Optional<Long> totalOverlap = globalCategoryOverlap.values().stream().reduce(Long::sum);
+		System.out.printf("Total\t%d\n", totalOverlap.orElse(0L));
 		for (String category : categories) {
-			System.out.printf("%s\t%d\n", category, globalCategoryOverlap.getOrDefault(category, 0));
+			System.out.printf("%s\t%d\n", category, globalCategoryOverlap.getOrDefault(category, 0L));
 		}
 	}
 	

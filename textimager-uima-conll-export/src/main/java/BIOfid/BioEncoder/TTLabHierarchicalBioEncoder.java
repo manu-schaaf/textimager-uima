@@ -105,7 +105,7 @@ public class TTLabHierarchicalBioEncoder extends GenericBioEncoder<Annotation> {
 			}
 			
 			// Initialize the hierarchy
-			flattenedNamedEntities.forEach(key -> namedEntityHierachy.put(key, 0));
+			flattenedNamedEntities.forEach(key -> namedEntityHierachy.put(key, 0L));
 			
 			// Iterate over all NEs that are being covered by another NE
 			// and set their hierarchy level to their parents level + 1
