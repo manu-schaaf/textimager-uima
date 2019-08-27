@@ -1,3 +1,6 @@
 [submodule "biofid-gazetteer"]
 	path = biofid-gazetteer
 	url = https://github.com/m-stoeckel/biofid-gazetteer.git
+[submodule "agreement"]
+	path = agreement
+	url = https://github.com/m-stoeckel/agreement.git
