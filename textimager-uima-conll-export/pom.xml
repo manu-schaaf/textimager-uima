@@ -141,7 +141,7 @@
         </dependency>
         <dependency>
             <groupId>org.hucompute.textimager.uima</groupId>
-            <artifactId>textimager-uima-agreement</artifactId>
+            <artifactId>biofid-agreement</artifactId>
             <version>0.0.1-SNAPSHOT</version>
             <scope>compile</scope>
         </dependency>
