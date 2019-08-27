@@ -52,5 +52,6 @@
         <module>textimager-uima-biofid-ocr-parser</module>
         <module>textimager-uima-conll-export</module>
         <module>biofid-gazetteer</module>
+        <module>biofid-agreement</module>
     </modules>
 </project>

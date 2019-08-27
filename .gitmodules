@@ -4,3 +4,6 @@
 [submodule "agreement"]
 	path = agreement
 	url = https://github.com/m-stoeckel/agreement.git
+[submodule "biofid-agreement"]
+	path = biofid-agreement
+	url = https://github.com/m-stoeckel/biofid-agreement.git
