@@ -1,9 +1,10 @@
 package BIOfid.BioEncoder;
 
 import BIOfid.ConllFeature.ConllFeatures;
-import biofid.utility.CountMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
+import org.apache.commons.collections4.bidimap.DualLinkedHashBidiMap;
 import org.apache.uima.UIMAException;
 import org.apache.uima.cas.CASException;
 import org.apache.uima.fit.factory.JCasFactory;
@@ -16,6 +17,7 @@ import org.texttechnologielab.annotation.type.Fingerprint;
 import org.texttechnologylab.annotation.AbstractNamedEntity;
 import org.texttechnologylab.annotation.NamedEntity;
 import org.texttechnologylab.annotation.type.Other;
+import org.texttechnologylab.utilities.collections.CountMap;
 
 import java.util.*;
 import java.util.function.Function;
@@ -50,12 +52,15 @@ public abstract class GenericBioEncoder<T extends Annotation> {
 			return cmp;
 		}
 	};
+	final ImmutableSet<String> annotatorSet;
+	final boolean annotatorRelation;
 	
-	protected GenericBioEncoder(JCas jCas, boolean pFilterFingerprinted) {
-		this(jCas, false, new ArrayList<>());
+	
+	protected GenericBioEncoder(JCas jCas, boolean pFilterFingerprinted, ImmutableSet<String> annotatorSet) {
+		this(jCas, false, new ArrayList<>(), annotatorSet, true);
 	}
 	
-	GenericBioEncoder(JCas jCas, boolean pFilterFingerprinted, ArrayList<Class<? extends Annotation>> forceAnnotations) {
+	GenericBioEncoder(JCas jCas, boolean pFilterFingerprinted, ArrayList<Class<? extends Annotation>> forceAnnotations, ImmutableSet<String> annotatorSet, boolean annotatorRelation) {
 		this.jCas = jCas;
 		this.hierachialTokenNamedEntityMap = new HashMap<>();
 		this.namedEntityHierachy = new CountMap<>();
@@ -64,6 +69,8 @@ public abstract class GenericBioEncoder<T extends Annotation> {
 		this.filterFingerprinted = pFilterFingerprinted;
 		this.forceAnnotations = forceAnnotations;
 		this.tokenIndexMap = new TreeMap<>();
+		this.annotatorSet = annotatorSet;
+		this.annotatorRelation = annotatorRelation;
 	}
 	
 	
@@ -143,9 +150,22 @@ public abstract class GenericBioEncoder<T extends Annotation> {
 		CasCopier.copyCas(jCas.getCas(), mergedCas.getCas(), true, true);
 		
 		jCas.getViewIterator().forEachRemaining(viewCas -> {
-			for (T namedEntity : select(viewCas, type)) {
-				Annotation nean = (Annotation) mergedCas.getCas().createAnnotation(namedEntity.getType(), namedEntity.getBegin(), namedEntity.getEnd());
-				nean.addToIndexes();
+			if (annotatorRelation == annotatorSet.contains(viewCas.getViewName())) {
+				DualLinkedHashBidiMap<TOP, TOP> addressMap = new DualLinkedHashBidiMap<>();
+				for (T oAnnotation : select(viewCas, type)) {
+					Annotation nAnnotation = (Annotation) mergedCas.getCas().createAnnotation(oAnnotation.getType(), oAnnotation.getBegin(), oAnnotation.getEnd());
+					addressMap.put(oAnnotation, nAnnotation);
+					nAnnotation.addToIndexes();
+				}
+				// FIXME: Features such as value or identifiers are not copied in this generic version!
+				for (Fingerprint oFingerprint : select(viewCas, Fingerprint.class)) {
+					Fingerprint nFingerprint = new Fingerprint(mergedCas);
+					nFingerprint.setReference(addressMap.get(oFingerprint.getReference()));
+					nFingerprint.setCreate(oFingerprint.getCreate());
+					nFingerprint.setUser(oFingerprint.getUser());
+					
+					nFingerprint.addToIndexes();
+				}
 			}
 		});
 	}
@@ -387,7 +407,12 @@ public abstract class GenericBioEncoder<T extends Annotation> {
 			features.isAbstract(false);
 			features.isMetaphor(ne.getMetaphor());
 		} else if (namedEntity instanceof de.tudarmstadt.ukp.dkpro.core.api.ner.type.NamedEntity) {
-			features.name(((de.tudarmstadt.ukp.dkpro.core.api.ner.type.NamedEntity) namedEntity).getValue());
+			String value = ((de.tudarmstadt.ukp.dkpro.core.api.ner.type.NamedEntity) namedEntity).getValue();
+			if (value == null) {
+				features.name(namedEntity.getType().getShortName().substring(0, 3).toUpperCase()); // FIXME
+			} else {
+				features.name(value);
+			}
 		} else if (namedEntity instanceof org.texttechnologielab.annotation.type.TexttechnologyNamedEntity) {
 			features.name(((org.texttechnologielab.annotation.type.TexttechnologyNamedEntity) namedEntity).getValue());
 		} else {
@@ -419,11 +444,13 @@ public abstract class GenericBioEncoder<T extends Annotation> {
 		ArrayList<String> retList = new ArrayList<>();
 		
 		ArrayList<ConllFeatures> neList;
+		ArrayList<ConllFeatures> conllFeatures = hierachialTokenNamedEntityMap.get(token);
+		if (conllFeatures == null) return retList;
 		switch (strategy) {
 			default:
 			case TopFirstBottomUp: /// FIXME
 			case TopDown:
-				neList = new ArrayList<>(hierachialTokenNamedEntityMap.get(token));
+				neList = new ArrayList<>(conllFeatures);
 				if (neList.isEmpty())
 					break;
 				retList.addAll(neList.get(0).build());
@@ -432,12 +459,12 @@ public abstract class GenericBioEncoder<T extends Annotation> {
 //				retList = new ArrayList<>(hierachialTokenNamedEntityMap.get(token));
 //				break;
 			case BottomUp:
-				retList = Lists.reverse(hierachialTokenNamedEntityMap.get(token)).get(0).build();
+				retList = Lists.reverse(conllFeatures).get(0).build();
 				break;
 			case MaxCoverage:
 				Integer index = maxCoverageOrder.get(0);
 				try {
-					retList = hierachialTokenNamedEntityMap.get(token).get(index).build();
+					retList = conllFeatures.get(index).build();
 				} catch (NullPointerException e) {
 					e.printStackTrace();
 				}

@@ -8,8 +8,6 @@ import org.apache.uima.fit.factory.AggregateBuilder;
 import org.apache.uima.fit.factory.AnalysisEngineFactory;
 import org.apache.uima.fit.factory.CollectionReaderFactory;
 import org.apache.uima.fit.pipeline.SimplePipeline;
-import org.texttechnologylab.annotation.AbstractNamedEntity;
-import org.texttechnologylab.annotation.NamedEntity;
 
 /**
  * Created on 28.01.2019.
@@ -38,8 +36,7 @@ public class ExtractConllFromFile {
 						XmiReader.class,
 						XmiReader.PARAM_SOURCE_LOCATION, inPath,
 						XmiReader.PARAM_PATTERNS, "*.xmi",
-						XmiReader.PARAM_LENIENT, true,
-						XmiReader.PARAM_LOG_FREQ, 0 // FIXME
+						XmiReader.PARAM_LENIENT, true
 				);
 				
 				AggregateBuilder ab = new AggregateBuilder();

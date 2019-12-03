@@ -4,6 +4,8 @@ import BIOfid.BioEncoder.DKProHierarchicalBioEncoder;
 import BIOfid.BioEncoder.GenericBioEncoder;
 import BIOfid.BioEncoder.TTLabHierarchicalBioEncoder;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableSet;
+import com.sun.istack.internal.NotNull;
 import de.tudarmstadt.ukp.dkpro.core.api.lexmorph.type.pos.POS;
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import de.tudarmstadt.ukp.dkpro.core.api.parameter.ComponentParameters;
@@ -17,7 +19,6 @@ import org.apache.uima.analysis_engine.AnalysisEngineProcessException;
 import org.apache.uima.fit.component.JCasAnnotator_ImplBase;
 import org.apache.uima.fit.descriptor.ConfigurationParameter;
 import org.apache.uima.jcas.JCas;
-import org.jetbrains.annotations.NotNull;
 
 import java.io.*;
 import java.nio.file.Files;
@@ -43,7 +44,7 @@ public class ConllBIO2003Writer extends JCasAnnotator_ImplBase {
 	private String targetLocation;
 	
 	public static final String PARAM_TARGET_ENCODING = ComponentParameters.PARAM_TARGET_ENCODING;
-	@ConfigurationParameter(name = PARAM_TARGET_ENCODING, mandatory = true, defaultValue = ComponentParameters.DEFAULT_ENCODING)
+	@ConfigurationParameter(name = PARAM_TARGET_ENCODING, mandatory = true, defaultValue = "UTF-8")
 	private String targetEncoding;
 	
 	public static final String PARAM_OVERWRITE = "targetOverwrite";
@@ -117,6 +118,19 @@ public class ConllBIO2003Writer extends JCasAnnotator_ImplBase {
 	@ConfigurationParameter(name = PARAM_USE_TTLAB_TYPESYSTEM, mandatory = false, defaultValue = "false")
 	private Boolean pUseTTLabTypesystem;
 	
+	public static final String PARAM_ANNOTATOR_LIST = "pAnnotatorList";
+	@ConfigurationParameter(name = PARAM_ANNOTATOR_LIST, mandatory = false, defaultValue = "",
+			description = "Array of view names that should be considered during view merge..")
+	private String[] pAnnotatorList;
+	
+	public static final String PARAM_ANNOTATOR_RELATION = "pAnnotatorRelation";
+	@ConfigurationParameter(name = PARAM_ANNOTATOR_RELATION, mandatory = false, defaultValue = "true",
+			description = "Decides weather to white- to or blacklist the given annotators. Default: ConllBIO2003Writer.WHITELIST"
+	)
+	private Boolean pAnnotatorRelation;
+	public static boolean WHITELIST = true;
+	public static boolean BLACKLIST = false;
+	
 	// End of AnalysisComponent parameters
 	
 	@Override
@@ -125,9 +139,9 @@ public class ConllBIO2003Writer extends JCasAnnotator_ImplBase {
 			try (PrintWriter conllWriter = getPrintWriter(aJCas, filenameSuffix)) {
 				GenericBioEncoder hierarchicalBioEncoder;
 				if (pUseTTLabTypesystem) {
-					hierarchicalBioEncoder = new TTLabHierarchicalBioEncoder(aJCas, pFilterFingerprinted);
+					hierarchicalBioEncoder = new TTLabHierarchicalBioEncoder(aJCas, pFilterFingerprinted, ImmutableSet.copyOf(pAnnotatorList), pAnnotatorRelation);
 				} else {
-					hierarchicalBioEncoder = new DKProHierarchicalBioEncoder(aJCas, pFilterFingerprinted);
+					hierarchicalBioEncoder = new DKProHierarchicalBioEncoder(aJCas, pFilterFingerprinted, ImmutableSet.copyOf(pAnnotatorList), pAnnotatorRelation);
 				}
 				
 				for (Sentence sentence : select(aJCas, Sentence.class)) {
@@ -202,7 +216,7 @@ public class ConllBIO2003Writer extends JCasAnnotator_ImplBase {
 	}
 	
 	private String getFileName(JCas aJCas) {
-		DocumentMetaData meta = new DocumentMetaData(aJCas);
+		DocumentMetaData meta = DocumentMetaData.get(aJCas);
 		String path = meta.getDocumentId() == null || meta.getDocumentId().isEmpty() ? StringUtils.substringAfterLast(meta.getDocumentUri(), "/") : meta.getDocumentId();
 		return path.replaceAll("\\.xmi", "");
 	}

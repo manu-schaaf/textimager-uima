@@ -1,24 +1,26 @@
-import BIOfid.Extraction.ConllBIO2003Writer;
 import BIOfid.BioEncoder.DKProHierarchicalBioEncoder;
+import BIOfid.Extraction.ConllBIO2003Writer;
+import com.google.common.collect.Lists;
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import de.tudarmstadt.ukp.dkpro.core.api.ner.type.Location;
 import de.tudarmstadt.ukp.dkpro.core.api.ner.type.Organization;
 import de.tudarmstadt.ukp.dkpro.core.api.ner.type.Person;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Sentence;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
+import de.tudarmstadt.ukp.dkpro.core.io.xmi.XmiReader;
 import org.apache.uima.UIMAException;
 import org.apache.uima.analysis_engine.AnalysisEngine;
+import org.apache.uima.collection.CollectionReader;
 import org.apache.uima.fit.factory.AnalysisEngineFactory;
+import org.apache.uima.fit.factory.CollectionReaderFactory;
 import org.apache.uima.fit.factory.JCasFactory;
-import org.apache.uima.fit.util.CasIOUtil;
+import org.apache.uima.fit.pipeline.SimplePipeline;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
-import org.jetbrains.annotations.NotNull;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import org.junit.Test;
 
-import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 
 public class ConllBIO2003WriterTest {
 	
@@ -29,20 +31,21 @@ public class ConllBIO2003WriterTest {
 			
 			DKProHierarchicalBioEncoder encoder = new DKProHierarchicalBioEncoder(jCas, false);
 			
-			for (Token token : JCasUtil.select(jCas, Token.class)) {
-				System.out.printf("%s %s\n", token.getCoveredText(), encoder.getFeatures(token, 0));
+			ArrayList<Token> tokens = Lists.newArrayList(JCasUtil.select(jCas, Token.class));
+			for (int i = 0; i < tokens.size(); i++) {
+				System.out.printf("%s %s\n", tokens.get(i).getCoveredText(), encoder.getFeatures(i, 0));
 			}
 			System.out.println();
-			for (Token token : JCasUtil.select(jCas, Token.class)) {
-				System.out.printf("%s %s\n", token.getCoveredText(), encoder.getFeatures(token, 1));
+			for (int i = 0; i < tokens.size(); i++) {
+				System.out.printf("%s %s\n", tokens.get(i).getCoveredText(), encoder.getFeatures(i, 1));
 			}
 			System.out.println();
-			for (Token token : JCasUtil.select(jCas, Token.class)) {
-				System.out.printf("%s %s\n", token.getCoveredText(), encoder.getFeatures(token, 2));
+			for (int i = 0; i < tokens.size(); i++) {
+				System.out.printf("%s %s\n", tokens.get(i).getCoveredText(), encoder.getFeatures(i, 2));
 			}
 			System.out.println();
-			for (Token token : JCasUtil.select(jCas, Token.class)) {
-				System.out.printf("%s %s\n", token.getCoveredText(), encoder.getFeatures(token, 3));
+			for (int i = 0; i < tokens.size(); i++) {
+				System.out.printf("%s %s\n", tokens.get(i).getCoveredText(), encoder.getFeatures(i, 3));
 			}
 			System.out.println();
 		} catch (UIMAException e) {
@@ -73,7 +76,6 @@ public class ConllBIO2003WriterTest {
 	}
 	
 	@Test
-	@DisplayName("Single Column Test")
 	public void singleColumn() {
 		try {
 			JCas jCas = getjCas();
@@ -98,23 +100,36 @@ public class ConllBIO2003WriterTest {
 	@Test
 	public void exampleFile() {
 		try {
-			JCas jCas = JCasFactory.createJCas();
-			
 			final AnalysisEngine conllEngine = AnalysisEngineFactory.createEngine(
 					ConllBIO2003Writer.class,
-					ConllBIO2003Writer.PARAM_TARGET_LOCATION, "src/test/out/",
+					ConllBIO2003Writer.PARAM_TARGET_LOCATION, "/home/stud_homes/s3676959/Data/BIOfid/Annotated/conll/",
 					ConllBIO2003Writer.PARAM_OVERWRITE, true,
+					ConllBIO2003Writer.PARAM_USE_TTLAB_TYPESYSTEM, true,
 					ConllBIO2003Writer.PARAM_STRATEGY_INDEX, 1,
-					ConllBIO2003Writer.PARAM_FILTER_FINGERPRINTED, true);
+					ConllBIO2003Writer.PARAM_FILTER_FINGERPRINTED, true,
+					ConllBIO2003Writer.PARAM_ANNOTATOR_LIST, new String[]{"0", "302904"},
+					ConllBIO2003Writer.PARAM_ANNOTATOR_RELATION, ConllBIO2003Writer.BLACKLIST);
+
+//			final AnalysisEngine agreementEngine = AnalysisEngineFactory.createEngine(TTLabUnitizingIAACollectionProcessingEngine.class,
+//					TTLabUnitizingIAACollectionProcessingEngine.PARAM_ANNOTATOR_LIST, new String[]{"0", "302904"},
+//					TTLabUnitizingIAACollectionProcessingEngine.PARAM_ANNOTATOR_RELATION, TTLabUnitizingIAACollectionProcessingEngine.BLACKLIST,
+//					TTLabUnitizingIAACollectionProcessingEngine.PARAM_MULTI_CAS_HANDLING, TTLabUnitizingIAACollectionProcessingEngine.SEPARATE,
+//					TTLabUnitizingIAACollectionProcessingEngine.PARAM_PRINT_STATS, false,
+//					TTLabUnitizingIAACollectionProcessingEngine.PARAM_ANNOTATE_DOCUMENT, true
+//			);
 			
-			CasIOUtil.readXmi(jCas, new File("src/test/resources/de_9032686_1925_Marx, Arno.xmi"));
+			CollectionReader reader = CollectionReaderFactory.createReader(XmiReader.class,
+					XmiReader.INCLUDE_PREFIX, "[+]",
+					XmiReader.PARAM_SOURCE_LOCATION, "/home/stud_homes/s3676959/Data/BIOfid/Annotated/xmi/*.xmi",
+					XmiReader.PARAM_LENIENT, true
+			);
+//			CollectionReader reader = CollectionReaderFactory.createReader(TextAnnotatorRepositoryCollectionReader.class,
+//					TextAnnotatorRepositoryCollectionReader.PARAM_SOURCE_LOCATION, "/home/stud_homes/s3676959/Data/BIOfid/Annotated/xmi/",
+//					TextAnnotatorRepositoryCollectionReader.PARAM_TARGET_LOCATION, "/home/stud_homes/s3676959/Data/BIOfid/Annotated/txt/",
+//					TextAnnotatorRepositoryCollectionReader.PARAM_DOCUMENTS_REPOSITORY, "19147",
+//					TextAnnotatorRepositoryCollectionReader.PARAM_SESSION_ID, "3B1A1380E80D4F8C2682246EB9F7B0C7");
 			
-			// Metadata
-			DocumentMetaData documentMetaData = new DocumentMetaData(jCas);
-			documentMetaData.setDocumentId("de_9032686_1925");
-			documentMetaData.setDocumentUri("de_9032686_1925");
-			
-			conllEngine.process(jCas);
+			SimplePipeline.runPipeline(reader, conllEngine);
 		} catch (UIMAException e) {
 			e.printStackTrace();
 		} catch (IOException e) {
@@ -123,7 +138,6 @@ public class ConllBIO2003WriterTest {
 	}
 	
 	@Test
-	@DisplayName("Double Column Test")
 	public void doubleColumn() {
 		try {
 			JCas jCas = getjCas();
@@ -147,7 +161,6 @@ public class ConllBIO2003WriterTest {
 	}
 	
 	@Test
-	@DisplayName("Triple Column Test")
 	public void tripleColumn() {
 		try {
 			JCas jCas = getjCas();
@@ -172,7 +185,6 @@ public class ConllBIO2003WriterTest {
 	}
 	
 	
-	@NotNull
 	private JCas getjCas() throws UIMAException {
 		JCas jCas = JCasFactory.createJCas();
 		jCas.setDocumentText("Goethe Universität Frankfurt am Main");

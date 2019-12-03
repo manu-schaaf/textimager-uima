@@ -1,6 +1,7 @@
 package BIOfid.BioEncoder;
 
 import BIOfid.ConllFeature.ConllFeatures;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
 import org.apache.commons.collections4.bidimap.DualLinkedHashBidiMap;
@@ -29,23 +30,25 @@ public class TTLabHierarchicalBioEncoder extends GenericBioEncoder<Annotation> {
 	
 	/**
 	 * DKProHierarchicalBioEncoder that filters for fingerprinted annotations and includes all {@link Taxon} annotations by default
-	 * <p>See {@link TTLabHierarchicalBioEncoder#TTLabHierarchicalBioEncoder(JCas, boolean, ArrayList)}.
+	 * <p>See {@link TTLabHierarchicalBioEncoder#TTLabHierarchicalBioEncoder(JCas, boolean, ArrayList, ImmutableSet, boolean)}.
 	 *
 	 * @param jCas The JCas to process.
 	 */
 	public TTLabHierarchicalBioEncoder(JCas jCas) {
-		this(jCas, true, Lists.newArrayList(Taxon.class));
+		this(jCas, true, Lists.newArrayList(NamedEntity.class), ImmutableSet.of(), false);
 	}
 	
 	/**
 	 * DKProHierarchicalBioEncoder that includes all {@link Taxon} annotations by default
-	 * <p>See {@link TTLabHierarchicalBioEncoder#TTLabHierarchicalBioEncoder(JCas, boolean, ArrayList)}.
+	 * <p>See {@link TTLabHierarchicalBioEncoder#TTLabHierarchicalBioEncoder(JCas, boolean, ArrayList, ImmutableSet, boolean)}.
 	 *
 	 * @param jCas                 The JCas to process.
 	 * @param pFilterFingerprinted If true, only fingerprinted {@link NamedEntity NamedEntities} are processed.
+	 * @param annotatorSet
+	 * @param annotatorRelation
 	 */
-	public TTLabHierarchicalBioEncoder(JCas jCas, boolean pFilterFingerprinted) {
-		this(jCas, pFilterFingerprinted, Lists.newArrayList(Taxon.class));
+	public TTLabHierarchicalBioEncoder(JCas jCas, boolean pFilterFingerprinted, ImmutableSet<String> annotatorSet, boolean annotatorRelation) {
+		this(jCas, pFilterFingerprinted, Lists.newArrayList(NamedEntity.class), annotatorSet, annotatorRelation);
 	}
 	
 	/**
@@ -53,10 +56,12 @@ public class TTLabHierarchicalBioEncoder extends GenericBioEncoder<Annotation> {
 	 *
 	 * @param jCas                 The JCas to process.
 	 * @param pFilterFingerprinted If true, only fingerprinted {@link NamedEntity NamedEntities} are processed.
-	 * @param forceAnnotations     Include all annotations of these classes.
+	 * @param includeAnnotations   Include all annotations of these classes.
+	 * @param annotatorSet
+	 * @param annotatorRelation
 	 */
-	public TTLabHierarchicalBioEncoder(JCas jCas, boolean pFilterFingerprinted, ArrayList<Class<? extends Annotation>> forceAnnotations) {
-		super(jCas, pFilterFingerprinted, forceAnnotations);
+	public TTLabHierarchicalBioEncoder(JCas jCas, boolean pFilterFingerprinted, ArrayList<Class<? extends Annotation>> includeAnnotations, ImmutableSet<String> annotatorSet, boolean annotatorRelation) {
+		super(jCas, pFilterFingerprinted, includeAnnotations, annotatorSet, annotatorRelation);
 		this.type = Annotation.class;
 		this.build();
 	}
@@ -158,31 +163,37 @@ public class TTLabHierarchicalBioEncoder extends GenericBioEncoder<Annotation> {
 		CasCopier.copyCas(jCas.getCas(), mergedCas.getCas(), true, true);
 		
 		jCas.getViewIterator().forEachRemaining(viewCas -> {
-			DualLinkedHashBidiMap<TOP, TOP> addressMap = new DualLinkedHashBidiMap<>();
-			for (NamedEntity oNamedEntity : select(viewCas, NamedEntity.class)) {
-				Annotation nNamedEntity = (Annotation) mergedCas.getCas().createAnnotation(oNamedEntity.getType(), oNamedEntity.getBegin(), oNamedEntity.getEnd());
-				((NamedEntity) nNamedEntity).setValue(oNamedEntity.getValue());
-				((NamedEntity) nNamedEntity).setMetaphor(oNamedEntity.getMetaphor());
+			if (annotatorRelation == annotatorSet.contains(viewCas.getViewName())) {
+				DualLinkedHashBidiMap<TOP, TOP> addressMap = new DualLinkedHashBidiMap<>();
+				for (NamedEntity oNamedEntity : select(viewCas, NamedEntity.class)) {
+					Annotation nNamedEntity = (Annotation) mergedCas.getCas().createAnnotation(oNamedEntity.getType(), oNamedEntity.getBegin(), oNamedEntity.getEnd());
+					((NamedEntity) nNamedEntity).setValue(oNamedEntity.getValue());
+					((NamedEntity) nNamedEntity).setMetaphor(oNamedEntity.getMetaphor());
+					((NamedEntity) nNamedEntity).setMetonym(oNamedEntity.getMetonym());
+					
+					nNamedEntity.addToIndexes();
+					addressMap.put(oNamedEntity, nNamedEntity);
+				}
 				
-				nNamedEntity.addToIndexes();
-				addressMap.put(oNamedEntity, nNamedEntity);
-			}
-			
-			for (AbstractNamedEntity oNamedEntity : select(viewCas, AbstractNamedEntity.class)) {
-				Annotation nNamedEntity = (Annotation) mergedCas.getCas().createAnnotation(oNamedEntity.getType(), oNamedEntity.getBegin(), oNamedEntity.getEnd());
-				((AbstractNamedEntity) nNamedEntity).setMetaphor(oNamedEntity.getMetaphor());
+				for (AbstractNamedEntity oNamedEntity : select(viewCas, AbstractNamedEntity.class)) {
+					Annotation nNamedEntity = (Annotation) mergedCas.getCas().createAnnotation(oNamedEntity.getType(), oNamedEntity.getBegin(), oNamedEntity.getEnd());
+					((AbstractNamedEntity) nNamedEntity).setValue(oNamedEntity.getValue());
+					((AbstractNamedEntity) nNamedEntity).setMetaphor(oNamedEntity.getMetaphor());
+					((AbstractNamedEntity) nNamedEntity).setSpecific(oNamedEntity.getSpecific());
+					((AbstractNamedEntity) nNamedEntity).setMetonym(oNamedEntity.getMetonym());
+					
+					nNamedEntity.addToIndexes();
+					addressMap.put(oNamedEntity, nNamedEntity);
+				}
 				
-				nNamedEntity.addToIndexes();
-				addressMap.put(oNamedEntity, nNamedEntity);
-			}
-			
-			for (Fingerprint oFingerprint : select(viewCas, Fingerprint.class)) {
-				Fingerprint nFingerprint = new Fingerprint(mergedCas);
-				nFingerprint.setReference(addressMap.get(oFingerprint.getReference()));
-				nFingerprint.setCreate(oFingerprint.getCreate());
-				nFingerprint.setUser(oFingerprint.getUser());
-				
-				nFingerprint.addToIndexes();
+				for (Fingerprint oFingerprint : select(viewCas, Fingerprint.class)) {
+					Fingerprint nFingerprint = new Fingerprint(mergedCas);
+					nFingerprint.setReference(addressMap.get(oFingerprint.getReference()));
+					nFingerprint.setCreate(oFingerprint.getCreate());
+					nFingerprint.setUser(oFingerprint.getUser());
+					
+					nFingerprint.addToIndexes();
+				}
 			}
 		});
 	}
