@@ -17,6 +17,7 @@ import org.apache.uima.fit.factory.JCasFactory;
 import org.apache.uima.fit.pipeline.SimplePipeline;
 import org.apache.uima.fit.util.JCasUtil;
 import org.apache.uima.jcas.JCas;
+import org.biofid.agreement.engine.TTLabUnitizingIAACollectionProcessingEngine;
 import org.junit.Test;
 
 import java.io.IOException;
@@ -100,6 +101,17 @@ public class ConllBIO2003WriterTest {
 	@Test
 	public void exampleFile() {
 		try {
+			String[] annotatorWhitelist = {"305236", "305235"};
+			final AnalysisEngine agreementEngine = AnalysisEngineFactory.createEngine(TTLabUnitizingIAACollectionProcessingEngine.class,
+					TTLabUnitizingIAACollectionProcessingEngine.PARAM_ANNOTATOR_LIST, annotatorWhitelist,
+					TTLabUnitizingIAACollectionProcessingEngine.PARAM_ANNOTATOR_RELATION, TTLabUnitizingIAACollectionProcessingEngine.WHITELIST,
+					TTLabUnitizingIAACollectionProcessingEngine.PARAM_MULTI_CAS_HANDLING, TTLabUnitizingIAACollectionProcessingEngine.SEPARATE,
+					TTLabUnitizingIAACollectionProcessingEngine.PARAM_PRINT_STATS, false,
+					TTLabUnitizingIAACollectionProcessingEngine.PARAM_MIN_VIEWS, 2,
+					TTLabUnitizingIAACollectionProcessingEngine.PARAM_MIN_ANNOTATIONS, 0,
+					TTLabUnitizingIAACollectionProcessingEngine.PARAM_ANNOTATE_DOCUMENT, true
+			);
+			
 			final AnalysisEngine conllEngine = AnalysisEngineFactory.createEngine(
 					ConllBIO2003Writer.class,
 					ConllBIO2003Writer.PARAM_TARGET_LOCATION, "/home/stud_homes/s3676959/Data/BIOfid/Annotated/conll/",
@@ -107,29 +119,18 @@ public class ConllBIO2003WriterTest {
 					ConllBIO2003Writer.PARAM_USE_TTLAB_TYPESYSTEM, true,
 					ConllBIO2003Writer.PARAM_STRATEGY_INDEX, 1,
 					ConllBIO2003Writer.PARAM_FILTER_FINGERPRINTED, true,
-					ConllBIO2003Writer.PARAM_ANNOTATOR_LIST, new String[]{"0", "302904"},
-					ConllBIO2003Writer.PARAM_ANNOTATOR_RELATION, ConllBIO2003Writer.BLACKLIST);
-
-//			final AnalysisEngine agreementEngine = AnalysisEngineFactory.createEngine(TTLabUnitizingIAACollectionProcessingEngine.class,
-//					TTLabUnitizingIAACollectionProcessingEngine.PARAM_ANNOTATOR_LIST, new String[]{"0", "302904"},
-//					TTLabUnitizingIAACollectionProcessingEngine.PARAM_ANNOTATOR_RELATION, TTLabUnitizingIAACollectionProcessingEngine.BLACKLIST,
-//					TTLabUnitizingIAACollectionProcessingEngine.PARAM_MULTI_CAS_HANDLING, TTLabUnitizingIAACollectionProcessingEngine.SEPARATE,
-//					TTLabUnitizingIAACollectionProcessingEngine.PARAM_PRINT_STATS, false,
-//					TTLabUnitizingIAACollectionProcessingEngine.PARAM_ANNOTATE_DOCUMENT, true
-//			);
+					ConllBIO2003Writer.PARAM_ANNOTATOR_LIST, annotatorWhitelist,
+					ConllBIO2003Writer.PARAM_ANNOTATOR_RELATION, ConllBIO2003Writer.WHITELIST,
+					ConllBIO2003Writer.PARAM_MIN_VIEWS, 1,
+					ConllBIO2003Writer.PARAM_FILTER_BY_AGREEMENT, 0.6F,
+					ConllBIO2003Writer.PARAM_FILTER_EMPTY_SENTENCES, true);
 			
 			CollectionReader reader = CollectionReaderFactory.createReader(XmiReader.class,
-					XmiReader.INCLUDE_PREFIX, "[+]",
-					XmiReader.PARAM_SOURCE_LOCATION, "/home/stud_homes/s3676959/Data/BIOfid/Annotated/xmi/*.xmi",
+					XmiReader.PARAM_PATTERNS, "[+]**.xmi",
+					XmiReader.PARAM_SOURCE_LOCATION, "/home/stud_homes/s3676959/Data/BIOfid/Annotated/xmi/",
 					XmiReader.PARAM_LENIENT, true
 			);
-//			CollectionReader reader = CollectionReaderFactory.createReader(TextAnnotatorRepositoryCollectionReader.class,
-//					TextAnnotatorRepositoryCollectionReader.PARAM_SOURCE_LOCATION, "/home/stud_homes/s3676959/Data/BIOfid/Annotated/xmi/",
-//					TextAnnotatorRepositoryCollectionReader.PARAM_TARGET_LOCATION, "/home/stud_homes/s3676959/Data/BIOfid/Annotated/txt/",
-//					TextAnnotatorRepositoryCollectionReader.PARAM_DOCUMENTS_REPOSITORY, "19147",
-//					TextAnnotatorRepositoryCollectionReader.PARAM_SESSION_ID, "3B1A1380E80D4F8C2682246EB9F7B0C7");
-			
-			SimplePipeline.runPipeline(reader, conllEngine);
+			SimplePipeline.runPipeline(reader, agreementEngine, conllEngine);
 		} catch (UIMAException e) {
 			e.printStackTrace();
 		} catch (IOException e) {

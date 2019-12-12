@@ -5,7 +5,7 @@ import java.util.Arrays;
 
 public class ConllFeatures extends ArrayList<String> {
 	
-	private String prependTag = "B-";
+	private String prependTag = "";
 	
 	public ConllFeatures() {
 		super(Arrays.asList("O", "", ""));
@@ -36,18 +36,18 @@ public class ConllFeatures extends ArrayList<String> {
 		return this.get(0) == null || this.get(0).isEmpty();
 	}
 	
-	public void isAbstract(boolean b) {
+	public void setAbstract(boolean b) {
 		if (b)
 			this.set(1, "<ABSTRACT>");
 		else
 			this.set(1, "<CONCRETE>");
 	}
 	
-	public boolean isAbstract() {
+	public boolean setAbstract() {
 		return this.get(1).equals("<ABSTRACT>");
 	}
 	
-	public void isMetaphor(boolean b) {
+	public void setMetaphor(boolean b) {
 		if (b)
 			this.set(2, "<METAPHOR>");
 		else
@@ -55,7 +55,7 @@ public class ConllFeatures extends ArrayList<String> {
 		
 	}
 	
-	public boolean isMetaphor() {
+	public boolean setMetaphor() {
 		return this.get(2).equals("<ABSTRACT>");
 	}
 	

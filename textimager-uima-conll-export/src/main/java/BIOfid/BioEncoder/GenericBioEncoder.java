@@ -4,7 +4,6 @@ import BIOfid.ConllFeature.ConllFeatures;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
-import org.apache.commons.collections4.bidimap.DualLinkedHashBidiMap;
 import org.apache.uima.UIMAException;
 import org.apache.uima.cas.CASException;
 import org.apache.uima.fit.factory.JCasFactory;
@@ -33,6 +32,8 @@ public abstract class GenericBioEncoder<T extends Annotation> {
 	final JCas jCas;
 	final ArrayList<Class<? extends Annotation>> forceAnnotations;
 	final TreeMap<Integer, Token> tokenIndexMap;
+	
+	protected JCas mergedCas;
 	
 	Class<T> type;
 	/**
@@ -83,22 +84,9 @@ public abstract class GenericBioEncoder<T extends Annotation> {
 				return;
 			
 			final JCas mergedCas = JCasFactory.createJCas();
-			mergeViews(mergedCas);
+			mergeViews();
 			
-			final LinkedHashSet<T> namedEntities = new LinkedHashSet<>();
-			if (filterFingerprinted) {
-				// Get all fingerprinted TOPs
-				HashSet<TOP> fingerprinted = select(mergedCas, Fingerprint.class).stream()
-						.map(Fingerprint::getReference)
-						.collect(Collectors.toCollection(HashSet::new));
-				// Filter all NEs for fingerprinted ones
-				// and the ones that are forced by forceAnnotations
-				select(mergedCas, this.type).stream()
-						.filter((TOP o) -> fingerprinted.contains(o) || forceAnnotations.contains(o.getClass()))
-						.forEach(namedEntities::add);
-			} else {
-				namedEntities.addAll(select(mergedCas, this.type));
-			}
+			final LinkedHashSet<T> namedEntities = new LinkedHashSet<>(select(mergedCas, this.type));
 			
 			// Initialize the hierarchy
 			namedEntities.forEach(key -> namedEntityHierachy.put(key, 0L));
@@ -146,26 +134,23 @@ public abstract class GenericBioEncoder<T extends Annotation> {
 		}
 	}
 	
-	void mergeViews(JCas mergedCas) throws CASException {
+	void mergeViews() throws CASException {
 		CasCopier.copyCas(jCas.getCas(), mergedCas.getCas(), true, true);
 		
 		jCas.getViewIterator().forEachRemaining(viewCas -> {
 			if (annotatorRelation == annotatorSet.contains(viewCas.getViewName())) {
-				DualLinkedHashBidiMap<TOP, TOP> addressMap = new DualLinkedHashBidiMap<>();
+				// Get all fingerprinted TOPs
+				HashSet<TOP> fingerprinted = select(viewCas, Fingerprint.class).stream()
+						.map(Fingerprint::getReference)
+						.collect(Collectors.toCollection(HashSet::new));
+				
 				for (T oAnnotation : select(viewCas, type)) {
+					if (!fingerprinted.contains(oAnnotation)) continue;
+					
 					Annotation nAnnotation = (Annotation) mergedCas.getCas().createAnnotation(oAnnotation.getType(), oAnnotation.getBegin(), oAnnotation.getEnd());
-					addressMap.put(oAnnotation, nAnnotation);
 					nAnnotation.addToIndexes();
 				}
 				// FIXME: Features such as value or identifiers are not copied in this generic version!
-				for (Fingerprint oFingerprint : select(viewCas, Fingerprint.class)) {
-					Fingerprint nFingerprint = new Fingerprint(mergedCas);
-					nFingerprint.setReference(addressMap.get(oFingerprint.getReference()));
-					nFingerprint.setCreate(oFingerprint.getCreate());
-					nFingerprint.setUser(oFingerprint.getUser());
-					
-					nFingerprint.addToIndexes();
-				}
 			}
 		});
 	}
@@ -392,20 +377,20 @@ public abstract class GenericBioEncoder<T extends Annotation> {
 			features.name(namedEntity.getType().getShortName());
 			
 			AbstractNamedEntity ne = (AbstractNamedEntity) namedEntity;
-			features.isAbstract(true);
-			features.isMetaphor(ne.getMetaphor());
+			features.setAbstract(true);
+			features.setMetaphor(ne.getMetaphor());
 		} else if (namedEntity instanceof org.texttechnologylab.annotation.type.Other) {
 			features.name(namedEntity.getType().getShortName());
 			
 			Other ne = (Other) namedEntity;
-			features.isAbstract(ne.getValue() != null && !ne.getValue().isEmpty());
-			features.isMetaphor(ne.getMetaphor());
+			features.setAbstract(ne.getValue() != null && !ne.getValue().isEmpty());
+			features.setMetaphor(ne.getMetaphor());
 		} else if (namedEntity instanceof org.texttechnologylab.annotation.NamedEntity) {
 			features.name(namedEntity.getType().getShortName());
 			
 			NamedEntity ne = (NamedEntity) namedEntity;
-			features.isAbstract(false);
-			features.isMetaphor(ne.getMetaphor());
+			features.setAbstract(false);
+			features.setMetaphor(ne.getMetaphor());
 		} else if (namedEntity instanceof de.tudarmstadt.ukp.dkpro.core.api.ner.type.NamedEntity) {
 			String value = ((de.tudarmstadt.ukp.dkpro.core.api.ner.type.NamedEntity) namedEntity).getValue();
 			if (value == null) {
@@ -471,6 +456,14 @@ public abstract class GenericBioEncoder<T extends Annotation> {
 		}
 		
 		return retList;
+	}
+	
+	public JCas getMergedCas() {
+		return mergedCas;
+	}
+	
+	public int getNamedEntitiyCount() {
+		return Objects.isNull(namedEntityHierachy) ? 0 : namedEntityHierachy.size();
 	}
 	
 	enum Strategy {

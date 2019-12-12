@@ -52,7 +52,7 @@ public class DKProHierarchicalBioEncoder extends GenericBioEncoder<NamedEntity> 
 	}
 	
 	@Override
-	void mergeViews(JCas mergedCas) throws CASException {
+	void mergeViews() throws CASException {
 		CasCopier.copyCas(jCas.getCas(), mergedCas.getCas(), true, true);
 		
 		jCas.getViewIterator().forEachRemaining(viewCas -> {

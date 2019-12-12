@@ -3,8 +3,8 @@ package BIOfid.BioEncoder;
 import BIOfid.ConllFeature.ConllFeatures;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
+import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
-import org.apache.commons.collections4.bidimap.DualLinkedHashBidiMap;
 import org.apache.uima.UIMAException;
 import org.apache.uima.cas.CASException;
 import org.apache.uima.fit.factory.JCasFactory;
@@ -20,7 +20,6 @@ import org.texttechnologylab.annotation.type.Other;
 import org.texttechnologylab.annotation.type.Taxon;
 
 import java.util.*;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static org.apache.uima.fit.util.JCasUtil.indexCovered;
@@ -35,7 +34,7 @@ public class TTLabHierarchicalBioEncoder extends GenericBioEncoder<Annotation> {
 	 * @param jCas The JCas to process.
 	 */
 	public TTLabHierarchicalBioEncoder(JCas jCas) {
-		this(jCas, true, Lists.newArrayList(NamedEntity.class), ImmutableSet.of(), false);
+		this(jCas, true, Lists.newArrayList(NamedEntity.class, AbstractNamedEntity.class), ImmutableSet.of(), false);
 	}
 	
 	/**
@@ -48,7 +47,7 @@ public class TTLabHierarchicalBioEncoder extends GenericBioEncoder<Annotation> {
 	 * @param annotatorRelation
 	 */
 	public TTLabHierarchicalBioEncoder(JCas jCas, boolean pFilterFingerprinted, ImmutableSet<String> annotatorSet, boolean annotatorRelation) {
-		this(jCas, pFilterFingerprinted, Lists.newArrayList(NamedEntity.class), annotatorSet, annotatorRelation);
+		this(jCas, pFilterFingerprinted, Lists.newArrayList(NamedEntity.class, AbstractNamedEntity.class), annotatorSet, annotatorRelation);
 	}
 	
 	/**
@@ -74,29 +73,14 @@ public class TTLabHierarchicalBioEncoder extends GenericBioEncoder<Annotation> {
 			if (jCas.getDocumentText() == null)
 				return;
 			
-			final JCas mergedCas = JCasFactory.createJCas();
-			mergeViews(mergedCas);
+			mergedCas = JCasFactory.createJCas();
+			mergeViews();
 			
 			final LinkedHashSet<Annotation> namedEntities = new LinkedHashSet<>();
-			if (filterFingerprinted) {
-				// Get all fingerprinted TOPs
-				HashSet<TOP> fingerprinted = select(mergedCas, Fingerprint.class).stream()
-						.map(Fingerprint::getReference)
-						.collect(Collectors.toCollection(HashSet::new));
-				// Filter all NEs for fingerprinted ones
-				// and the ones that are forced by forceAnnotations
-				select(mergedCas, NamedEntity.class).stream()
-						.filter((Predicate<TOP>) fingerprinted::contains)
-						.forEach(namedEntities::add);
-				select(mergedCas, AbstractNamedEntity.class).stream()
-						.filter((Predicate<TOP>) fingerprinted::contains)
-						.forEach(namedEntities::add);
-			} else {
-				namedEntities.addAll(select(mergedCas, NamedEntity.class));
-				namedEntities.addAll(select(mergedCas, AbstractNamedEntity.class));
-			}
-
-//			// Flatten the new view by removing identical duplicates
+			namedEntities.addAll(select(mergedCas, NamedEntity.class));
+			namedEntities.addAll(select(mergedCas, AbstractNamedEntity.class));
+			
+			// Flatten the new view by removing identical duplicates
 			final LinkedHashSet<Annotation> flattenedNamedEntities = new LinkedHashSet<>(namedEntities);
 			for (Annotation parentNamedEntity : namedEntities) {
 				JCasUtil.subiterate(mergedCas, type, parentNamedEntity, false, true)
@@ -159,40 +143,48 @@ public class TTLabHierarchicalBioEncoder extends GenericBioEncoder<Annotation> {
 	}
 	
 	@Override
-	void mergeViews(JCas mergedCas) throws CASException {
+	void mergeViews() throws CASException {
 		CasCopier.copyCas(jCas.getCas(), mergedCas.getCas(), true, true);
+		jCas.removeAllIncludingSubtypes(NamedEntity.type);
+		jCas.removeAllIncludingSubtypes(AbstractNamedEntity.type);
+		
+		DocumentMetaData oDocumentMetaData = DocumentMetaData.get(jCas);
+		DocumentMetaData nDocumentMetaData = DocumentMetaData.create(mergedCas);
+		nDocumentMetaData.setDocumentId(oDocumentMetaData.getDocumentId());
+		nDocumentMetaData.setDocumentUri(oDocumentMetaData.getDocumentUri());
+		nDocumentMetaData.setDocumentBaseUri(oDocumentMetaData.getDocumentBaseUri());
+		nDocumentMetaData.setDocumentTitle(oDocumentMetaData.getDocumentTitle());
+		nDocumentMetaData.setCollectionId(oDocumentMetaData.getCollectionId());
+		nDocumentMetaData.setIsLastSegment(oDocumentMetaData.getIsLastSegment());
 		
 		jCas.getViewIterator().forEachRemaining(viewCas -> {
 			if (annotatorRelation == annotatorSet.contains(viewCas.getViewName())) {
-				DualLinkedHashBidiMap<TOP, TOP> addressMap = new DualLinkedHashBidiMap<>();
+				// Get all fingerprinted TOPs
+				HashSet<TOP> fingerprinted = select(viewCas, Fingerprint.class).stream()
+						.map(Fingerprint::getReference)
+						.collect(Collectors.toCollection(HashSet::new));
+				
 				for (NamedEntity oNamedEntity : select(viewCas, NamedEntity.class)) {
-					Annotation nNamedEntity = (Annotation) mergedCas.getCas().createAnnotation(oNamedEntity.getType(), oNamedEntity.getBegin(), oNamedEntity.getEnd());
-					((NamedEntity) nNamedEntity).setValue(oNamedEntity.getValue());
-					((NamedEntity) nNamedEntity).setMetaphor(oNamedEntity.getMetaphor());
-					((NamedEntity) nNamedEntity).setMetonym(oNamedEntity.getMetonym());
+					if (!fingerprinted.contains(oNamedEntity)) continue;
+					
+					NamedEntity nNamedEntity = (NamedEntity) mergedCas.getCas().createAnnotation(oNamedEntity.getType(), oNamedEntity.getBegin(), oNamedEntity.getEnd());
+					nNamedEntity.setValue(oNamedEntity.getValue());
+					nNamedEntity.setMetaphor(oNamedEntity.getMetaphor());
+					nNamedEntity.setMetonym(oNamedEntity.getMetonym());
 					
 					nNamedEntity.addToIndexes();
-					addressMap.put(oNamedEntity, nNamedEntity);
 				}
 				
 				for (AbstractNamedEntity oNamedEntity : select(viewCas, AbstractNamedEntity.class)) {
-					Annotation nNamedEntity = (Annotation) mergedCas.getCas().createAnnotation(oNamedEntity.getType(), oNamedEntity.getBegin(), oNamedEntity.getEnd());
-					((AbstractNamedEntity) nNamedEntity).setValue(oNamedEntity.getValue());
-					((AbstractNamedEntity) nNamedEntity).setMetaphor(oNamedEntity.getMetaphor());
-					((AbstractNamedEntity) nNamedEntity).setSpecific(oNamedEntity.getSpecific());
-					((AbstractNamedEntity) nNamedEntity).setMetonym(oNamedEntity.getMetonym());
+					if (!fingerprinted.contains(oNamedEntity)) continue;
+					
+					AbstractNamedEntity nNamedEntity = (AbstractNamedEntity) mergedCas.getCas().createAnnotation(oNamedEntity.getType(), oNamedEntity.getBegin(), oNamedEntity.getEnd());
+					nNamedEntity.setValue(oNamedEntity.getValue());
+					nNamedEntity.setMetaphor(oNamedEntity.getMetaphor());
+					nNamedEntity.setSpecific(oNamedEntity.getSpecific());
+					nNamedEntity.setMetonym(oNamedEntity.getMetonym());
 					
 					nNamedEntity.addToIndexes();
-					addressMap.put(oNamedEntity, nNamedEntity);
-				}
-				
-				for (Fingerprint oFingerprint : select(viewCas, Fingerprint.class)) {
-					Fingerprint nFingerprint = new Fingerprint(mergedCas);
-					nFingerprint.setReference(addressMap.get(oFingerprint.getReference()));
-					nFingerprint.setCreate(oFingerprint.getCreate());
-					nFingerprint.setUser(oFingerprint.getUser());
-					
-					nFingerprint.addToIndexes();
 				}
 			}
 		});
@@ -286,7 +278,7 @@ public class TTLabHierarchicalBioEncoder extends GenericBioEncoder<Annotation> {
 		}
 		
 		int lastIndex = rankSets.size() - 1;
-		if (lastIndex >= 0 && hierachialTokenNamedEntityMap.values().stream().allMatch(l -> l.get(lastIndex).equals("O")))
+		if (lastIndex >= 0 && hierachialTokenNamedEntityMap.values().stream().allMatch(l -> l.get(lastIndex).equals(new ConllFeatures())))
 			hierachialTokenNamedEntityMap.values().forEach(l -> l.remove(lastIndex));
 	}
 	
@@ -303,20 +295,20 @@ public class TTLabHierarchicalBioEncoder extends GenericBioEncoder<Annotation> {
 			features.name(namedEntity.getType().getShortName());
 			
 			AbstractNamedEntity ne = (AbstractNamedEntity) namedEntity;
-			features.isAbstract(true);
-			features.isMetaphor(ne.getMetaphor());
+			features.setAbstract(true);
+			features.setMetaphor(ne.getMetaphor());
 		} else if (namedEntity instanceof org.texttechnologylab.annotation.type.Other) {
 			features.name(namedEntity.getType().getShortName());
 			
 			Other ne = (Other) namedEntity;
-			features.isAbstract(ne.getValue() != null && !ne.getValue().isEmpty());
-			features.isMetaphor(ne.getMetaphor());
+			features.setAbstract(ne.getValue() != null && !ne.getValue().isEmpty());
+			features.setMetaphor(ne.getMetaphor());
 		} else if (namedEntity instanceof org.texttechnologylab.annotation.NamedEntity) {
 			features.name(namedEntity.getType().getShortName());
 			
 			NamedEntity ne = (NamedEntity) namedEntity;
-			features.isAbstract(false);
-			features.isMetaphor(ne.getMetaphor());
+			features.setAbstract(false);
+			features.setMetaphor(ne.getMetaphor());
 		} else if (namedEntity instanceof org.texttechnologielab.annotation.type.TexttechnologyNamedEntity) {
 			features.name(((org.texttechnologielab.annotation.type.TexttechnologyNamedEntity) namedEntity).getValue());
 		} else {
