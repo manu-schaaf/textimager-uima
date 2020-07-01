@@ -6,8 +6,7 @@ from utils import Utils
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 os.environ['CUDA_VISIBLE_DEVICES'] = ''
-import tensorflow as tf
-from keras.models import load_model
+from tensorflow.keras import models
 
 util = Utils()
 
@@ -28,10 +27,9 @@ class DeepEosModel:
         print_flag('Loading deep-eos model')
         self.char_2_id_dict = util.load_vocab(model_base_path + ".vocab")
         if os.path.exists(model_base_path + ".hdf5"):
-            self.deep_eos_model = load_model(model_base_path + ".hdf5")
+            self.deep_eos_model = models.load_model(model_base_path + ".hdf5")
         else:
-            self.deep_eos_model = load_model(model_base_path + ".model")
-        self.deep_eos_graph = tf.get_default_graph()
+            self.deep_eos_model = models.load_model(model_base_path + ".model")
         self.window_size = window_size
         self.batch_size = batch_size
         print(self.deep_eos_model.summary())
@@ -47,6 +45,9 @@ class DeepEosModel:
             char_sequences = [(-1.0, char_sequence) for _, char_sequence in batch]
             data_set = util.build_data_set(char_sequences, self.char_2_id_dict, self.window_size)
             features = np.array([i[1] for i in data_set])
+
+            if len(features) == 0:
+                continue
 
             predicted = self.deep_eos_model.predict(features)
             for j in range(len(predicted) if type(predicted) is list else predicted.shape[0]):

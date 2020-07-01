@@ -1,0 +1,15 @@
+org/biofid/gazetteer/util/UnicodeRegexSegmenter.class
+org/biofid/gazetteer/models/MultiClassTreeGazetteerModel.class
+org/biofid/gazetteer/tree/ITreeNode.class
+org/biofid/gazetteer/BaseTreeGazetteer.class
+org/biofid/gazetteer/SingleClassTreeGazetteer.class
+org/biofid/gazetteer/util/XmiCasSerializerRunnable.class
+org/biofid/gazetteer/run/EvaluateWithAnnotated.class
+org/biofid/gazetteer/run/TagTaxa.class
+org/biofid/gazetteer/BaseTreeGazetteer$Match.class
+org/biofid/gazetteer/MultiClassTreeGazetteer.class
+org/biofid/gazetteer/models/TreeGazetteerModel.class
+org/biofid/gazetteer/models/IGazetteerModel.class
+org/biofid/gazetteer/models/StringGazetteerModel.class
+org/biofid/gazetteer/tree/StringTreeNode.class
+org/biofid/gazetteer/models/ITreeGazetteerModel.class

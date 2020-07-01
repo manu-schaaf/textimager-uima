@@ -16,29 +16,19 @@ import java.io.FileFilter;
 import java.nio.file.Paths;
 
 public abstract class JepAnnotator extends JCasAnnotator_ImplBase {
-	
-	
 	/**
 	 * The Python home directory
 	 */
-	
-	//werden eig nicht mehr benötigt müssen aber bleiben da manche Funktionen(z.B createEngineDescription) 
-	// diese zum aufrufen benötigen
-	
 	public static final String PARAM_PYTHON_HOME = "pythonHome";
 	@ConfigurationParameter(name = PARAM_PYTHON_HOME, mandatory = false)
 	protected String pythonHome ;
 	
-	
 	/**
 	 * The path to libjep lib
 	 */
-	
-	
 	public static final String PARAM_LIBJEP_PATH = "libjepPath";
 	@ConfigurationParameter(name = PARAM_LIBJEP_PATH, mandatory = false)
 	protected String libjepPath;
-	
 	
 	protected SharedInterpreter interp ;
 	
@@ -49,8 +39,6 @@ public abstract class JepAnnotator extends JCasAnnotator_ImplBase {
 		
 		
 		try {
-			/* Code in PublicInter kopiert
-			 * 
 			if (!pythonHome.isEmpty()) {
 				// Workaround for loading python library files
 				File libDir = Paths.get(pythonHome, "lib").toAbsolutePath().toFile();
@@ -64,19 +52,15 @@ public abstract class JepAnnotator extends JCasAnnotator_ImplBase {
 				try {
 					MainInterpreter.setInitParams(config);
 				} catch (JepException e) {
-				
+					e.printStackTrace();
 				}
 			}
 			
 			if (libjepPath != null && !libjepPath.isEmpty()) {
 				MainInterpreter.setJepLibraryPath(libjepPath);
 			}
-			*/
-			
-			interp = PublicInter.inter;
-			
+			interp = new SharedInterpreter();
 		} catch (Exception ex) {
-			ex.printStackTrace();
 			throw new ResourceInitializationException(ex);
 		}
 	}

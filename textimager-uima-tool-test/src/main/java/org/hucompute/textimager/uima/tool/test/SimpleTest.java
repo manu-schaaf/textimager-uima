@@ -30,9 +30,9 @@ public class SimpleTest {
 		builder.add(createEngineDescription(MateLemmatizer.class));
 		builder.add(createEngineDescription(MateMorphTagger.class));
 		builder.add(createEngineDescription(MateParser.class));
-//		builder.add(createEngineDescription(
-//				FrameEvaluator.class,
-//				FrameEvaluator.PARAM_GERMANET_PATH,"/home/staff_homes/ahemati/projects/VerbsAnnotator/trunk/src/main/resources/GN_V140.zip"));
+		builder.add(createEngineDescription(
+				FrameEvaluator.class,
+				FrameEvaluator.PARAM_GERMANET_PATH,"/home/staff_homes/ahemati/projects/VerbsAnnotator/trunk/src/main/resources/GN_V140.zip"));
 //		builder.add(createEngineDescription(
 //				VerbsDisambiguation.class,
 //				VerbsDisambiguation.PARAM_GERMANET_PATH,"/home/staff_homes/ahemati/projects/VerbsAnnotator/trunk/src/main/resources/GN_V140.zip",

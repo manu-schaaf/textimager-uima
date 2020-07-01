@@ -1,0 +1,15 @@
+/home/manu/Work/textimager-uima/textimager-uima-biofid-gazetteer/src/main/java/org/biofid/gazetteer/models/MultiClassTreeGazetteerModel.java
+/home/manu/Work/textimager-uima/textimager-uima-biofid-gazetteer/src/main/java/org/biofid/gazetteer/models/TreeGazetteerModel.java
+/home/manu/Work/textimager-uima/textimager-uima-biofid-gazetteer/src/main/java/org/biofid/gazetteer/models/ITreeGazetteerModel.java
+/home/manu/Work/textimager-uima/textimager-uima-biofid-gazetteer/src/main/java/org/biofid/gazetteer/models/IGazetteerModel.java
+/home/manu/Work/textimager-uima/textimager-uima-biofid-gazetteer/src/main/java/org/biofid/gazetteer/models/StringGazetteerModel.java
+/home/manu/Work/textimager-uima/textimager-uima-biofid-gazetteer/src/main/java/org/biofid/gazetteer/BaseTreeGazetteer.java
+/home/manu/Work/textimager-uima/textimager-uima-biofid-gazetteer/src/main/java/org/biofid/gazetteer/SingleClassTreeGazetteer.java
+/home/manu/Work/textimager-uima/textimager-uima-biofid-gazetteer/src/main/java/org/biofid/gazetteer/util/UnicodeRegexSegmenter.java
+/home/manu/Work/textimager-uima/textimager-uima-biofid-gazetteer/src/main/java/org/biofid/gazetteer/MultiClassTreeGazetteer.java
+/home/manu/Work/textimager-uima/textimager-uima-biofid-gazetteer/src/main/java/org/biofid/gazetteer/run/EvaluateWithAnnotated.java
+/home/manu/Work/textimager-uima/textimager-uima-biofid-gazetteer/src/main/java/org/biofid/gazetteer/run/TagTaxa.java
+/home/manu/Work/textimager-uima/textimager-uima-biofid-gazetteer/src/main/java/org/biofid/gazetteer/tree/StringTreeNode.java
+/home/manu/Work/textimager-uima/textimager-uima-biofid-gazetteer/src/main/java/org/biofid/gazetteer/tree/ITreeNode.java
+/home/manu/Work/textimager-uima/textimager-uima-biofid-gazetteer/src/main/java/org/biofid/gazetteer/util/XmiCasSerializerRunnable.java
+/home/manu/Work/textimager-uima/textimager-uima-biofid-gazetteer/src/main/java/org/biofid/gazetteer/package-info.java

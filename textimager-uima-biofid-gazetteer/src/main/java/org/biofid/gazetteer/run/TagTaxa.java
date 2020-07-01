@@ -1,7 +1,5 @@
 package org.biofid.gazetteer.run;
 
-import de.tudarmstadt.ukp.dkpro.core.io.xmi.XmiReader;
-import de.tudarmstadt.ukp.dkpro.core.io.xmi.XmiWriter;
 import org.apache.commons.cli.*;
 import org.apache.uima.UIMAException;
 import org.apache.uima.collection.CollectionReader;
@@ -9,7 +7,9 @@ import org.apache.uima.fit.factory.AggregateBuilder;
 import org.apache.uima.fit.factory.AnalysisEngineFactory;
 import org.apache.uima.fit.factory.CollectionReaderFactory;
 import org.apache.uima.fit.pipeline.SimplePipeline;
-import org.biofid.gazetteer.BIOfidTreeGazetteer;
+import org.biofid.gazetteer.SingleClassTreeGazetteer;
+import org.dkpro.core.io.xmi.XmiReader;
+import org.dkpro.core.io.xmi.XmiWriter;
 
 import java.io.IOException;
 
@@ -64,11 +64,11 @@ public class TagTaxa {
 			
 			AggregateBuilder ab = new AggregateBuilder();
 			ab.add(AnalysisEngineFactory.createEngineDescription(
-					AnalysisEngineFactory.createEngineDescription(BIOfidTreeGazetteer.class,
-							BIOfidTreeGazetteer.PARAM_SOURCE_LOCATION, taxaLocations,
-							BIOfidTreeGazetteer.PARAM_USE_LOWERCASE, useLowerCase,
-							BIOfidTreeGazetteer.PARAM_MIN_LENGTH, minLength,
-							BIOfidTreeGazetteer.PARAM_GET_ALL_SKIPS, getAllSkips)
+					AnalysisEngineFactory.createEngineDescription(SingleClassTreeGazetteer.class,
+							SingleClassTreeGazetteer.PARAM_SOURCE_LOCATION, taxaLocations,
+							SingleClassTreeGazetteer.PARAM_USE_LOWERCASE, useLowerCase,
+							SingleClassTreeGazetteer.PARAM_MIN_LENGTH, minLength,
+							SingleClassTreeGazetteer.PARAM_GET_ALL_SKIPS, getAllSkips)
 			));
 			ab.add(AnalysisEngineFactory.createEngineDescription(XmiWriter.class,
 					XmiWriter.PARAM_TARGET_LOCATION, outputLocation,

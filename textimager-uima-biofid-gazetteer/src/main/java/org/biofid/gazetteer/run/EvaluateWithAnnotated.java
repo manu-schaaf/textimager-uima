@@ -18,8 +18,8 @@ import org.apache.uima.jcas.JCas;
 import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.util.CasCopier;
 import org.apache.uima.util.CasIOUtils;
-import org.biofid.gazetteer.BIOfidGazetteer;
-import org.biofid.gazetteer.XmiCasSerializerRunnable;
+import org.biofid.gazetteer.SingleClassTreeGazetteer;
+import org.biofid.gazetteer.util.XmiCasSerializerRunnable;
 import org.texttechnologylab.annotation.type.Taxon;
 
 import javax.xml.parsers.FactoryConfigurationError;
@@ -59,10 +59,10 @@ public class EvaluateWithAnnotated {
 		DefaultParser defaultParser = new DefaultParser();
 		CommandLine commandLine = defaultParser.parse(options, args);
 		
-		final AnalysisEngine analysisEngine = AnalysisEngineFactory.createEngine(AnalysisEngineFactory.createEngineDescription(BIOfidGazetteer.class,
-				BIOfidGazetteer.PARAM_SOURCE_LOCATION, commandLine.getOptionValues("t"),
-				BIOfidGazetteer.PARAM_USE_LOWERCASE, true,
-				BIOfidGazetteer.PARAM_GET_ALL_SKIPS, commandLine.hasOption("s")));
+		final AnalysisEngine analysisEngine = AnalysisEngineFactory.createEngine(AnalysisEngineFactory.createEngineDescription(SingleClassTreeGazetteer.class,
+				SingleClassTreeGazetteer.PARAM_SOURCE_LOCATION, commandLine.getOptionValues("t"),
+				SingleClassTreeGazetteer.PARAM_USE_LOWERCASE, true,
+				SingleClassTreeGazetteer.PARAM_GET_ALL_SKIPS, commandLine.hasOption("s")));
 		
 		if (commandLine.hasOption("h")) {
 			HelpFormatter formatter = new HelpFormatter();
