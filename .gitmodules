@@ -3,7 +3,4 @@
 	url = https://github.com/texttechnologylab/UIMA-Agreement.git
 [submodule "textimager-uima-deep-eos"]
 	path = textimager-uima-deep-eos
-	url = https://github.com/m-stoeckel/deep-eos-uima
-[submodule "textimager-uima-biofid-gazetteer"]
-	path = textimager-uima-biofid-gazetteer
-	url = https://github.com/texttechnologylab/biofid-gazetteer.git
+	url = https://github.com/texttechnologylab/deep-eos-uima.git

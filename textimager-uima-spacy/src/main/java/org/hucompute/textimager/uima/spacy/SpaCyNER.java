@@ -15,17 +15,17 @@ public class SpaCyNER extends SpaCyBase {
 	@Override
 	public void initialize(UimaContext aContext) throws ResourceInitializationException {
 		super.initialize(aContext);
-		try {
+		/*try {
 			interp.exec("from spacy.tokens import Doc");
 		} catch (JepException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
-		}
+		}*/
 	}
 
 	@Override
 	public void process(JCas aJCas) throws AnalysisEngineProcessException {
-		//		super.process(aJCas);
+		/*//		super.process(aJCas);
 		HashMap<String, Object>  json = buildJSON(aJCas);
 		try {
 			interp.set("lang", aJCas.getDocumentLanguage());
@@ -42,9 +42,12 @@ public class SpaCyNER extends SpaCyBase {
 					+ "    if name == 'ner':\n"
 					+ "        doc = proc(doc)");
 			interp.exec("ents = [{'start_char': ent.start_char,'end_char': ent.end_char,'label': ent.label_}for ent in doc.ents]");
-
+			
+			System.out.println("python NER finish");
+			
 			ArrayList<HashMap<String, Object>> poss = (ArrayList<HashMap<String, Object>>) interp.getValue("ents");
 			poss.forEach(p -> {
+				
 				int begin = ((Long)p.get("start_char")).intValue();
 				int end = ((Long)p.get("end_char")).intValue();
 				String labelStr = p.get("label").toString();
@@ -54,6 +57,6 @@ public class SpaCyNER extends SpaCyBase {
 			});
 		} catch (JepException e) {
 			e.printStackTrace();
-		}
+		}*/
 	}
 }

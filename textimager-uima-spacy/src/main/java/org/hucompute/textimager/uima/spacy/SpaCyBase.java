@@ -13,27 +13,57 @@ import de.tudarmstadt.ukp.dkpro.core.api.segmentation.type.Token;
 import jep.JepException;
 
 public abstract class SpaCyBase extends JepAnnotator {
+	
 	@Override
 	public void initialize(UimaContext aContext) throws ResourceInitializationException {
 		super.initialize(aContext);
+
+		System.out.println("initializing spacy base class...");
+
+		// set defaults
+		// TODO schönerer Weg?
+		if (condaBashScript == null || condaBashScript.isEmpty()) {
+			condaBashScript = "spacy230_setup.sh";
+		}
+		if (envDepsPip == null || envDepsPip.isEmpty()) {
+			envDepsPip = "spacy==2.3.0 textblob==0.15.3 textblob-de==0.4.3";
+		}
+		if (envDepsConda == null || envDepsConda.isEmpty()) {
+			envDepsConda = "";
+		}
+		if (envPythonVersion == null || envPythonVersion.isEmpty()) {
+			envPythonVersion = "3.7";
+		}
+		if (envName == null || envName.isEmpty()) {
+			envName = "textimager_spacy230_py37_v5";
+		}
+		if (condaVersion == null || condaVersion.isEmpty()) {
+			condaVersion = "py37_4.8.3";
+		}
+		
+		System.out.println("initializing spacy base class: conda");
+		
+		initConda();
+		
+		System.out.println("initializing spacy base class: interprter extras...");
 		
 		try {
-			interp.exec("import os");
-			interp.exec("import sys");
-			interp.exec("import spacy"); 
-			interp.exec("from java.lang import System");
-			
+			interpreter.exec("import os");
+			interpreter.exec("import sys");
+			interpreter.exec("import spacy"); 
+			interpreter.exec("from java.lang import System");
 		} catch (JepException ex) {
 			throw new ResourceInitializationException(ex);
 		}
 		
+		System.out.println("initializing spacy base class done");
 	}
-	
+
 	// Adds the "words" and "spaces" arrays for spaCy to the JSON object
 	protected void jsonAddWordsAndSpaces(JCas aJCas, HashMap<String, Object> json) {
 		ArrayList<String> jsonWords = new ArrayList<>();
 		ArrayList<Boolean> jsonSpaces = new ArrayList<>();
-		
+
 		Token lastToken = null;
 		for (Token token : JCasUtil.select(aJCas, Token.class)) {
 			// Recreate spaCy Doc Text: Add "space" token if more than 1 space between words
@@ -60,10 +90,10 @@ public abstract class SpaCyBase extends JepAnnotator {
 			} else {
 				jsonWords.add(token.getCoveredText());
 			}
-			
+
 			lastToken = token;
 		}
-		
+
 		// Handle last token
 		if (lastToken != null) {
 			if (aJCas.getDocumentText().length() == lastToken.getEnd())	{
@@ -82,7 +112,6 @@ public abstract class SpaCyBase extends JepAnnotator {
 		json.put("words", jsonWords);
 		json.put("spaces", jsonSpaces);
 	}
-	
 
 	protected HashMap<String, Object>  buildJSON(JCas aJCas) {
 		HashMap<String, Object> json = new HashMap<>();
