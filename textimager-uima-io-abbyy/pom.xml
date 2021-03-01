@@ -1,15 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-    <parent>
-        <artifactId>textimager-uima</artifactId>
-        <groupId>org.hucompute.textimager.uima</groupId>
-        <version>0.0.1-SNAPSHOT</version>
-    </parent>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.hucompute.textimager.uima</groupId>
+        <artifactId>textimager-uima</artifactId>
+        <version>0.3.0</version>
+    </parent>
 
     <artifactId>textimager-uima-io-abbyy</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -17,6 +15,11 @@
     </properties>
 
     <dependencies>
+        <dependency>
+            <groupId>org.hucompute.textimager.uima</groupId>
+            <artifactId>textimager-uima-types</artifactId>
+            <version>${project.version}</version>
+        </dependency>
         <dependency>
             <groupId>org.apache.uima</groupId>
             <artifactId>uimaj-core</artifactId>
@@ -58,15 +61,25 @@
             <version>1.8.0</version>
         </dependency>
         <dependency>
+            <groupId>de.tudarmstadt.ukp.dkpro.core</groupId>
+            <artifactId>de.tudarmstadt.ukp.dkpro.core.languagetool-asl</artifactId>
+            <version>1.10.0</version>
+        </dependency>
+        <dependency>
             <groupId>com.github.texttechnologylab</groupId>
             <artifactId>Utilities</artifactId>
-            <version>1.0.3</version>
+            <version>${ttlab.utilities.version}</version>
             <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.hucompute.textimager.uima</groupId>
+            <artifactId>textimager-uima-heideltime</artifactId>
+            <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>com.github.texttechnologylab</groupId>
             <artifactId>UIMATypeSystem</artifactId>
-            <version>1.7.5</version>
+            <version>${ttlab.typesystem.version}</version>
             <scope>compile</scope>
         </dependency>
         <dependency>
@@ -87,11 +100,32 @@
             <scope>compile</scope>
         </dependency>
         <dependency>
-            <groupId>org.hucompute.textimager.uima</groupId>
-            <artifactId>deep-eos-uima</artifactId>
-            <version>1.0.0</version>
+            <groupId>org.dkpro.core</groupId>
+            <artifactId>dkpro-core-io-xmi-asl</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.hucompute.textimager.uima</groupId>
+            <artifactId>textimager-uima-HUComputeNER</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.hucompute.textimager.uima</groupId>
+            <artifactId>textimager-uima-heideltime</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>de.tudarmstadt.ukp.dkpro.core</groupId>
+            <artifactId>de.tudarmstadt.ukp.dkpro.core.tokit-asl</artifactId>
+            <version>1.9.2</version>
+            <scope>test</scope>
+        </dependency>
+        <!--        <dependency>-->
+        <!--            <groupId>org.hucompute.textimager.uima</groupId>-->
+        <!--            <artifactId>deep-eos-uima</artifactId>-->
+        <!--            <version>1.2.1</version>-->
+        <!--            <scope>test</scope>-->
+        <!--        </dependency>-->
     </dependencies>
 
     <build>
@@ -198,7 +232,7 @@
         <repository>
             <id>central</id>
             <name>Maven Plugin Repository</name>
-            <url>http://repo1.maven.org/maven2</url>
+            <url>https://repo1.maven.org/maven2</url>
         </repository>
         <repository>
             <snapshots>

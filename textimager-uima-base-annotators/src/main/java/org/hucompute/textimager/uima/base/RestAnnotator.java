@@ -23,7 +23,7 @@ public abstract class RestAnnotator extends JCasAnnotator_ImplBase {
 	protected String getRestRoute() {
 		return "";
 	}
-	
+
 	// Build request JSON object
 	protected abstract JSONObject buildJSON(JCas aJCas);
 
@@ -33,7 +33,7 @@ public abstract class RestAnnotator extends JCasAnnotator_ImplBase {
 	protected String getRestEndpoint() {
 		return restEndpoint + getRestRoute();
 	}
-	
+
 	protected String sendRequest(String body) throws IOException {
 		URL url = new URL(getRestEndpoint());
 		HttpURLConnection connection = (HttpURLConnection) url.openConnection();
@@ -49,7 +49,7 @@ public abstract class RestAnnotator extends JCasAnnotator_ImplBase {
 		writer.flush();
 		String res = IOUtils.toString(connection.getInputStream(), "UTF-8");
 		writer.close();
-		
+
 		return res;
 	}
 

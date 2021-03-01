@@ -24,7 +24,9 @@ import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -34,6 +36,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.uima.UimaContext;
@@ -47,9 +51,11 @@ import org.apache.uima.resource.ResourceInitializationException;
 import org.apache.uima.util.Progress;
 import org.apache.uima.util.ProgressImpl;
 import org.dkpro.core.api.parameter.ComponentParameters;
+import org.dkpro.core.api.resources.CompressionMethod;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.core.io.support.ResourcePatternResolver;
 import org.springframework.util.AntPathMatcher;
+import org.texttechnologylab.annotation.DocumentModification;
 
 import de.tudarmstadt.ukp.dkpro.core.api.metadata.type.DocumentMetaData;
 import eu.openminted.share.annotations.api.Component;
@@ -109,6 +115,13 @@ extends CasCollectionReader_ImplBase
 	private String sourceLocation;
 
 	/**
+	 * Location from which the output is read, used for looking for already existing files.
+	 */
+	public static final String PARAM_TARGET_LOCATION = ComponentParameters.PARAM_TARGET_LOCATION;
+	@ConfigurationParameter(name = PARAM_TARGET_LOCATION, mandatory = false)
+	private String targetLocation;
+
+	/**
 	 * A set of Ant-like include/exclude patterns. A pattern starts with {@link #INCLUDE_PREFIX [+]}
 	 * if it is an include pattern and with {@link #EXCLUDE_PREFIX [-]} if it is an exclude pattern.
 	 * The wildcard <code>&#47;**&#47;</code> can be used to address any number of sub-directories.
@@ -165,18 +178,49 @@ extends CasCollectionReader_ImplBase
 	public static final String PARAM_SORT_BY_SIZE= "sortBySize";
 	@ConfigurationParameter(name = PARAM_SORT_BY_SIZE, mandatory = false, defaultValue = "false")
 	private boolean sortBySize;
+	
+	/**
+	 * Modification Metadata: User that commited this modification
+	 */
+	public static final String PARAM_DOC_MODIFICATION_USER = "docModificationUser";
+	@ConfigurationParameter(name = PARAM_DOC_MODIFICATION_USER, mandatory = false)
+	private String docModificationUser;
+	
+	/**
+	 * Modification Metadata: comment that describes this modification
+	 */
+	public static final String PARAM_DOC_MODIFICATION_COMMENT = "docModificationComment";
+	@ConfigurationParameter(name = PARAM_DOC_MODIFICATION_COMMENT, mandatory = false)
+	private String docModificationComment;
+
+	private boolean docModificationWritten;
 
 	private int completed;
 	private List<Resource> resources;
 	private Iterator<Resource> resourceIterator;
 
 	private ProgressMeter progress;
+	
+
+	protected static final Set<String> KNOWN_FILE_EXTENSIONS = new HashSet<>();
 
 	@Override
 	public void initialize(UimaContext aContext)
 			throws ResourceInitializationException
 	{
 		super.initialize(aContext);
+
+		docModificationWritten = false;
+
+		// known file extensions to remove when checking for existing files
+		KNOWN_FILE_EXTENSIONS.add(".txt");
+		KNOWN_FILE_EXTENSIONS.add(".xmi");
+		KNOWN_FILE_EXTENSIONS.add(".xml");
+		KNOWN_FILE_EXTENSIONS.add(".tei");
+		KNOWN_FILE_EXTENSIONS.add(".conll");
+		KNOWN_FILE_EXTENSIONS.add(CompressionMethod.GZIP.getExtension());
+		KNOWN_FILE_EXTENSIONS.add(CompressionMethod.BZIP2.getExtension());
+		KNOWN_FILE_EXTENSIONS.add(CompressionMethod.XZ.getExtension());
 
 		if ((patterns == null || patterns.length == 0) && StringUtils.isBlank(sourceLocation)) {
 			throw new IllegalArgumentException(
@@ -250,6 +294,37 @@ extends CasCollectionReader_ImplBase
 			}
 
 			resources = new ArrayList<Resource>(scan(getSourceLocation(), includes, excludes));
+
+			// Filter existing files
+			if (targetLocation == null || targetLocation.isEmpty()) {
+				System.out.println("Not checking for already existing files...");
+			}
+			else {
+				Path outputDir = Paths.get(targetLocation);
+				if(outputDir.toFile().exists()){
+					System.out.println("Checking for already existing files in: " + outputDir.toString());
+					
+					// Get existing files, map to filename, remove extensions
+					try (Stream<Path> stream = Files.walk(outputDir)) {
+						Set<String> existingFiles = stream
+								.filter(Files::isRegularFile)
+								.map(f -> outputDir.relativize(f).toString())
+								.map(f -> removeFileExtensions(f))
+								.collect(Collectors.toSet());
+						System.out.println("Found " + existingFiles.size() + " existing files.");
+
+						// Remove existing from collected resources
+						int sizeBefore = resources.size();
+						System.out.println("Checking " + sizeBefore + " files...");
+						resources.removeIf(r -> existingFiles.contains(removeFileExtensions(r.getPath())));
+						int sizeAfter = resources.size();
+						int sizeRemoved = sizeBefore - sizeAfter;
+						System.out.println("Removed " + sizeRemoved + " files that already exist.");
+					}
+				}
+			}
+			System.out.println("Processing " + resources.size() + " files...");
+
 			if(sortBySize){
 				System.out.println("Sorting by Size");
 				Collections.sort(resources, new Comparator<Resource>() {
@@ -264,7 +339,7 @@ extends CasCollectionReader_ImplBase
 						}
 					}
 				});
-			}
+			}			
 
 			progress = new ProgressMeter(resources.size());
 
@@ -276,6 +351,21 @@ extends CasCollectionReader_ImplBase
 		catch (IOException e) {
 			throw new ResourceInitializationException(e);
 		}
+	}
+	
+	protected String removeFileExtensions(String filename) {
+		boolean isDone = false;
+		 while (!isDone) {
+			isDone = true;
+			for (String ext : KNOWN_FILE_EXTENSIONS ) {
+				if (filename.endsWith(ext)) {
+					// do not "replace" to make sure to remove only from end of filename
+					filename = filename.substring(0, filename.length()-ext.length());
+					isDone = false;
+				}
+			}
+		};
+		return filename;
 	}
 
 	protected List<String> getDefaultExcludes()
@@ -366,6 +456,9 @@ extends CasCollectionReader_ImplBase
 
 	protected Resource nextFile()
 	{
+		// reset for next document
+		docModificationWritten = false;
+
 		try {
 			Resource res = resourceIterator.next();
 			progress.setDone(completed);
@@ -660,6 +753,36 @@ extends CasCollectionReader_ImplBase
 			// This should not happen.
 			throw new RuntimeException(e);
 		}
+
+		// set DocumentMeta on CAS init
+		// handles "already set" internally
+		setDocumentModification(aCas);
+	}
+
+	protected void setDocumentModification(CAS aCas) {
+		// only set once
+		if (docModificationWritten) {
+			return;
+		}
+
+		// Set Document Modification Meta
+		try {
+			DocumentModification docModification = new DocumentModification(aCas.getJCas());
+			docModification.setTimestamp(Instant.now().getEpochSecond());
+			if (docModificationUser != null && !docModificationUser.isEmpty() ) {
+				docModification.setUser(docModificationUser);
+			}
+			if (docModificationComment != null && !docModificationComment.isEmpty() ) {
+				docModification.setComment(docModificationComment);
+			}
+			docModification.addToIndexes();
+		}
+		catch (Exception ex) {
+			// ignore...
+			ex.printStackTrace();
+		}
+
+		docModificationWritten = true;
 	}
 
 	public String getLanguage()

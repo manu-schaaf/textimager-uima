@@ -23,6 +23,8 @@ import org.jgrapht.graph.DefaultEdge;
 import org.jgrapht.graph.AsSubgraph;
 import org.jgrapht.io.ExportException;
 import org.jgrapht.io.GmlExporter;
+import org.json.JSONArray;
+import org.json.JSONObject;
 import org.apache.commons.lang.StringUtils;
 import de.tuebingen.uni.sfs.germanet.api.ConRel;
 import de.tuebingen.uni.sfs.germanet.api.GermaNet;
@@ -280,7 +282,7 @@ public class TreeReducer {
 	}
 
 	
-	public void exportGraphSized(String filename, Graph<GraphVertex, GraphEdge> outgraph, HashMap<GraphVertex, Integer> sizes) throws IOException {
+	public static void exportGraphSized(String filename, Graph<GraphVertex, GraphEdge> outgraph, HashMap<GraphVertex, Integer> sizes) throws IOException {
 		FileWriter w = new FileWriter(filename);
 		int size = 30; //default size
 		String shape = "ellipse";
@@ -312,8 +314,8 @@ public class TreeReducer {
 		}
 		
 		for (GraphEdge edge : outgraph.edgeSet()) {
-			int source_id = ids.get(graph.getEdgeSource(edge));
-			int target_id = ids.get(graph.getEdgeTarget(edge));
+			int source_id = ids.get(outgraph.getEdgeSource(edge));
+			int target_id = ids.get(outgraph.getEdgeTarget(edge));
 			String label = edge.toString();
 			w.write("\tedge\n");
 			w.write("\t[\n");
@@ -329,7 +331,36 @@ public class TreeReducer {
 		
 	}
 	
-	public void exportGraph(String filename, Graph<GraphVertex, GraphEdge> outgraph) throws IOException, ExportException {
+	public static GraphVertex getRoot(Graph<GraphVertex, GraphEdge> outgraph) {
+		GraphVertex root = null;
+		for (GraphVertex vert : outgraph.vertexSet()) {
+			if (outgraph.outDegreeOf(vert) == 0 ) {
+				root = vert;
+				break;
+			}
+		}
+		return root;
+	}
+	
+	private static JSONObject process_vert(Graph<GraphVertex, GraphEdge> outgraph, GraphVertex vert) {
+		JSONObject json = new JSONObject();
+		json.put("name", vert.toString());
+		JSONArray children = new JSONArray();
+		for (GraphEdge edge : outgraph.incomingEdgesOf(vert)) {
+			GraphVertex child = outgraph.getEdgeSource(edge);
+			children.put(process_vert(outgraph, child));
+		}
+		if (!children.isEmpty())
+			json.put("children", children);
+		return json;
+	}
+	
+	public static JSONObject exportGraphJSON(Graph<GraphVertex, GraphEdge> outgraph) {
+		GraphVertex root = getRoot(outgraph);
+		return process_vert(outgraph, root);
+	}
+	
+	public static void exportGraph(String filename, Graph<GraphVertex, GraphEdge> outgraph) throws IOException, ExportException {
 		System.out.println("Exporting Graph");
 		GmlExporter<GraphVertex, GraphEdge> exporter = new GmlExporter<GraphVertex, GraphEdge>();
 		FileWriter w = new FileWriter(filename);
@@ -369,6 +400,14 @@ public class TreeReducer {
 			}
 		}
 		return subgraph(subset);
+	}
+	
+	public Graph<GraphVertex, GraphEdge> subgraphVerbs(List<String> verbs) {
+		HashSet<GraphVertex> leafs = new HashSet<GraphVertex>();
+		for (String verb : verbs) {
+			leafs.addAll(grouping.get(verb));
+		}
+		return subgraph(leafs);
 	}
 	
 	public static enum MARK {
@@ -465,10 +504,10 @@ public class TreeReducer {
 		
 		public String toString() {
 			if (lex != null) {
-				return label + "_" + lex.getOrthForm();
+				return lex.getOrthForm() + ": " + label.replace(MEMBER_PREFIX, "");
 			}
 			if (syn != null) {
-				return label + "_" + syn.getAllOrthForms();
+				return syn.getAllOrthForms().toString().replace("[", "").replace("]", "")+ ": " + label.replace(GROUP_PREFIX, "");
 			}
 			return label;
 		}
@@ -517,27 +556,27 @@ public class TreeReducer {
 		
 	}
 	
-	public static void main(String...args) throws FileNotFoundException, XMLStreamException, IOException, ExportException {
-		TreeReducer tr = new TreeReducer();
-		tr.loadgnet("/resources/nlp/models/disambig/verbs/GN_V140_verbs");
-		tr.exportGraph("gnet.gml");
-		ArrayList<String> subgraphlabels = new ArrayList<String>();
-		subgraphlabels.add(TreeReducer.MEMBER_PREFIX + "73510");
-		subgraphlabels.add(TreeReducer.MEMBER_PREFIX + "75522");
-		subgraphlabels.add(TreeReducer.MEMBER_PREFIX + "76529");
-		subgraphlabels.add(TreeReducer.MEMBER_PREFIX + "79474");
-		subgraphlabels.add(TreeReducer.MEMBER_PREFIX + "79740");
-		subgraphlabels.add(TreeReducer.MEMBER_PREFIX + "79800");
-		subgraphlabels.add(TreeReducer.MEMBER_PREFIX + "83425");
-		subgraphlabels.add(TreeReducer.MEMBER_PREFIX + "83445");
-		subgraphlabels.add(TreeReducer.MEMBER_PREFIX + "84013");
-		
-		tr.exportGraph("subgraph.gml", tr.subgraph(subgraphlabels));
-		tr.reduce();
-		tr.exportGraph("gnet_reduced.gml");
-		tr.exportGraph("subgraph_reduced.gml", tr.subgraph(subgraphlabels));
-		//tr.exportGraphSized("subgraph_reduced_sized.gml", tr.subgraph(subgraphlabels), null);
-		//tr.exportMappings("reducermappings");
-		
-	}
+//	public static void main(String...args) throws FileNotFoundException, XMLStreamException, IOException, ExportException {
+//		TreeReducer tr = new TreeReducer();
+//		tr.loadgnet("/resources/nlp/models/disambig/verbs/GN_V140_verbs");
+//		tr.exportGraph("gnet.gml");
+//		ArrayList<String> subgraphlabels = new ArrayList<String>();
+//		subgraphlabels.add(TreeReducer.MEMBER_PREFIX + "73510");
+//		subgraphlabels.add(TreeReducer.MEMBER_PREFIX + "75522");
+//		subgraphlabels.add(TreeReducer.MEMBER_PREFIX + "76529");
+//		subgraphlabels.add(TreeReducer.MEMBER_PREFIX + "79474");
+//		subgraphlabels.add(TreeReducer.MEMBER_PREFIX + "79740");
+//		subgraphlabels.add(TreeReducer.MEMBER_PREFIX + "79800");
+//		subgraphlabels.add(TreeReducer.MEMBER_PREFIX + "83425");
+//		subgraphlabels.add(TreeReducer.MEMBER_PREFIX + "83445");
+//		subgraphlabels.add(TreeReducer.MEMBER_PREFIX + "84013");
+//		
+//		tr.exportGraph("subgraph.gml", tr.subgraph(subgraphlabels));
+//		tr.reduce();
+//		tr.exportGraph("gnet_reduced.gml");
+//		tr.exportGraph("subgraph_reduced.gml", tr.subgraph(subgraphlabels));
+//		//tr.exportGraphSized("subgraph_reduced_sized.gml", tr.subgraph(subgraphlabels), null);
+//		//tr.exportMappings("reducermappings");
+//		
+//	}
 }

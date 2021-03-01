@@ -169,6 +169,7 @@ public abstract class JepAnnotator extends JCasAnnotator_ImplBase {
 		try {
 			System.out.println("creating lockfile now...");
 			FileUtils.touch(lockfile.toFile());
+			FileUtils.forceDeleteOnExit(lockfile.toFile());
 		} catch (IOException e) {
 			throw new ResourceInitializationException(e);
 		}
@@ -210,7 +211,7 @@ public abstract class JepAnnotator extends JCasAnnotator_ImplBase {
 		try {
 			Files.delete(lockfile);
 		} catch (IOException e) {
-			throw new ResourceInitializationException(e);
+			// ignore
 		}
     	
 		initEnv();
@@ -236,6 +237,7 @@ public abstract class JepAnnotator extends JCasAnnotator_ImplBase {
 		try {
 			System.out.println("creating lockfile now...");
 			FileUtils.touch(lockfile.toFile());
+			FileUtils.forceDeleteOnExit(lockfile.toFile());
 		} catch (IOException e) {
 			throw new ResourceInitializationException(e);
 		}
@@ -283,7 +285,7 @@ public abstract class JepAnnotator extends JCasAnnotator_ImplBase {
 		try {
 			Files.delete(lockfile);
 		} catch (IOException e) {
-			throw new ResourceInitializationException(e);
+			// ignore
 		}
 	}
 	
@@ -308,6 +310,7 @@ public abstract class JepAnnotator extends JCasAnnotator_ImplBase {
 			try {
 				System.out.println("creating lockfile now...");
 				FileUtils.touch(lockfile.toFile());
+				FileUtils.forceDeleteOnExit(lockfile.toFile());
 			} catch (IOException e) {
 				throw new ResourceInitializationException(e);
 			}
@@ -342,7 +345,7 @@ public abstract class JepAnnotator extends JCasAnnotator_ImplBase {
 			try {
 				Files.delete(lockfile);
 			} catch (IOException e) {
-				throw new ResourceInitializationException(e);
+				// ignore
 			}
 		}
 	}
@@ -358,7 +361,7 @@ public abstract class JepAnnotator extends JCasAnnotator_ImplBase {
 			return;
 		}
 		
-		System.out.println("initializing new python nterpreter...");
+		System.out.println("initializing new python interpreter...");
 
         PyConfig pyConfig = new PyConfig();
         pyConfig.setPythonHome(envDir.toString());

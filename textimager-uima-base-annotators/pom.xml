@@ -8,6 +8,14 @@
 	</parent>
 	<artifactId>textimager-uima-base-annotators</artifactId>
 
+	<repositories>
+		<repository>
+			<id>jitpack.io</id>
+			<url>https://jitpack.io</url>
+		</repository>
+	</repositories>
+
+
 	<dependencies>
 		<dependency>
 			<groupId>org.hucompute.textimager.uima</groupId>
@@ -22,7 +30,7 @@
 		<dependency>
 			<groupId>black.ninia</groupId>
 			<artifactId>jep</artifactId>
-			<version>3.9.0</version>
+			<version>3.9.1</version>
 		</dependency>
 		<dependency>
 			<groupId>org.json</groupId>
