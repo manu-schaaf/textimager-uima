@@ -199,16 +199,21 @@ public class DocumentReader extends JCasCollectionReader_ImplBase {
 
 		// Iterate over pages
 		int lastOffset = 0;
+		int runningPageNumer = 0;
 		for (int i = 0; i < inputFiles.size(); i++) {
 			String pageInputPath = inputFiles.get(i);
 			FineReaderExportHandler fineReaderExportHandler = pages.get(pageInputPath);
 			String pageId = Paths.get(pageInputPath).getFileName().toString();
 
-			Page page = fineReaderExportHandler.pages.get(0);
-			page.pageId = pageId;
-			page.pageNumber = i;
-			OCRPage ocrPage = page.wrap(jCas, lastOffset);
-			jCas.addFsToIndexes(ocrPage);
+			ArrayList<Page> pageArrayList = fineReaderExportHandler.pages;
+			for (int j = 0; j < pageArrayList.size(); j++) {
+				Page page = pageArrayList.get(j);
+				page.pageId = pageId + j;
+				page.pageNumber = runningPageNumer++;
+				OCRPage ocrPage = page.wrap(jCas, lastOffset);
+				jCas.addFsToIndexes(ocrPage);
+				lastOffset = ocrPage.getEnd();
+			}
 
 			for (Block block : fineReaderExportHandler.blocks) {
 				jCas.addFsToIndexes(block.wrap(jCas, lastOffset));
@@ -240,7 +245,6 @@ public class DocumentReader extends JCasCollectionReader_ImplBase {
 					}
 				}
 			}
-			lastOffset = ocrPage.getEnd();
 			progress.increment(1);
 		}
 		OCRDocument ocrDocument = new OCRDocument(jCas);
