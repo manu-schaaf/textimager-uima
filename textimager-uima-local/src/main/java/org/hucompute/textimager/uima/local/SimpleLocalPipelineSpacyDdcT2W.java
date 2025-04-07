@@ -20,7 +20,7 @@ import java.nio.file.Paths;
 
 import static org.apache.uima.fit.factory.AnalysisEngineFactory.createEngineDescription;
 
-public class SimpleLocalPipelineSpacyDdc {
+public class SimpleLocalPipelineSpacyDdcT2W {
     public static void main(String[] args) throws UIMAException, IOException {
         if (args.length != 6) {
             System.out.println("Usage:");
@@ -231,6 +231,115 @@ public class SimpleLocalPipelineSpacyDdc {
             );
         }
 
+        AnalysisEngineDescription text2wiki_thema;
+        AnalysisEngineDescription text2wiki_raum;
+        AnalysisEngineDescription text2wiki_zeit;
+        if (language.equalsIgnoreCase("de")) {
+            System.out.println("text2wiki: de");
+
+            text2wiki_thema = createEngineDescription(
+                    LabelAnnotator.class
+                    , LabelAnnotator.PARAM_LANGUAGE_MODELS_LABELS, "de,/resources/nlp/models/categorization/text2cwc/models/de/20190919_thema.no_functionswords.ddc2.top_scorex.train_d100_searchtime360000_vec-sz_lemma_mikolov.bin,3806"
+                    , LabelAnnotator.PARAM_TAGS, "text2cwc_thema"
+                    , LabelAnnotator.PARAM_FASTTEXT_LOCATION, "/resources/nlp/bin/categorization/fastText-0.1.0_ducc/fasttext"
+                    , LabelAnnotator.PARAM_FASTTEXT_K, 100000
+                    , LabelAnnotator.PARAM_CUTOFF, true
+                    , LabelAnnotator.PARAM_SELECTION, "text"
+                    , LabelAnnotator.PARAM_USE_LEMMA, true
+                    , LabelAnnotator.PARAM_ADD_POS, false
+                    , LabelAnnotator.PARAM_POSMAP_LOCATION, "/resources/nlp/models/categorization/am_posmap.txt"
+                    , LabelAnnotator.PARAM_REMOVE_PUNCT, true
+                    , LabelAnnotator.PARAM_REMOVE_FUNCTIONWORDS, true
+                    , LabelAnnotator.PARAM_APPEND_DDC, "ddc2"
+                    , LabelAnnotator.PARAM_APPEND_DDC_VARIANT, "top_text_length_x"
+                    , LabelAnnotator.PARAM_DDC_CLASS_NAMES_FILENAME, "de:/resources/nlp/models/categorization/text2cwc/ddc-mappings/de-ddc-mapping.txt,en:/resources/nlp/models/categorization/text2cwc/ddc-mappings/en-ddc-mapping.txt"
+            );
+
+            text2wiki_raum = createEngineDescription(
+                    LabelAnnotator.class
+                    , LabelAnnotator.PARAM_LANGUAGE_MODELS_LABELS, "de,/resources/nlp/models/categorization/text2cwc/models/de/20190925_raum.no_functionswords.ddc2.top_scorex.train_d100_ws5_minc1_neg5_losssoftmax_wng2_bucket664098_minn0_maxn0_lrur100_t0.0001_ep100_vec-sz_lemma_mikolov.bin,208"
+                    , LabelAnnotator.PARAM_TAGS, "text2cwc_raum"
+                    , LabelAnnotator.PARAM_FASTTEXT_LOCATION, "/resources/nlp/bin/categorization/fastText-0.1.0_ducc/fasttext"
+                    , LabelAnnotator.PARAM_FASTTEXT_K, 100000
+                    , LabelAnnotator.PARAM_CUTOFF, true
+                    , LabelAnnotator.PARAM_SELECTION, "text"
+                    , LabelAnnotator.PARAM_USE_LEMMA, true
+                    , LabelAnnotator.PARAM_ADD_POS, false
+                    , LabelAnnotator.PARAM_POSMAP_LOCATION, "/resources/nlp/models/categorization/am_posmap.txt"
+                    , LabelAnnotator.PARAM_REMOVE_PUNCT, true
+                    , LabelAnnotator.PARAM_REMOVE_FUNCTIONWORDS, true
+                    , LabelAnnotator.PARAM_APPEND_DDC, "ddc2"
+                    , LabelAnnotator.PARAM_APPEND_DDC_VARIANT, "top_text_length_x"
+                    , LabelAnnotator.PARAM_DDC_CLASS_NAMES_FILENAME, "de:/resources/nlp/models/categorization/text2cwc/ddc-mappings/de-ddc-mapping.txt"
+            );
+
+            text2wiki_zeit = createEngineDescription(
+                    LabelAnnotator.class
+                    , LabelAnnotator.PARAM_LANGUAGE_MODELS_LABELS, "de,/resources/nlp/models/categorization/text2cwc/models/de/20190925_zeit.no_functionswords.ddc2.top_scorex.train_d100_ws5_minc1_neg5_losssoftmax_wng2_bucket664098_minn0_maxn0_lrur100_t0.0001_ep100_vec-sz_lemma_mikolov.bin,358"
+                    , LabelAnnotator.PARAM_TAGS, "text2cwc_zeit"
+                    , LabelAnnotator.PARAM_FASTTEXT_LOCATION, "/resources/nlp/bin/categorization/fastText-0.1.0_ducc/fasttext"
+                    , LabelAnnotator.PARAM_FASTTEXT_K, 100000
+                    , LabelAnnotator.PARAM_CUTOFF, true
+                    , LabelAnnotator.PARAM_SELECTION, "text"
+                    , LabelAnnotator.PARAM_USE_LEMMA, true
+                    , LabelAnnotator.PARAM_ADD_POS, false
+                    , LabelAnnotator.PARAM_POSMAP_LOCATION, "/resources/nlp/models/categorization/am_posmap.txt"
+                    , LabelAnnotator.PARAM_REMOVE_PUNCT, true
+                    , LabelAnnotator.PARAM_REMOVE_FUNCTIONWORDS, true
+                    , LabelAnnotator.PARAM_APPEND_DDC, "ddc2"
+                    , LabelAnnotator.PARAM_APPEND_DDC_VARIANT, "top_text_length_x"
+                    , LabelAnnotator.PARAM_DDC_CLASS_NAMES_FILENAME, "de:/resources/nlp/models/categorization/text2cwc/ddc-mappings/de-ddc-mapping.txt"
+            );
+        }
+        else {
+            System.out.println("text2wiki: en");
+
+            text2wiki_thema = createEngineDescription(
+                    LabelAnnotator.class
+                    , LabelAnnotator.PARAM_LANGUAGE_MODELS_LABELS, "en,/resources/nlp/models/categorization/text2cwc/models/en/20191011_thema.no_functionswords.ddc2.top_scorex.en.train_d300_ws5_minc1_neg5_losssoftmax_wng2_bucket664098_minn0_maxn0_lrur100_t0.0001_ep100_vec-cc.en.300.vec.bin,3806"
+                    , LabelAnnotator.PARAM_TAGS, "text2cwc_thema"
+                    , LabelAnnotator.PARAM_FASTTEXT_LOCATION, "/resources/nlp/bin/categorization/fastText-0.1.0_ducc/fasttext"
+                    , LabelAnnotator.PARAM_FASTTEXT_K, 100000
+                    , LabelAnnotator.PARAM_CUTOFF, true
+                    , LabelAnnotator.PARAM_SELECTION, "text"
+                    , LabelAnnotator.PARAM_USE_LEMMA, true
+                    , LabelAnnotator.PARAM_ADD_POS, false
+                    , LabelAnnotator.PARAM_POSMAP_LOCATION, "/resources/nlp/models/categorization/am_posmap.txt"
+                    , LabelAnnotator.PARAM_REMOVE_PUNCT, true
+                    , LabelAnnotator.PARAM_REMOVE_FUNCTIONWORDS, true
+            );
+
+            text2wiki_raum = createEngineDescription(
+                    LabelAnnotator.class
+                    , LabelAnnotator.PARAM_LANGUAGE_MODELS_LABELS, "en,/resources/nlp/models/categorization/text2cwc/models/en/20200221_raum.no_functionswords.ddc2.top_scorex.en_d300_ws5_minc1_neg5_losssoftmax_wng2_bucket664098_minn0_maxn0_lrur100_t0.0001_ep100_vec-cc.en.300.vec.bin,208"
+                    , LabelAnnotator.PARAM_TAGS, "text2cwc_raum"
+                    , LabelAnnotator.PARAM_FASTTEXT_LOCATION, "/resources/nlp/bin/categorization/fastText-0.1.0_ducc/fasttext"
+                    , LabelAnnotator.PARAM_FASTTEXT_K, 100000
+                    , LabelAnnotator.PARAM_CUTOFF, true
+                    , LabelAnnotator.PARAM_SELECTION, "text"
+                    , LabelAnnotator.PARAM_USE_LEMMA, true
+                    , LabelAnnotator.PARAM_ADD_POS, false
+                    , LabelAnnotator.PARAM_POSMAP_LOCATION, "/resources/nlp/models/categorization/am_posmap.txt"
+                    , LabelAnnotator.PARAM_REMOVE_PUNCT, true
+                    , LabelAnnotator.PARAM_REMOVE_FUNCTIONWORDS, true
+            );
+
+            text2wiki_zeit = createEngineDescription(
+                    LabelAnnotator.class
+                    , LabelAnnotator.PARAM_LANGUAGE_MODELS_LABELS, "en,/resources/nlp/models/categorization/text2cwc/models/en/20200221_zeit.no_functionswords.ddc2.top_scorex.en_d300_ws5_minc1_neg5_losssoftmax_wng2_bucket664098_minn0_maxn0_lrur100_t0.0001_ep100_vec-cc.en.300.vec.bin,338"
+                    , LabelAnnotator.PARAM_TAGS, "text2cwc_zeit"
+                    , LabelAnnotator.PARAM_FASTTEXT_LOCATION, "/resources/nlp/bin/categorization/fastText-0.1.0_ducc/fasttext"
+                    , LabelAnnotator.PARAM_FASTTEXT_K, 100000
+                    , LabelAnnotator.PARAM_CUTOFF, true
+                    , LabelAnnotator.PARAM_SELECTION, "text"
+                    , LabelAnnotator.PARAM_USE_LEMMA, true
+                    , LabelAnnotator.PARAM_ADD_POS, false
+                    , LabelAnnotator.PARAM_POSMAP_LOCATION, "/resources/nlp/models/categorization/am_posmap.txt"
+                    , LabelAnnotator.PARAM_REMOVE_PUNCT, true
+                    , LabelAnnotator.PARAM_REMOVE_FUNCTIONWORDS, true
+            );
+        }
+
         AnalysisEngineDescription segmenter;
         if (language.equalsIgnoreCase("ja")) {
             System.out.println("segmenter: break");
@@ -248,7 +357,7 @@ public class SimpleLocalPipelineSpacyDdc {
             );
         }
 
-        SimplePipeline.runPipeline(reader, segmenter, ddc2, ddc3, writer);
+        SimplePipeline.runPipeline(reader, segmenter, ddc2, ddc3, text2wiki_thema, text2wiki_raum, text2wiki_zeit, writer);
 
         System.out.println("lang: " + language);
         System.out.println("in: " + inputDir);
